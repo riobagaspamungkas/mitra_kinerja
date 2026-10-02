@@ -15,5 +15,6 @@
 </footer>
 <?php endif; ?>
 </div><!-- /.app-layout -->
+<script src="public/js/searchable_dropdown.js"></script>
 </body>
 </html>

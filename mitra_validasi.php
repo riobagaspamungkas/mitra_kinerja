@@ -1,22 +1,33 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/data.php';
-requireRole(['admin', 'validator']);
+requireRole(['admin', 'pemeriksa', 'validator']);
 
 $pdo = getDB();
 $user = currentUser();
+$userRole = $user['role'] ?? 'pemeriksa';
 $id = (int)($_GET['id'] ?? 0);
+
+// Jika pemeriksa membuka detail validasi, arahkan langsung ke form penilaian (mitra_edit.php)
+if ($id > 0 && $userRole === 'pemeriksa') {
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+        http_response_code(403);
+        die('Akses ditolak: Hanya validator dan administrator yang berwenang menetapkan keputusan validasi.');
+    }
+    header('Location: mitra_edit.php?id=' . $id);
+    exit;
+}
 
 /* ── LIST VIEW (Jika tidak ada ?id=) ──────────────────────── */
 if ($id <= 0) {
     $all = getAllMitraSummary($pdo);
-    $pageTitle = 'Validasi Naskah';
+    $pageTitle = 'Penilaian';
     require __DIR__ . '/includes/header.php';
     ?>
     <div class="flex-between" style="margin-bottom:18px;">
         <div>
-            <h1 style="margin:0;font-size:20px;">Validasi Naskah</h1>
-            <div class="muted" style="font-size:13px;">Daftar naskah untuk review dan keputusan validasi</div>
+            <h1 style="margin:0;font-size:20px;">Penilaian &amp; Validasi Naskah</h1>
+            <div class="muted" style="font-size:13px;">Pelaksanaan evaluasi berkala (SC-1, SC-2, dst.) untuk pemeriksa dan persetujuan validator</div>
         </div>
         <a href="dashboard.php" class="btn btn-outline btn-sm">&larr; Dashboard</a>
     </div>
@@ -26,30 +37,66 @@ if ($id <= 0) {
         <table>
             <thead>
                 <tr>
-                    <th>Kode</th>
-                    <th>Mitra</th>
-                    <th>Jenis</th>
-                    <th>Kelengkapan</th>
-                    <th>Status Scorecard</th>
-                    <th>Status Validasi</th>
-                    <th>Catatan Validator</th>
-                    <th>Aksi</th>
+                    <th style="width:8%;">Kode</th>
+                    <th style="width:22%;">Mitra &amp; Bidang</th>
+                    <th style="width:16%;">Siklus Monev &amp; Target</th>
+                    <th style="width:14%;">Status Jadwal</th>
+                    <th style="width:10%;">Kelengkapan</th>
+                    <th style="width:14%;">Status Scorecard</th>
+                    <th style="width:16%;">Aksi</th>
                 </tr>
             </thead>
             <tbody>
-            <?php foreach ($all as $s): $m = $s['mitra']; ?>
+            <?php foreach ($all as $s): 
+                $m = $s['mitra']; 
+                $monev = $s['monev'];
+                $msLabel = 'SC-1';
+                $msTarget = $monev['target_evaluasi_terdekat'] ?? $m['tanggal_berakhir'];
+                $msDays = $monev['hari_menuju_evaluasi'] ?? 0;
+                $isDuePast = false;
+
+                if (!empty($monev['milestones'])) {
+                    foreach ($monev['milestones'] as $ms) {
+                        if (!empty($ms['is_due_soon']) || !empty($ms['is_past'])) {
+                            $msLabel = $ms['nama'];
+                            $msTarget = $ms['target_tgl'];
+                            $msDays = $ms['sisa_hari'];
+                            $isDuePast = $ms['is_past'];
+                            break;
+                        }
+                    }
+                }
+            ?>
                 <tr>
-                    <td><strong><?= h($m['kode']) ?></strong><br><span class="muted" style="font-size:11px;"><?= h($m['portofolio']) ?></span></td>
-                    <td><?= h($m['nama_mitra']) ?></td>
-                    <td><?= h($m['jenis']) ?></td>
+                    <td><strong><?= h($m['kode']) ?></strong><br><span class="muted" style="font-size:10.5px;"><?= h($m['portofolio']) ?></span></td>
+                    <td>
+                        <div style="font-weight:600;color:#1e293b;"><?= h($m['nama_mitra']) ?></div>
+                        <span class="badge badge-secondary" style="font-size:10px;margin-top:2px;"><?= h($m['bidang'] ?? 'AHU') ?> &bull; <?= h($m['jenis']) ?></span>
+                    </td>
+                    <td>
+                        <strong style="color:#1e40af;"><?= h($msLabel) ?></strong>
+                        <div class="muted" style="font-size:11px;margin-top:2px;">Target: <?= formatTanggal($msTarget) ?></div>
+                    </td>
+                    <td>
+                        <?php if ($isDuePast || ($msDays !== null && $msDays < 0)): ?>
+                            <span class="badge badge-success" style="font-size:10.5px;">✓ Siap Dinilai (Lewat Tenggat)</span>
+                            <div class="muted" style="font-size:10px;margin-top:2px;"><?= abs($msDays) ?> hari setelah tenggat</div>
+                        <?php elseif ($msDays !== null && $msDays <= 30): ?>
+                            <span class="badge badge-warning" style="font-size:10.5px;">⏳ Mendekati (<?= $msDays ?> hari)</span>
+                            <div class="muted" style="font-size:10px;margin-top:2px;">Periode input pengampu</div>
+                        <?php else: ?>
+                            <span class="badge badge-secondary" style="font-size:10.5px;">Menunggu Jadwal</span>
+                            <div class="muted" style="font-size:10px;margin-top:2px;"><?= $msDays ?> hari lagi</div>
+                        <?php endif; ?>
+                    </td>
                     <td>
                         <div style="font-weight:600;font-size:12px;"><?= $s['kelengkapan'] ?>%</div>
-                        <div class="hbar-track" style="width:70px;height:6px;display:inline-block;">
+                        <div class="hbar-track" style="width:65px;height:5px;display:inline-block;">
                             <div class="hbar-fill" style="width:<?= $s['kelengkapan'] ?>%;background:<?= $s['kelengkapan'] >= 100 ? '#16a34a' : '#ca8a04' ?>;"></div>
                         </div>
                     </td>
-                    <td><?= h($s['status_scorecard']) ?></td>
                     <td>
+                        <div style="font-weight:600;font-size:11.5px;"><?= h($s['status_scorecard']) ?></div>
                         <?php
                         $vBadge = match($s['validasi']['status']) {
                             'DISETUJUI' => 'success',
@@ -57,11 +104,21 @@ if ($id <= 0) {
                             default => 'secondary'
                         };
                         ?>
-                        <span class="badge badge-<?= $vBadge ?>"><?= h($s['validasi']['status']) ?></span>
+                        <span class="badge badge-<?= $vBadge ?>" style="font-size:10px;margin-top:2px;"><?= h($s['validasi']['status']) ?></span>
                     </td>
-                    <td class="muted" style="font-size:12px;max-width:180px;"><?= h(singkat($s['validasi']['catatan'] ?? '-', 45)) ?></td>
                     <td>
-                        <a href="mitra_validasi.php?id=<?= $m['id'] ?>" class="btn btn-primary btn-sm">Buka Validasi &rarr;</a>
+                        <div style="display:flex;flex-direction:column;gap:4px;">
+                            <?php if ($userRole === 'pemeriksa' || $userRole === 'admin'): ?>
+                                <a href="mitra_edit.php?id=<?= $m['id'] ?>" class="btn btn-primary btn-sm" style="font-size:11px;padding:3px 7px;">
+                                    📝 Nilai <?= h(explode(':', $msLabel)[0]) ?> &rarr;
+                                </a>
+                            <?php endif; ?>
+                            <?php if ($userRole === 'validator' || $userRole === 'admin'): ?>
+                                <a href="mitra_validasi.php?id=<?= $m['id'] ?>" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 7px;">
+                                    🔍 Validasi &rarr;
+                                </a>
+                            <?php endif; ?>
+                        </div>
                     </td>
                 </tr>
             <?php endforeach; ?>
@@ -84,7 +141,11 @@ $errors = [];
 $saved = false;
 $summary = getMitraSummary($pdo, $mitra);
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    if (!in_array($userRole, ['admin', 'validator'], true)) {
+        http_response_code(403);
+        die('Akses ditolak: Hanya validator dan administrator yang berwenang menetapkan keputusan validasi.');
+    }
     $status = $_POST['status'] ?? 'BELUM';
     $catatan = trim($_POST['catatan'] ?? '');
 
@@ -96,9 +157,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Tulis catatan bagian yang harus diperbaiki.';
     } else {
         $stmtV = $pdo->prepare(
-            'UPDATE validasi SET status=?, validator_id=?, tanggal_validasi=CURDATE(), catatan=? WHERE mitra_id=?'
+            'INSERT INTO validasi (mitra_id, status, validator_id, tanggal_validasi, catatan)
+             VALUES (?, ?, ?, CURDATE(), ?)
+             ON DUPLICATE KEY UPDATE status=VALUES(status), validator_id=VALUES(validator_id), tanggal_validasi=VALUES(tanggal_validasi), catatan=VALUES(catatan)'
         );
-        $stmtV->execute([$status, $user['id'], $catatan ?: null, $id]);
+        $stmtV->execute([$id, $status, $user['id'], $catatan ?: null]);
         syncStatusScorecard($pdo, $id);
         logAudit($id, $user['id'], 'VALIDASI', 'Status validasi diubah menjadi ' . $status);
         $saved = true;

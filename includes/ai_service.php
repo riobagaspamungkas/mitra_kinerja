@@ -269,7 +269,7 @@ function callOpenRouterAPI(string $prompt): ?string {
             'Content-Type: application/json',
             'Authorization: Bearer ' . OPENROUTER_API_KEY,
             'HTTP-Referer: ' . (isset($_SERVER['HTTP_HOST']) ? 'https://' . $_SERVER['HTTP_HOST'] : 'https://mitra-kinerja.local'),
-            'X-Title: Mitra Kinerja - Kanwil Kemenkumham Kepri',
+            'X-Title: Mitra Kinerja - Kanwil Kementerian Hukum Kepri',
         ],
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 45, // OpenRouter free models can be slower

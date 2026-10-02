@@ -22,6 +22,25 @@ function getMitraSummary(PDO $pdo, array $mitra): array {
     $stmt->execute([$mitra['id']]);
     $indikatorRows = $stmt->fetchAll();
 
+    // Self-healing: jika naskah belum memiliki 7 indikator standar V3 Result-Chain, inisialisasi otomatis
+    if (empty($indikatorRows)) {
+        $defs = [
+            ['I1', 'Pengelolaan & RTL', 10],
+            ['I2', 'Implementasi', 15],
+            ['I3', 'Output', 15],
+            ['I4', 'Outcome', 20],
+            ['I5', 'Dampak', 20],
+            ['I6', 'Evidence & Data', 10],
+            ['I7', 'Risiko & Keberlanjutan', 10],
+        ];
+        $stmtIns = $pdo->prepare('INSERT INTO indikator_skor (mitra_id, kode_indikator, deskripsi, bobot, referensi_baseline, status_pemeriksaan) VALUES (?, ?, ?, ?, \'Baseline awal\', \'BELUM DITELAAH\') ON DUPLICATE KEY UPDATE id=id');
+        foreach ($defs as $d) {
+            $stmtIns->execute([$mitra['id'], $d[0], $d[1], $d[2]]);
+        }
+        $stmt->execute([$mitra['id']]);
+        $indikatorRows = $stmt->fetchAll();
+    }
+
     $stmt = $pdo->prepare('SELECT * FROM early_warning WHERE mitra_id = ? ORDER BY dimensi');
     $stmt->execute([$mitra['id']]);
     $warningRows = $stmt->fetchAll();
@@ -36,18 +55,21 @@ function getMitraSummary(PDO $pdo, array $mitra): array {
 
     $stmt = $pdo->prepare('SELECT * FROM intervensi_usulan WHERE mitra_id = ?');
     $stmt->execute([$mitra['id']]);
-    $usulan = $stmt->fetch() ?: ['upaya_dilakukan' => null, 'keputusan_diminta' => null];
+    $usulan = $stmt->fetch() ?: ['upaya_dilakukan' => null, 'keputusan_diminta' => null, 'uraian_kendala' => null];
 
     // --- Baseline FIX 12 Elemen ---
-    $stmtB = $pdo->prepare('SELECT * FROM baseline_elemen WHERE mitra_id = ? ORDER BY nomor_elemen ASC');
-    $stmtB->execute([$mitra['id']]);
-    $baselineRows = $stmtB->fetchAll();
+    $baselineRows = [];
+    try {
+        $stmtB = $pdo->prepare('SELECT * FROM baseline_elemen WHERE mitra_id = ? ORDER BY nomor_elemen ASC');
+        $stmtB->execute([$mitra['id']]);
+        $baselineRows = $stmtB->fetchAll();
+    } catch (Throwable $e) {}
 
     $bVerified = 0;
     $bFilled = 0;
     foreach ($baselineRows as $b) {
-        if ($b['status'] === 'TERVERIFIKASI') $bVerified++;
-        if ($b['status'] !== 'BELUM DIISI') $bFilled++;
+        if (($b['status'] ?? '') === 'TERVERIFIKASI') $bVerified++;
+        if (($b['status'] ?? '') !== 'BELUM DIISI') $bFilled++;
     }
     $bTotal = count($baselineRows) ?: 12;
     $baselineSummary = [
@@ -79,9 +101,14 @@ function getMitraSummary(PDO $pdo, array $mitra): array {
     $warning = warningTertinggi($statusList);
     $hasilUji = hasilUjiIntervensi($pemicuRows, $warning['status']);
     $cekUsulan = cekUsulanIntervensi($pemicuRows, $hasilUji, $usulan['upaya_dilakukan'], $usulan['keputusan_diminta']);
-    $statusScorecard = hitungStatusScorecard($ringkasan['skor_lengkap'], $ringkasan['cek_lengkap_ok'], $validasi['status']);
+    $calculatedStatus = hitungStatusScorecard($ringkasan['skor_lengkap'], $ringkasan['cek_lengkap_ok'], $validasi['status'], $ringkasan['bukti_kurang_n'], $ringkasan['bdn_n'], $ringkasan['dapat_dinilai_n']);
+    if (!empty($mitra['status_scorecard']) && in_array($mitra['status_scorecard'], ['MASA IMPLEMENTASI AWAL', 'FINAL', 'FINAL/TERVALIDASI'], true)) {
+        $statusScorecard = $mitra['status_scorecard'];
+    } else {
+        $statusScorecard = $calculatedStatus;
+    }
 
-    $posisiPortofolio = ($mitra['posisi_portofolio'] ?? 'BELUM DAPAT DITENTUKAN') !== 'BELUM DAPAT DITENTUKAN' 
+    $posisiPortofolio = (!empty($mitra['posisi_portofolio']) && $mitra['posisi_portofolio'] !== 'BELUM DAPAT DITENTUKAN') 
         ? $mitra['posisi_portofolio'] 
         : hitungPosisiPortofolio($indikatorRows);
 
@@ -93,11 +120,57 @@ function getMitraSummary(PDO $pdo, array $mitra): array {
         }
     }
 
-    $rekomendasi = ($mitra['rekomendasi'] ?? 'BELUM DITENTUKAN') !== 'BELUM DITENTUKAN'
+    $rekomendasi = (!empty($mitra['rekomendasi']) && $mitra['rekomendasi'] !== 'BELUM DITENTUKAN')
         ? $mitra['rekomendasi']
         : hitungRekomendasi($ringkasan['nilai_berjalan'], $warning['status'], $posisiPortofolio, $sisaHari);
 
-    $monev = hitungKebutuhanScorecard($mitra['tanggal_mulai'], $mitra['tanggal_berakhir']);
+    $evaluasiPerTahun = (int)($mitra['evaluasi_per_tahun'] ?? 4);
+    $monev = hitungKebutuhanScorecard($mitra['tanggal_mulai'] ?? null, $mitra['tanggal_berakhir'] ?? null, $evaluasiPerTahun);
+
+    // Integrasi jadwal aktual dari tabel siklus_monev jika tersedia
+    try {
+        $stmtSM = $pdo->prepare('SELECT * FROM siklus_monev WHERE mitra_id = ? ORDER BY tanggal_target_evaluasi ASC');
+        $stmtSM->execute([$mitra['id']]);
+        $realMilestones = $stmtSM->fetchAll();
+        if (!empty($realMilestones)) {
+            $todayTs = strtotime(date('Y-m-d'));
+            $nearestTarget = null;
+            $nearestDiff = null;
+            $warning1Bulan = false;
+            $msList = [];
+            foreach ($realMilestones as $rm) {
+                $tgtStr = $rm['tanggal_target_evaluasi'];
+                $diff = (int)round((strtotime($tgtStr) - $todayTs) / 86400);
+                $isDueSoon = ($diff >= 0 && $diff <= 30);
+                $isPast = ($diff < 0);
+                $msList[] = [
+                    'siklus_ke'     => (int)$rm['siklus_ke'],
+                    'nama'          => $rm['nama_siklus'],
+                    'target_tgl'    => $tgtStr,
+                    'sisa_hari'     => $diff,
+                    'is_due_soon'   => $isDueSoon,
+                    'is_past'       => $isPast,
+                    'status_siklus' => $rm['status_siklus']
+                ];
+                if ($nearestTarget === null && $diff >= -15) {
+                    $nearestTarget = $tgtStr;
+                    $nearestDiff = $diff;
+                    if ($isDueSoon) {
+                        $warning1Bulan = true;
+                    }
+                }
+            }
+            if (!empty($msList)) {
+                $monev['milestones'] = $msList;
+                $monev['total_siklus'] = count($msList);
+                if ($nearestTarget !== null) {
+                    $monev['target_evaluasi_terdekat'] = $nearestTarget;
+                    $monev['hari_menuju_evaluasi'] = $nearestDiff;
+                    $monev['warning_1_bulan'] = $warning1Bulan;
+                }
+            }
+        }
+    } catch (Throwable $e) {}
 
     return [
         'mitra'             => $mitra,
@@ -107,6 +180,8 @@ function getMitraSummary(PDO $pdo, array $mitra): array {
         'validasi'          => $validasi,
         'usulan'            => $usulan,
         'nilai_berjalan'    => $ringkasan['nilai_berjalan'],
+        'nilai_final'       => $ringkasan['nilai_final'],
+        'all_evaluable'     => $ringkasan['all_evaluable'],
         'bobot_dinilai'     => $ringkasan['bobot_dinilai'],
         'kelengkapan'       => $ringkasan['kelengkapan'],
         'skor_lengkap'      => $ringkasan['skor_lengkap'],
@@ -233,9 +308,14 @@ function getDashboardStats(array $all): array {
 
 /** Ringkasan operasional tambahan untuk dashboard (Gate 0, Validasi, Rencana Kerja, Masa Berlaku). */
 function getOperationalStats(PDO $pdo, array $all): array {
-    $g0Total = (int)$pdo->query('SELECT COUNT(*) FROM pra_pks')->fetchColumn();
-    $g0Pending = (int)$pdo->query("SELECT COUNT(*) FROM pra_pks WHERE status_persetujuan = 'Menunggu Persetujuan Pimpinan'")->fetchColumn();
-    $g0Approved = (int)$pdo->query("SELECT COUNT(*) FROM pra_pks WHERE status_persetujuan = 'Disetujui Pimpinan'")->fetchColumn();
+    $g0Total = 0;
+    $g0Pending = 0;
+    $g0Approved = 0;
+    try {
+        $g0Total = (int)$pdo->query('SELECT COUNT(*) FROM pra_pks')->fetchColumn();
+        $g0Pending = (int)$pdo->query("SELECT COUNT(*) FROM pra_pks WHERE status_persetujuan = 'Menunggu Persetujuan Pimpinan'")->fetchColumn();
+        $g0Approved = (int)$pdo->query("SELECT COUNT(*) FROM pra_pks WHERE status_persetujuan = 'Disetujui Pimpinan'")->fetchColumn();
+    } catch (Throwable $e) {}
 
     $siapValidasi = 0;
     $disetujuiValidasi = 0;
@@ -244,15 +324,19 @@ function getOperationalStats(PDO $pdo, array $all): array {
         $vStatus = $s['validasi']['status'] ?? '';
         if ($vStatus === 'DISETUJUI') {
             $disetujuiValidasi++;
-        } elseif ($s['kelengkapan'] >= 100) {
+        } elseif (($s['kelengkapan'] ?? 0) >= 100) {
             $siapValidasi++;
         } else {
             $belumLengkapValidasi++;
         }
     }
 
-    $rkCount = (int)$pdo->query('SELECT COUNT(*) FROM rencana_kerja')->fetchColumn();
-    $smCount = (int)$pdo->query('SELECT COUNT(*) FROM siklus_monev')->fetchColumn();
+    $rkCount = 0;
+    $smCount = 0;
+    try {
+        $rkCount = (int)$pdo->query('SELECT COUNT(*) FROM rencana_kerja')->fetchColumn();
+        $smCount = (int)$pdo->query('SELECT COUNT(*) FROM siklus_monev')->fetchColumn();
+    } catch (Throwable $e) {}
 
     $mouCount = 0;
     $pksCount = 0;
@@ -261,7 +345,7 @@ function getOperationalStats(PDO $pdo, array $all): array {
     $validKritis = 0;
 
     foreach ($all as $s) {
-        $m = $s['mitra'];
+        $m = $s['mitra'] ?? [];
         if (($m['jenis'] ?? '') === 'MoU') {
             $mouCount++;
         } else {
@@ -269,7 +353,7 @@ function getOperationalStats(PDO $pdo, array $all): array {
         }
 
         $mb = hitungMasaBerlaku($m['tanggal_berakhir'] ?? null, $m['cutoff_date'] ?? null, $m['status_tanggal'] ?? null);
-        $sisa = $mb['sisa_hari'];
+        $sisa = $mb['sisa_hari'] ?? null;
         if ($sisa === null || $sisa < 30) {
             $validKritis++;
         } elseif ($sisa <= 180) {

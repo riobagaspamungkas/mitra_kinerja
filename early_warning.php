@@ -24,7 +24,8 @@ foreach ($all as $s) {
         ];
     }
 }
-usort($warningData, fn($a, $b) => array_search($b['warning_status'], ['E3','E2','E1','V0']) <=> array_search($a['warning_status'], ['E3','E2','E1','V0']));
+$severityOrder = ['E3' => 4, 'E2' => 3, 'E1' => 2, 'V0' => 1, 'E0' => 0];
+usort($warningData, fn($a, $b) => ($severityOrder[$b['warning_status']] ?? -1) <=> ($severityOrder[$a['warning_status']] ?? -1));
 
 $pageTitle = 'Early Warning';
 require __DIR__ . '/includes/header.php';

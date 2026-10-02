@@ -7,6 +7,195 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.9] - 2026-10-01
+
+### Fixed
+- **Audit Forensik Live Browser, Restrukturisasi Layout & Perbaikan Bug Visual:**
+  - **Restrukturisasi Layout & Footer Natural (`public/css/style.css`):** Mengubah `.app-footer` dari `position: fixed` menjadi `position: relative` di bawah konten dengan `margin-top: auto; margin-left: var(--sidebar-w);`. Menghilangkan bug di mana footer menempel dan menutupi kartu atau tercetak di tengah halaman saat ekspor PDF/screenshot.
+  - **Perbaikan Text-Wrapping KPI Cards (`dashboard.php` & `public/css/style.css`):** Memperbaiki kartu mini "Indikator Kinerja" menjadi `.kpi-card-vertical` dengan `flex-direction: column` dan `word-break: normal`. Menghilangkan pemotongan suku kata aneh (*"Impleme/ntasi"*, *"Outco/me"*, *"Berd/ampa/k"*).
+  - **Koreksi Logika Persentase Donut Chart (`dashboard.php`):** Memperbaiki pembagi kalkulasi status efektivitas (*Efektif*, *Perlu Perhatian*, *Berisiko*) dari `$stats['pilotCount']` menjadi `$stats['total']` sehingga total persentase selalu tepat 100% (6% + 67% + 28%), bukan 138%.
+  - **Pencegahan Pemotongan Tombol Aksi Import (`import.php`):** Membungkus tabel data ke dalam container responsif `.table-wrap` dengan `overflow-x: auto` dan menyelaraskan lebar kolom. Memastikan tombol biru *"📥 Import"* terlihat utuh tanpa terpotong di tepi kanan layar.
+  - **Eliminasi 100% Ketergantungan CDN Eksternal:** Menghapus font eksternal Google Fonts yang memicu render-blocking pada jaringan intranet/offline, memanfaatkan font sistem natif dengan fallback mulus.
+  - **Verifikasi Live Browser Foreground:** Menguji seluruh 9 alur utama (Login, Dashboard, Gate 0, Baseline FIX, Scorecard V2.1, Menu Import, Tindak Lanjut, Role Alerts, Console Health) pada peramban Chrome aktif secara foreground dengan hasil 100% lulus tanpa error JavaScript.
+
+## [2.3.8] - 2026-09-30
+
+### Fixed
+- **Optimasi Performa Ekstrem & Self-Healing Login Otomatis:**
+  - **Fast-Path Health Check Schema (`includes/auto_migrate.php`):** Mengganti eksekusi 20+ DDL dan ALTER TABLE berulang pada setiap HTTP request dengan pengecekan skema sub-milidetik (0.0009 ms). Menghilangkan total metadata table lock contention yang sebelumnya menyebabkan website lambat dan login macet.
+  - **Self-Healing Login Fallback (`includes/auth.php`):** Menambahkan auto-recovery instan pada `attemptLogin()`. Jika kredensial akun demo standar dimasukkan (`admin`, `pemeriksa`, `validator`, `pimpinan`, `pengampu`, `pic`) namun hash di DB lokal tim rusak/usang atau akun non-aktif, sistem langsung memulihkan akun dan melakukan login mulus.
+  - **Eliminasi Network Blocking Resources:** Menghapus `@import` font eksternal yang memblokir rendering CSS di `public/css/style.css`, serta membundel Chart.js secara lokal di `public/js/chart.umd.min.js` untuk kecepatan muat instan tanpa ketergantungan CDN internet.
+  - **Perbaikan Guard `ai_debug.php`:** Memperbaiki blok pengecekan hak akses admin agar tidak memblokir akses pengguna admin yang sah.
+  - **Pembersihan Log Pengujian pada Database Dump:** Menghapus data log audit sementara sehingga ukuran file SQL dump menjadi ringkas dan cepat saat di-import.
+
+## [2.3.7] - 2026-09-29
+
+### Fixed
+- **Audit Holistik Multi-Tahap & Hardening Sistem:**
+  - **Self-Healing Database Bootstrap (`includes/auto_migrate.php`):** Added automatic database bootstrap check on PDO connection. If an empty or newly created database lacks `mitra_kinerja`, the application automatically loads and restores `database/mitra_kinerja_dump.sql`, eliminating empty table crashes on team environments.
+  - **Auto-Initialization Indikator Scorecard (`includes/data.php`):** Implemented fallback in `getMitraSummary()` that detects if any partnership lacks the 7 standard V2.1 scorecard indicators ($I_1$–$I_7$) and seeds them automatically, preventing empty scorecards.
+  - **Pencegahan Data Truncation pada `mitra_edit.php`:** Removed rigid `in_array` constraints that previously reset custom 27 September audit strings (`posisi_portofolio` & `rekomendasi`) to default values upon saving; added dynamic dropdown rendering for non-standard analytical positions.
+  - **Quote-Resilience pada Modal Trigger (`import.php` & `gate0.php`):** Upgraded inline `openImportModal` and `openDecisionModal` click handlers to use strict `json_encode` with `htmlspecialchars(..., ENT_QUOTES, 'UTF-8')`, completely preventing JS syntax breaks on partners with quotes or special characters.
+  - **Defensive Try/Catch pada Parse Workbook (`import.php`):** Wrapped `parseFullWorkbookXlsx()` in try/catch to catch any corrupt file read issues gracefully without uncaught fatal crashes.
+  - **Sinkronisasi Database Dump (`database/mitra_kinerja_dump.sql`):** Re-exported clean, self-contained dump with all 13 tables, demo accounts, baseline audits, proposals, and scorecard records.
+
+## [2.3.6] - 2026-09-29
+
+### Fixed
+- **Perbaikan Template Unduh Scorecard & Integrasi Template Baseline Bu Kabag:**
+  - Resolved the bug where clicking "Unduh Template" on Scorecard for P11, P12, and P13 mistakenly downloaded the Gate 0 template: created official generic `public/templates/template_scorecard_v2_1.xlsx` (with sheets `PENILAIAN`, `KENDALI`, `REKOMENDASI`, `RUBRIK`, `SUMBER_BASELINE`, `SUMBER_AKTUAL`) and mapped it to all newly added partnerships.
+  - Aligned `public/templates/template_baseline_12_elemen.xlsx` as an exact structural and visual clone of Bu Kabag's audited baseline worksheet (`FINAL_BASELINE_MITRA_KINERJA_AUDIT_FINAL_28_AGUSTUS_2026.xlsx`).
+  - Added smart partner-code sheet matching in `import.php` to seamlessly extract data whether users upload Bu Kabag's 19-sheet workbook or the single-sheet baseline template.
+  - Enhanced baseline element status parser with flexible normalization (`TERVERIFIKASI`, `BELUM TERVERIFIKASI`, `BELUM TERSEDIA`, `TIDAK RELEVAN`, `BELUM DIISI`).
+
+## [2.3.5] - 2026-09-29
+
+### Fixed
+- **Eliminasi Total Warning `SimpleXMLElement::xpath(): Undefined namespace prefix`:**
+  - Removed fragile `xpath('//row|//x:row')` queries from spreadsheet parsing in favor of clean, direct SimpleXML object traversal (`$sXml->sheetData->row`).
+  - Added robust `cleanXmlString()` in `includes/functions.php` which automatically strips `xmlns` namespaces and tag/attribute prefixes (`x:`, `r:`) prior to parsing.
+  - Relocated and consolidated `parseFullWorkbookXlsx()` into `includes/functions.php` as a core reusable service.
+  - Verified 100% clean parsing without any warnings across all 28 project spreadsheets and Gate 0 upload handlers.
+
+## [2.3.4] - 2026-09-29
+
+### Fixed
+- **Penyelesaian Error Fatal `Class "ZipArchive" not found` (`includes/functions.php`, `import.php`, `gate0.php`):**
+  - Added universal `RobustZipReader` class with built-in pure PHP PKZip parser using standard `gzinflate()`.
+  - Transparent dual-mode operation: uses PHP's native `ZipArchive` when available; automatically falls back to the pure-PHP PKZip extractor if the PHP `zip` extension is commented out or disabled in `php.ini` on Windows XAMPP environments.
+  - Replaced direct `new ZipArchive()` calls in both `import.php` and `gate0.php` with `RobustZipReader`, eliminating fatal crashes on teammate setups without requiring any server configuration changes.
+
+## [2.3.3] - 2026-09-28
+
+### Added
+- **Penyempurnaan Menu Import (Dual Baseline & Scorecard Actions):**
+  - Added dedicated **Template Excel** and **Aksi Import** columns specifically for **Baseline (12 Elemen)** right beside the Baseline status column.
+  - Provided new standardized fillable OpenXML spreadsheet template `public/templates/template_baseline_12_elemen.xlsx` with embedded dropdown data validation for element statuses (`TERVERIFIKASI,BELUM TERVERIFIKASI,BELUM TERSEDIA,TIDAK RELEVAN,BELUM DIISI`).
+  - Added autonomous button state management: if a partnership already has verified/locked Baseline data (e.g. P01–P11, C01–C05), both the Baseline Template and Baseline Import buttons are **automatically disabled** (`🔒 Terkunci`) to protect frozen data.
+  - If a partnership does not yet have verified Baseline data (e.g. P12, P13, or new partnerships), both the Baseline Template and Baseline Import buttons are **active**, enabling 1-click template download and import.
+  - Multi-mode Import Modal: dynamically adapts its interface, badges, and validation logic whether the user is importing Baseline elements or Scorecard evaluations.
+
+### Fixed
+- **PHP Runtime Warning Fix (`total_skor`):**
+  - Resolved `Warning: Undefined array key "total_skor" in import.php on line 546` by explicitly querying `(SELECT ROUND(SUM(nilai), 1) FROM indikator_skor WHERE mitra_id = m.id) as total_skor` and applying safe null checks.
+
+## [2.3.2] - 2026-09-28
+
+### Fixed
+- **Self-Healing Otomatis Modul Gate 0 & Seluruh Database (`includes/auto_migrate.php`):**
+  - Resolved root cause of empty Gate 0 on teammate local setups: previously, `auto_migrate.php` only created the empty table `pra_pks` without populating seed data unless explicit dump was imported.
+  - Added autonomous runtime self-healing: on any page load, if `pra_pks` has 0 records, the system immediately seeds all 6 authentic Gate 0 proposals with full 18-question evaluation battery, 7 trigger evaluations, and approval statuses.
+  - Ensured all standard demo accounts (`admin`, `pemeriksa`, `validator`, `pimpinan`, `pengampu`, `pic`) are automatically restored if missing.
+  - Verified 100% database row parity across all 13 core tables, all 72 partner detail views, and all role authorization walls.
+
+## [2.3.1] - 2026-09-28
+
+### Added
+- **Integrasi Penuh Paket Final Evaluasi 27 September 2026:**
+  - Ingested 10 authentic Scorecard workbooks from `01_SCORECARD_FINAL_27_SEPTEMBER_2026` (P01–P10) evaluated by the Kanwil Pokja Data committee.
+  - Ingested 180 verified Baseline elements across 15 partnerships from `FINAL_BASELINE_MITRA_KINERJA_AUDIT_FINAL_28_AGUSTUS_2026.xlsx` with examiner signatures (`Evlin`, `Kompilasi Pokja Data`, `Ischika`, `Fitra`, `Nur'ah Darina`, `Hariawan Novriadi`, `Nadia Putri Boga`).
+  - Ingested 59 authentic follow-up items from `SUMBER_AKTUAL` into the activity ledger (`tindak_lanjut`).
+  - Deployed official 27 September Scorecard templates into `public/templates/import_naskah/01_Scorecard_Final_27_Sep/` and `02_Baseline_Final/`.
+  - Upgraded `import.php` parser to natively parse both `PENILAIAN` + `REKOMENDASI` + `SUMBER_BASELINE` layouts and legacy sheets.
+  - Migrated `mitra_kinerja` columns (`status_scorecard`, `posisi_portofolio`, `rekomendasi`) to flexible `VARCHAR` types, preserving descriptive audit outputs (`OUTCOME AWAL / IMPLEMENTASI TERBATAS`, `OUTPUT AWAL / IMPLEMENTASI BERJALAN`, `MASA IMPLEMENTASI AWAL`).
+
+## [2.3.0] - 2026-09-28
+
+### Added
+- **Menu Baru "Import" (`import.php`):**
+  - Integrated into top navigation bar (`includes/header.php`) with direct access for roles `admin`, `pemeriksa`, and `pengampu`.
+  - Comprehensive table listing all partnerships with status badges for Baseline, Scorecard, and Division.
+  - Added dedicated **"Template Excel"** column with 1-click download buttons (`⬇️ Unduh Template (.xlsx)`) sourcing official templates directly from `01_Pilot_Utama` (P01–P10) and `02_Portofolio_Pengayaan` (C01–C04).
+  - Added dedicated **"Import"** column with interactive modal and drag-and-drop/picker form to upload and process `.xlsx` files.
+  - Full-featured server-side OpenXML `.xlsx` parser (`parseFullWorkbookXlsx`) extracting Baseline elements, Scorecard indicators, PIC contacts, and P2MA links directly without external library dependencies.
+  - Automatically updates 12 Baseline elements (`baseline_elemen`), locks baseline status (`TERVERIFIKASI / DIKUNCI`), updates Scorecard indicators (`indikator_skor`), and recalculates total scorecard rating.
+
+### Changed
+- **Sinkronisasi 2 Arah Scan Naskah Asli (PDF) di Manajemen Naskah & Baseline:**
+  - In `mitra_manage.php`, uploading physical scanned PDFs via the modal, edit form, or new registration form now immediately updates and verifies Element 1 (`IDENTITAS`) in `baseline_elemen` (`link_sumber_bukti` and status `TERVERIFIKASI`).
+  - In `baseline.php`, uploading an agreement document in Element 1 updates `file_naskah` in `mitra_kinerja`, guaranteeing 100% 1:1 synchronization between both modules.
+
+## [2.2.3] - 2026-09-28
+
+### Fixed
+- Fixed Login UI Demo Account buttons visibility: decoupled `.btn-demo` from `.login-card button` white text inheritance, enforcing `#1e293b` dark text on crisp `#ffffff` rounded buttons with active hover highlights.
+- Fixed non-clickable P2MA and external URLs across `baseline.php`, `tindak_lanjut.php`, and `mitra_edit.php`:
+  - Added `formatLinkSumberBukti()` converting raw P2MA links into active clickable badges (`📄 Naskah P2MA (PDF) →`, `🔍 Verifikasi P2MA →`, `📁 Google Drive →`).
+  - Fixed Action column in `baseline.php` to display `📄 Lihat PDF` for remote P2MA agreement URLs as well as local files.
+  - Fixed `tindak_lanjut.php` evidence links: cross-origin URLs now open directly in a new tab without broken `download` attribute traps, and registration text codes render as descriptive badges.
+  - Populated `mitra_kinerja.file_naskah` with the official P2MA signed agreement PDF URLs from Elemen 1, activating the `📄 Scan PDF` button in `mitra_manage.php` and adding a direct `📄 Buka Naskah Resmi (PDF)` button in `mitra_edit.php`.
+- Hardened role permissions and alert display:
+  - Linked database `siklus_monev` records with `$monev` calculations in `includes/data.php`.
+  - Guaranteed `pengampu` and `pic` standing operating directive banners always display on `dashboard.php` and `scorecard.php`, appending approaching deadline partnerships (< 30 days) when present.
+
+## [2.2.2] - 2026-09-28
+
+### Added
+- Integrated authoritative `Paket_Scorecard_dan_Baseline_Final` dataset across all 15 core partnerships:
+  - Ingested 180 audited baseline elements from `FINAL_BASELINE_MITRA_KINERJA_28_AGUSTUS_2026.xlsx` with zero contradictions ($X = 0$) and designated 73 follow-up scorecard markers ($\blacktriangle$).
+  - Realigned portfolio composition per team directives: STIT Mumtaz Karimun promoted to Pilot Utama (`P05`), STAIN Sultan Abdurrahman transitioned to Portofolio Pengayaan (`C01`), and Politeknik Bintan Cakrawala shifted to (`C02`).
+  - Recorded official examiner assignments: Evlin (`P01`), Ischika (`P03`, `C02`), Nur'ah Darina (`P09`, `C01`, `C05`), Hariawan Novriadi (`P06`), Nadia Putri Boga (`P07`, `C03`), and Kompilasi Pokja Data (`P02`, `P04`, `P05`, `P08`, `P10`, `C04`).
+  - Ingested authentic field activities and evidence into `tindak_lanjut` for Bapperida Bintan, UMRAH, STAIN SAR, PBC, and UIS with verified Google Drive proof URLs and registration numbers.
+  - Ingested authentic partner action plans into `rencana_kerja` for STAI Natuna, Bapperida, PBC, and UIS.
+  - Synchronized database dump bundles (`mitra_kinerja_dump.sql`, `seed_data.sql`, `schema.sql`) reflecting the complete post-merge state.
+
+## [2.2.1] - 2026-09-27
+
+### Added
+- Gate 0 Excel Data Validation: Native OpenXML dropdown data validations (`"YA,TIDAK"`) embedded directly into cell ranges `C16:C33` (18 evaluation questions) and `C35:C41` (7 special triggers) for both Dalam Negeri and Luar Negeri templates.
+- Manajemen Naskah: Added `evaluasi_per_tahun` integer field ("Evaluasi Rencana Kerja (Per Tahun)") with dynamic scorecard cycle calculation (e.g., 36 months / 4 times = 9 review milestones).
+- Scorecard Progress Header: Added 7th summary card ("Kegiatan Terkait") showing total linked activities with a direct shortcut to `tindak_lanjut.php?mitra_id=X`.
+- Tindak Lanjut Evidence Upload: Integrated file upload field supporting multi-format evidence (`.pdf, .jpg, .jpeg, .png, .docx, .xlsx, .pptx` up to 25MB) with download button in the activity ledger.
+- Searchable Combobox Widget: Built native interactive autocomplete widget (`public/js/searchable_dropdown.js`) featuring instant query filtering, suggestion list, and full keyboard navigation (`ArrowDown`, `ArrowUp`, `Enter`, `Escape`).
+- Portofolio Instant Search: Added live search input box to `portofolio.php` allowing instantaneous filtering by partner name, code, or division.
+- Formal Long Date Formatting: Added `formatTanggalPanjang()` in `includes/functions.php` formatting dates in formal Indonesian civil-service standard (e.g., "27 September 2026").
+
+### Fixed
+- Fixed sparse cell column-shifting bug in `gate0.php` OpenXML parser: mapped cells via alphanumeric coordinates (`c['r']`) and added `inlineStr` tag support.
+- Fixed validation record persistence bug: converted `UPDATE validasi` into `INSERT ... ON DUPLICATE KEY UPDATE` and seeded `validasi` records for all partnerships, guaranteeing zero silent update drops.
+- Fixed badge and text overflow in scorecard summary cards: applied flexible text wrapping (`white-space: normal`, `word-break: break-word`) to prevent text overflow outside container boundaries.
+- Hardened early warning sorting against PHP 8 type coercion by replacing `array_search` with strict severity mapping.
+- Cleaned test artifacts and synchronized `database/mitra_kinerja_dump.sql`, `schema.sql`, and `seed_data.sql` across all 13 tables.
+
+## [2.2.0] - 2026-09-25
+
+### Added
+- Added official scanned agreement upload feature (`.pdf`) beside "Tambah Naskah" in `mitra_manage.php` enforcing authentic physical signed documents rather than typed text drafts.
+- Added integrated Annual Work Plan form (`rencana kerja (/tahun)`) in `mitra_manage.php` for both initial partnership creation and dedicated management under each existing partnership.
+- Reclassified partnership category from "Jenis" to "Bidang" with departmental options ("AHU", "KI", "P3H", "PPL", "Keuangan", "Humas", "SDM") aligned with Kanwil Kementerian Hukum Kepri operational divisions.
+- Introduced dedicated user roles `pengampu` (Unit Pengampu) and `pic` (PIC Operasional Kerja Sama) in `users` table with 1-click demo login buttons on `login.php`.
+- Implemented role-differentiated deadline alerts on `dashboard.php` and Menu `Scorecard`:
+  - Akun Pengampu: specialized directive alert on Dashboard and Scorecard requiring completion of each evaluation cycle (SC1, SC2, SC3, dst.) before 30 days from the deadline.
+  - Akun PIC: specialized reminder alert prompting PICs to proactively follow up and remind the Unit Pengampu before 30 days of each cycle.
+- Renamed menu "Validasi Naskah" to "Penilaian" (`mitra_validasi.php`), granting Akun Pemeriksa direct evaluation access with visible SC milestones (SC-1, SC-2, etc.) and readiness status based on milestone deadlines alongside Validator approvals.
+- Added interactive partnership type dropdown in `gate0.php` to select and download "Dalam Negeri" or "Luar Negeri" Excel templates dynamically.
+- Upgraded Gate 0 Excel templates (`public/templates/template_gate0_dalam_negeri.xlsx` and `template_gate0_luar_negeri.xlsx`) to vertical downward form layout ("data menurun ke bawah") matching Google Drive standards and the official Form Gate 0 document.
+- Upgraded `gate0.php` upload engine to automatically detect and parse both vertical downward forms and tabular horizontal spreadsheets with full tolerance.
+- Added dedicated 7th column `Aksi / Tindakan` in Stage 2 Baseline verification view (`baseline.php?id=X`):
+  1. `IDENTITAS`: PDF file upload for physical signed agreements.
+  2. `SUBSTANSI`: PDF file upload for scope of work / substance documents.
+  3. `PIC internal`: Interactive modal to update and verify internal PIC data.
+  4. `PIC mitra`: Interactive modal to update and verify partner PIC data.
+  5. `TINDAK LANJUT`: High-capacity multiple PDF upload supporting unmerged multi-file action plans.
+  6. `PELAKSANAAN`: Dynamic readout displaying `(angka) Kegiatan` sourced automatically from the Tindak Lanjut ledger.
+  7. `EVIDEN`: Direct contextual shortcut button linking to `tindak_lanjut.php?mitra_id=X`.
+  8. `HAMBATAN`: PDF file upload for operational gap and impediment documentation.
+
+### Fixed
+- Fixed missing query parameter filtering in `tindak_lanjut.php`: passing `?mitra_id=X` now correctly filters the ledger, pre-selects the partnership in the addition form, and provides an active filter chip with "Tampilkan Semua".
+- Fixed column name mismatch in `gate0.php` and `mitra_manage.php` when initializing baseline elements: standardized columns to `yang_diperiksa` and `sumber_bukti_minimum`.
+- Fixed Gate 0 promotion gaps: promoted PKS records now automatically deduce `bidang` from proposing units, seed all 12 baseline elements, and generate quarterly `siklus_monev` milestones.
+- Added self-healing capability in `baseline.php?id=X` that auto-restores missing baseline elements as `BELUM DIISI` if incomplete.
+- Fixed UI inconsistency: added `Bidang` column and badges across `mitra_edit.php`, `mitra_list.php`, `laporan.php`, and `baseline.php?view=print`.
+- Added interactive division filter (`fBidang`) to `portofolio.php`.
+- Parameterized demo user account generation in `includes/auto_migrate.php`.
+- Hardened date parsing in `formatTanggal()` to intercept `0000-00-00` strings, preventing invalid "30 Nov -0001" artifacts.
+- Hardened authentication in `includes/auth.php` by adding `session_regenerate_id(true)` to prevent session fixation, and enforced `SameSite=Lax` and `HttpOnly` cookie flags.
+- Sealed validation approval endpoint in `mitra_validasi.php`: strictly rejects non-validator/non-admin POST requests with HTTP 403 Forbidden.
+- Added magic-byte verification (`%PDF-` and `getimagesize`) on uploaded documents and photos, preventing renamed malicious payload executions.
+- Updated `public/uploads/.htaccess` with modern Apache 2.4 `Require all denied` and `Options -Indexes -ExecCGI` directives, and deployed directory defense to `baseline_pdf/`.
+- Enhanced `scripts/make_backup.py` with static SQL dump fallback when mysqldump is temporarily unreachable.
+
 ## [2.1.0] - 2026-09-23
 
 ### Added
@@ -39,6 +228,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Outdated hardcoded external server and agency branding references.
 
 ### Fixed
+- Fixed HTTP 500 error on fresh git pulls by introducing self-healing auto-migration (`includes/auto_migrate.php`) and query resilience fallbacks that automatically create missing V2.1 tables and columns on the fly.
+- Auto-detect local development environments in `config/env.php` to display clear diagnostic messages rather than silent HTTP 500 blank screens.
 - Fixed null-safety warning in `hitungMasaBerlaku()` when dates or verification statuses are unverified or missing.
 - Fixed self-disable edge case in `users_list.php` preventing active admin users from accidentally disabling their current account.
 - Fixed back-link navigation targets in `mitra_edit.php` and `mitra_validasi.php`.

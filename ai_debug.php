@@ -6,7 +6,10 @@
 require_once __DIR__ . '/includes/auth.php';
 requireLogin();
 $user = currentUser();
-if ($user['role'] !== 'admin') die('Akses ditolak.');
+if ($user['role'] !== 'admin') {
+    http_response_code(403);
+    die('Akses ditolak: role Anda (' . htmlspecialchars($user['role']) . ') tidak memiliki izin untuk mengakses halaman ini.');
+}
 require_once __DIR__ . '/includes/ai_config.php';
 ?>
 <!DOCTYPE html><html><head><title>AI Debug</title>

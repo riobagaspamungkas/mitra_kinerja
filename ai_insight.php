@@ -19,7 +19,7 @@ header('Content-Type: application/json; charset=utf-8');
 $pdo = getDB();
 $all = getAllMitraSummary($pdo);
 $stats = getDashboardStats($all);
-$forceRefresh = ($_SERVER['REQUEST_METHOD'] === 'POST');
+$forceRefresh = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST');
 
 if (!defined('AI_ENABLED') || !AI_ENABLED) {
     echo json_encode([

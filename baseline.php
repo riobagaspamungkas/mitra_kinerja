@@ -1,12 +1,13 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/data.php';
+require_once __DIR__ . '/includes/functions.php';
 requireLogin();
 
 $pdo = getDB();
 $user = currentUser();
 $role = $user['role'];
-$canEdit = in_array($role, ['admin', 'pemeriksa'], true);
+$canEdit = in_array($role, ['admin', 'pemeriksa', 'pengampu'], true);
 $isAdmin = ($role === 'admin');
 
 $id = (int)($_GET['id'] ?? 0);
@@ -15,100 +16,262 @@ $view = $_GET['view'] ?? 'ledger';
 $errors = [];
 $success = '';
 
-/* ── DEFINISI 12 ELEMEN BASELINE FIX (BAB IV PEDOMAN) ─────── */
-const BASELINE_12_DEFS = [
-    1 => [
-        'kelompok' => 'IDENTITAS',
-        'nama' => 'Identitas naskah',
-        'yang_diperiksa' => 'Jenis, seluruh nomor para pihak, judul, dan nama resmi mitra sesuai naskah.',
-        'sumber_minimum' => 'Naskah bertanda tangan; P2MA sebagai pembanding.'
-    ],
-    2 => [
-        'kelompok' => 'MASA BERLAKU',
-        'nama' => 'Masa berlaku',
-        'yang_diperiksa' => 'Tanggal efektif, durasi, dan tanggal berakhir sesuai klausul naskah.',
-        'sumber_minimum' => 'Klausul jangka waktu; halaman tanda tangan; P2MA.'
-    ],
-    3 => [
-        'kelompok' => 'SUBSTANSI',
-        'nama' => 'Ruang lingkup',
-        'yang_diperiksa' => 'Ruang kerja, kewajiban, atau kegiatan utama yang disepakati.',
-        'sumber_minimum' => 'Pasal ruang lingkup/hak-kewajiban; lampiran.'
-    ],
-    4 => [
-        'kelompok' => 'TATA KELOLA',
-        'nama' => 'Status arsip',
-        'yang_diperiksa' => 'Ketersediaan naskah lengkap pada lokasi arsip resmi dan dapat ditemukan kembali.',
-        'sumber_minimum' => 'Arsip resmi; register; folder organisasi.'
-    ],
-    5 => [
-        'kelompok' => 'TATA KELOLA',
-        'nama' => 'Status P2MA',
-        'yang_diperiksa' => 'Keberadaan entri dan kesesuaian metadata P2MA dengan naskah resmi.',
-        'sumber_minimum' => 'P2MA dan naskah bertanda tangan.'
-    ],
-    6 => [
-        'kelompok' => 'PENGAMPU',
-        'nama' => 'Unit pengampu',
-        'yang_diperiksa' => 'Unit internal yang bertanggung jawab atas substansi dan implementasi kerja sama.',
-        'sumber_minimum' => 'ND/SK/pembagian tugas; konfirmasi tertulis unit.'
-    ],
-    7 => [
-        'kelompok' => 'PIC',
-        'nama' => 'PIC internal',
-        'yang_diperiksa' => 'PIC utama dan cadangan yang aktif, lengkap dengan jabatan, kontak, dan dasar penetapan.',
-        'sumber_minimum' => 'ND/SK/daftar PIC; konfirmasi tertulis unit.'
-    ],
-    8 => [
-        'kelompok' => 'PIC',
-        'nama' => 'PIC mitra',
-        'yang_diperiksa' => 'Penghubung operasional pihak mitra yang telah dikonfirmasi.',
-        'sumber_minimum' => 'Surat/email/form konfirmasi resmi dari mitra.'
-    ],
-    9 => [
-        'kelompok' => 'TINDAK LANJUT',
-        'nama' => 'Rencana tindak lanjut',
-        'yang_diperiksa' => 'Dokumen atau komitmen operasional yang memuat kegiatan, periode, target, dan/atau PIC.',
-        'sumber_minimum' => 'Rencana aksi; matriks kerja; kalender; notula.'
-    ],
-    10 => [
-        'kelompok' => 'PELAKSANAAN',
-        'nama' => 'Pelaksanaan dan hasil',
-        'yang_diperiksa' => 'Kegiatan aktual, realisasi terhadap target jatuh tempo, serta output yang dihasilkan.',
-        'sumber_minimum' => 'Laporan; undangan; notula; daftar hadir; data hasil.'
-    ],
-    11 => [
-        'kelompok' => 'EVIDEN',
-        'nama' => 'Eviden implementasi',
-        'yang_diperiksa' => 'Bukti pelaksanaan/output, lokasi penyimpanan, dan tingkat keteraturannya.',
-        'sumber_minimum' => 'Folder resmi; indeks bukti; dokumen/data kegiatan.'
-    ],
-    12 => [
-        'kelompok' => 'HAMBATAN',
-        'nama' => 'Hambatan/gap',
-        'yang_diperiksa' => 'Kendala faktual atau kekosongan data yang memengaruhi implementasi dan sudah dikonfirmasi.',
-        'sumber_minimum' => 'Konfirmasi unit/PIC/mitra; notula; laporan; bukti keterlambatan.'
-    ]
-];
+/* ── DEFINISI 12 ELEMEN BASELINE FIX (DEFINED IN INCLUDES/FUNCTIONS.PHP) ─────── */
+$b12Defs = BASELINE_12_DEFS;
 
-/* ── POST HANDLERS UNTUK DETAIL NASKAH ───────────────────── */
-if ($id > 0 && $_SERVER['REQUEST_METHOD'] === 'POST') {
+/* ── POST HANDLERS ───────────────────────────────────────── */
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $action = $_POST['action'] ?? '';
+    $targetId = (int)($_POST['mitra_id'] ?? $id);
 
-    // Ambil data mitra saat ini
-    $stmt = $pdo->prepare('SELECT * FROM mitra_kinerja WHERE id = ?');
-    $stmt->execute([$id]);
-    $mitra = $stmt->fetch();
-
-    if (!$mitra) {
-        header('Location: baseline.php');
-        exit;
+    // Ambil data mitra terkait
+    $targetMitra = null;
+    $isTargetLocked = false;
+    if ($targetId > 0) {
+        $stmt = $pdo->prepare('SELECT * FROM mitra_kinerja WHERE id = ?');
+        $stmt->execute([$targetId]);
+        $targetMitra = $stmt->fetch();
+        if ($targetMitra) {
+            $isTargetLocked = ($targetMitra['baseline_status'] === 'TERVERIFIKASI / DIKUNCI');
+        }
     }
 
-    $isLocked = ($mitra['baseline_status'] === 'TERVERIFIKASI / DIKUNCI');
+    // 0. Import Data Baseline (12 Elemen) dari Berkas Spreadsheet (.xlsx)
+    if ($action === 'import_baseline') {
+        if (!$targetMitra) {
+            $errors[] = 'Data mitra tidak ditemukan.';
+        } elseif (!$canEdit) {
+            $errors[] = 'Akses ditolak: Anda tidak memiliki hak akses untuk mengimpor baseline.';
+        } elseif ($isTargetLocked && !$isAdmin) {
+            $errors[] = 'Baseline FIX untuk mitra ' . $targetMitra['kode'] . ' telah dikunci. Buka kunci terlebih dahulu untuk mengimpor ulang data.';
+        } elseif (!isset($_FILES['excel_file']) || $_FILES['excel_file']['error'] !== UPLOAD_ERR_OK) {
+            $errors[] = 'Pilih berkas spreadsheet Excel (.xlsx) yang valid.';
+        } else {
+            $fileInfo = $_FILES['excel_file'];
+            $ext = strtolower(pathinfo($fileInfo['name'], PATHINFO_EXTENSION));
 
-    // 1. Simpan Perubahan Elemen Baseline
-    if ($action === 'save_baseline') {
+            if ($ext !== 'xlsx') {
+                $errors[] = 'Format berkas tidak didukung. Harap unggah file spreadsheet Excel dengan ekstensi .xlsx.';
+            } elseif ($fileInfo['size'] > 25 * 1024 * 1024) {
+                $errors[] = 'Ukuran berkas melebihi batas maksimum 25 MB.';
+            } else {
+                try {
+                    $parsedWb = parseFullWorkbookXlsx($fileInfo['tmp_name']);
+                } catch (Throwable $e) {
+                    error_log('parseFullWorkbookXlsx error: ' . $e->getMessage());
+                    $parsedWb = [];
+                }
+
+                if (empty($parsedWb)) {
+                    $errors[] = 'Gagal membaca isi berkas Excel. Pastikan berkas tidak terkunci password atau rusak.';
+                } else {
+                    $targetCode = strtoupper(trim($targetMitra['kode']));
+                    $baseSheetName = '';
+
+                    // 1. Deteksi Sheet Baseline
+                    // a. Cocokkan dengan kode naskah (misal: P01_DEKRANASDA, P02, dll)
+                    foreach (array_keys($parsedWb) as $sName) {
+                        $upper = strtoupper($sName);
+                        if (str_contains($upper, 'REKAP') || str_contains($upper, 'PANDUAN') || str_contains($upper, 'ANOMALI') || str_contains($upper, 'SINKRONISASI')) continue;
+                        if (str_contains($upper, $targetCode)) {
+                            $baseSheetName = $sName;
+                            break;
+                        }
+                    }
+                    // b. Cari sheet yang bernama BASELINE / SUMBER_BASELINE / BASELINE_12_ELEMEN
+                    if (!$baseSheetName) {
+                        foreach (array_keys($parsedWb) as $sName) {
+                            $upper = strtoupper($sName);
+                            if (str_contains($upper, 'REKAP') || str_contains($upper, 'PANDUAN')) continue;
+                            if (str_contains($upper, 'BASELINE') || str_contains($upper, 'SUMBER_BASELINE')) {
+                                $baseSheetName = $sName;
+                                break;
+                            }
+                        }
+                    }
+                    // c. Jika file hanya memiliki 1 sheet
+                    if (!$baseSheetName && count($parsedWb) === 1) {
+                        $baseSheetName = array_key_first($parsedWb);
+                    }
+                    // d. Fallback: cari sheet yang memiliki angka 1..12 di kolom 1
+                    if (!$baseSheetName) {
+                        foreach ($parsedWb as $shName => $shRows) {
+                            $upper = strtoupper($shName);
+                            if (str_contains($upper, 'REKAP') || str_contains($upper, 'PANDUAN')) continue;
+                            for ($sr = 1; $sr <= 25; $sr++) {
+                                if (isset($shRows[$sr][1]) && ((string)$shRows[$sr][1] === '1' || $shRows[$sr][1] === 1)) {
+                                    $baseSheetName = $shName;
+                                    break 2;
+                                }
+                            }
+                        }
+                    }
+
+                    if (!$baseSheetName || empty($parsedWb[$baseSheetName])) {
+                        $errors[] = 'Sheet baseline 12 elemen tidak ditemukan di dalam berkas Excel.';
+                    } else {
+                        $baseRows = $parsedWb[$baseSheetName];
+
+                        // Baca metadata pemeriksa & cut-off jika ada
+                        $pemeriksaVal = trim((string)($baseRows[5][8] ?? $baseRows[5][7] ?? $baseRows[5][3] ?? ''));
+                        $cutoffVal = trim((string)($baseRows[8][8] ?? $baseRows[8][7] ?? $baseRows[8][2] ?? ''));
+                        if (!empty($cutoffVal) && preg_match('/(\d{4}-\d{2}-\d{2})/', $cutoffVal, $mCut)) {
+                            $cutoffDate = $mCut[1];
+                        } elseif (is_numeric($cutoffVal) && (int)$cutoffVal > 30000) {
+                            $cutoffDate = gmdate('Y-m-d', ((int)$cutoffVal - 25569) * 86400);
+                        } else {
+                            $cutoffDate = null;
+                        }
+
+                        $updatedBaseline = 0;
+                        $fileNaskahExtracted = null;
+
+                        $pdo->beginTransaction();
+                        try {
+                            for ($r = 4; $r <= 35; $r++) {
+                                if (!isset($baseRows[$r])) continue;
+                                $row = $baseRows[$r];
+                                $col1 = trim((string)($row[1] ?? ''));
+                                if (!is_numeric($col1)) continue;
+                                $elNum = (int)$col1;
+                                if ($elNum < 1 || $elNum > 12) continue;
+
+                                $rawStatus = strtoupper(trim((string)($row[6] ?? 'BELUM DIISI')));
+                                $fakta = trim((string)($row[7] ?? ''));
+                                $linkBukti = trim((string)($row[8] ?? ''));
+                                $catatan = trim((string)($row[9] ?? ''));
+
+                                // Normalisasi status secara cerdas
+                                $finalStatus = 'BELUM DIISI';
+                                if (str_contains($rawStatus, 'BELUM TERVERIFIKASI')) {
+                                    $finalStatus = 'BELUM TERVERIFIKASI';
+                                } elseif (str_contains($rawStatus, 'BELUM TERSEDIA') || str_contains($rawStatus, 'TIDAK TERSEDIA') || str_contains($rawStatus, 'TIDAK ADA')) {
+                                    $finalStatus = 'BELUM TERSEDIA';
+                                } elseif (str_contains($rawStatus, 'TIDAK RELEVAN') || str_contains($rawStatus, 'BUKAN')) {
+                                    $finalStatus = 'TIDAK RELEVAN';
+                                } elseif (str_contains($rawStatus, 'TERVERIFIKASI') || str_contains($rawStatus, 'SESUAI') || str_contains($rawStatus, 'VERIFIED') || str_contains($rawStatus, 'ADA') || str_contains($rawStatus, 'SUDAH')) {
+                                    $finalStatus = 'TERVERIFIKASI';
+                                } elseif (!empty($linkBukti) || !empty($fakta)) {
+                                    $finalStatus = !empty($linkBukti) ? 'TERVERIFIKASI' : 'BELUM TERVERIFIKASI';
+                                }
+
+                                $def = BASELINE_12_DEFS[$elNum];
+                                $stmtE = $pdo->prepare('INSERT INTO baseline_elemen (
+                                    mitra_id, nomor_elemen, kelompok, nama_elemen, yang_diperiksa, sumber_bukti_minimum,
+                                    status, fakta_pemeriksaan, link_sumber_bukti, catatan
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                ON DUPLICATE KEY UPDATE
+                                    status = VALUES(status),
+                                    fakta_pemeriksaan = VALUES(fakta_pemeriksaan),
+                                    link_sumber_bukti = VALUES(link_sumber_bukti),
+                                    catatan = VALUES(catatan)');
+                                $stmtE->execute([
+                                    $targetId, $elNum,
+                                    $def['kelompok'], $def['nama'], $def['yang_diperiksa'], $def['sumber_minimum'],
+                                    $finalStatus, $fakta, $linkBukti, $catatan
+                                ]);
+                                $updatedBaseline++;
+
+                                // Elemen 1 PDF / naskah
+                                if ($elNum === 1 && !empty($linkBukti)) {
+                                    if (preg_match('/^https?:\/\/[^\s]+/i', $linkBukti, $mUrl)) {
+                                        $fileNaskahExtracted = $mUrl[0];
+                                    } elseif (str_starts_with($linkBukti, 'public/uploads/')) {
+                                        $fileNaskahExtracted = $linkBukti;
+                                    }
+                                }
+                            }
+
+                            // Cek kelengkapan pengisian untuk status baseline
+                            $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM baseline_elemen WHERE mitra_id = ? AND status != 'BELUM DIISI'");
+                            $stmtCount->execute([$targetId]);
+                            $filledCount = (int)$stmtCount->fetchColumn();
+
+                            // Update ringkasan status baseline pada mitra_kinerja
+                            $updateSqlParts = [];
+                            $updateParams = [];
+
+                            if ($filledCount >= 12) {
+                                $updateSqlParts[] = "baseline_status = 'TERVERIFIKASI / DIKUNCI'";
+                                $updateSqlParts[] = "baseline_locked_at = NOW()";
+                                $updateSqlParts[] = "baseline_locked_by = ?";
+                                $updateParams[] = $user['id'];
+                            } else {
+                                $updateSqlParts[] = "baseline_status = 'DALAM PROSES'";
+                            }
+
+                            if (!empty($pemeriksaVal) && !str_starts_with($pemeriksaVal, '[')) {
+                                $updateSqlParts[] = "baseline_pemeriksa = ?";
+                                $updateParams[] = $pemeriksaVal;
+                            }
+                            if (!empty($cutoffDate)) {
+                                $updateSqlParts[] = "cutoff_date = ?";
+                                $updateParams[] = $cutoffDate;
+                            }
+                            if (!empty($fileNaskahExtracted)) {
+                                $updateSqlParts[] = "file_naskah = ?";
+                                $updateParams[] = $fileNaskahExtracted;
+                            }
+
+                            if (!empty($updateSqlParts)) {
+                                $updateParams[] = $targetId;
+                                $pdo->prepare('UPDATE mitra_kinerja SET ' . implode(', ', $updateSqlParts) . ' WHERE id = ?')->execute($updateParams);
+                            }
+
+                            // Deteksi PIC sheet jika ada
+                            foreach (array_keys($parsedWb) as $sName) {
+                                $upper = strtoupper($sName);
+                                if (str_contains($upper, 'IDENTITAS') || str_contains($upper, 'PIC')) {
+                                    $picRows = $parsedWb[$sName];
+                                    $picInternalFound = '';
+                                    $picMitraFound = '';
+                                    foreach ($picRows as $pRow) {
+                                        $label = strtolower(trim($pRow[1] ?? ''));
+                                        $val = trim($pRow[2] ?? '');
+                                        if (str_contains($label, 'pic mitra') || (str_contains($label, 'nama') && str_contains($label, 'mitra'))) {
+                                            if (!empty($val)) $picMitraFound = $val;
+                                        } elseif (str_contains($label, 'pic internal') || str_contains($label, 'pengampu')) {
+                                            if (!empty($val)) $picInternalFound = $val;
+                                        }
+                                    }
+                                    if ($picInternalFound || $picMitraFound) {
+                                        $uSql = 'UPDATE mitra_kinerja SET ';
+                                        $uParams = [];
+                                        if ($picInternalFound) { $uSql .= 'pic_internal = ?, '; $uParams[] = $picInternalFound; }
+                                        if ($picMitraFound) { $uSql .= 'pic_mitra = ?, '; $uParams[] = $picMitraFound; }
+                                        $uSql = rtrim($uSql, ', ') . ' WHERE id = ?';
+                                        $uParams[] = $targetId;
+                                        $pdo->prepare($uSql)->execute($uParams);
+                                    }
+                                    break;
+                                }
+                            }
+
+                            $pdo->commit();
+                            logAudit($targetId, $user['id'], 'IMPORT_BASELINE', "Import 12 elemen Baseline FIX mitra {$targetMitra['kode']} dari Excel ({$fileInfo['name']})");
+                            $success = "Data Baseline FIX untuk mitra {$targetMitra['kode']} berhasil diimpor ({$updatedBaseline} elemen diperbarui).";
+                        } catch (Throwable $e) {
+                            if ($pdo->inTransaction()) $pdo->rollBack();
+                            $errors[] = 'Gagal menyimpan hasil import: ' . $e->getMessage();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Detail Handlers untuk ID tertentu
+    elseif ($id > 0) {
+        $mitra = $targetMitra;
+        $isLocked = $isTargetLocked;
+
+        if (!$mitra) {
+            header('Location: baseline.php');
+            exit;
+        }
+
+        // 1. Simpan Perubahan Elemen Baseline
+        if ($action === 'save_baseline') {
         if (!$canEdit) {
             $errors[] = 'Akses ditolak: Hanya admin dan pemeriksa yang dapat mengubah baseline.';
         } elseif ($isLocked) {
@@ -117,7 +280,7 @@ if ($id > 0 && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->beginTransaction();
             try {
                 // Update kontrol naskah
-                $cutoffDate = $_POST['cutoff_date'] ?: null;
+                $cutoffDate = ($_POST['cutoff_date'] ?? '') ?: null;
                 $statusTanggal = $_POST['status_tanggal'] ?? $mitra['status_tanggal'];
                 $sumberBaseline = trim($_POST['sumber_baseline'] ?? '');
                 $pemeriksa = trim($_POST['baseline_pemeriksa'] ?? '');
@@ -161,7 +324,7 @@ if ($id > 0 && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 logAudit($id, $user['id'], 'UPDATE_BASELINE', 'Pembaruan 12 elemen Baseline FIX ' . $mitra['kode']);
                 $success = 'Data verifikasi 12 elemen Baseline FIX berhasil disimpan.';
             } catch (Throwable $e) {
-                $pdo->rollBack();
+                if ($pdo->inTransaction()) $pdo->rollBack();
                 $errors[] = 'Gagal menyimpan: ' . $e->getMessage();
             }
         }
@@ -209,6 +372,131 @@ if ($id > 0 && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $success = 'Kunci Baseline FIX dibuka kembali untuk penyesuaian administratif.';
         }
     }
+
+    // 4. Upload PDF untuk Elemen Baseline (IDENTITAS, SUBSTANSI, TINDAK LANJUT, HAMBATAN)
+    elseif ($action === 'upload_baseline_pdf') {
+        if (!$canEdit) {
+            $errors[] = 'Akses ditolak.';
+        } elseif ($isLocked) {
+            $errors[] = 'Baseline FIX telah dikunci.';
+        } else {
+            $elemenNomor = (int)($_POST['elemen_nomor'] ?? 0);
+            if (!in_array($elemenNomor, [1, 3, 9, 12], true)) {
+                $errors[] = 'Elemen tidak valid untuk upload berkas.';
+            } else {
+                $targetDir = __DIR__ . '/public/uploads/baseline_pdf/';
+                if (!is_dir($targetDir)) mkdir($targetDir, 0777, true);
+
+                if ($elemenNomor === 9 && isset($_FILES['pdf_files']) && is_array($_FILES['pdf_files']['name'])) {
+                    // Multiple files for Tindak Lanjut
+                    $savedPaths = [];
+                    $stmtOld = $pdo->prepare('SELECT link_sumber_bukti FROM baseline_elemen WHERE mitra_id = ? AND nomor_elemen = 9');
+                    $stmtOld->execute([$id]);
+                    $oldLinks = $stmtOld->fetchColumn() ?: '';
+                    if (!empty($oldLinks)) {
+                        $dec = json_decode($oldLinks, true);
+                        if (is_array($dec)) $savedPaths = $dec;
+                        else $savedPaths = array_filter(explode(';', $oldLinks));
+                    }
+
+                    $fileCount = count($_FILES['pdf_files']['name']);
+                    for ($f = 0; $f < $fileCount; $f++) {
+                        if ($_FILES['pdf_files']['error'][$f] === UPLOAD_ERR_OK) {
+                            $ext = strtolower(pathinfo($_FILES['pdf_files']['name'][$f], PATHINFO_EXTENSION));
+                            if ($ext === 'pdf' && isPdfValid($_FILES['pdf_files']['tmp_name'][$f])) {
+                                $safeLeaf = preg_replace('/[^a-zA-Z0-9_\.-]/', '_', pathinfo($_FILES['pdf_files']['name'][$f], PATHINFO_FILENAME));
+                                $targetName = 'baseline_e9_' . $mitra['kode'] . '_' . time() . '_' . $f . '_' . $safeLeaf . '.pdf';
+                                if (move_uploaded_file($_FILES['pdf_files']['tmp_name'][$f], $targetDir . $targetName)) {
+                                    $savedPaths[] = 'public/uploads/baseline_pdf/' . $targetName;
+                                }
+                            }
+                        }
+                    }
+
+                    if (!empty($savedPaths)) {
+                        $jsonVal = json_encode(array_values(array_unique($savedPaths)), JSON_UNESCAPED_UNICODE);
+                        $stmtU = $pdo->prepare('UPDATE baseline_elemen SET link_sumber_bukti = ?, status = \'TERVERIFIKASI\' WHERE mitra_id = ? AND nomor_elemen = 9');
+                        $stmtU->execute([$jsonVal, $id]);
+                        logAudit($id, $user['id'], 'UPLOAD_BASELINE_PDF', 'Upload multiple dokumen tindak lanjut ' . $mitra['kode']);
+                        $success = 'Berkas PDF Rencana Tindak Lanjut berhasil diunggah.';
+                    } else {
+                        $errors[] = 'Gagal mengunggah berkas. Pastikan format file adalah .PDF.';
+                    }
+                } else {
+                    // Single file for 1, 3, 12
+                    if (!isset($_FILES['pdf_file']) || $_FILES['pdf_file']['error'] !== UPLOAD_ERR_OK) {
+                        $errors[] = 'Pilih file PDF yang valid.';
+                    } else {
+                        $ext = strtolower(pathinfo($_FILES['pdf_file']['name'], PATHINFO_EXTENSION));
+                        if ($ext !== 'pdf' || !isPdfValid($_FILES['pdf_file']['tmp_name'])) {
+                            $errors[] = 'Format file wajib berupa dokumen .PDF asli bertanda tangan.';
+                        } else {
+                            $targetName = 'baseline_e' . $elemenNomor . '_' . $mitra['kode'] . '_' . time() . '.pdf';
+                            if (move_uploaded_file($_FILES['pdf_file']['tmp_name'], $targetDir . $targetName)) {
+                                $filePath = 'public/uploads/baseline_pdf/' . $targetName;
+                                $stmtU = $pdo->prepare('UPDATE baseline_elemen SET link_sumber_bukti = ?, status = \'TERVERIFIKASI\' WHERE mitra_id = ? AND nomor_elemen = ?');
+                                $stmtU->execute([$filePath, $id, $elemenNomor]);
+
+                                if ($elemenNomor === 1) {
+                                    $stmtM = $pdo->prepare('UPDATE mitra_kinerja SET file_naskah = ? WHERE id = ?');
+                                    $stmtM->execute([$filePath, $id]);
+                                }
+
+                                logAudit($id, $user['id'], 'UPLOAD_BASELINE_PDF', 'Upload PDF elemen ' . $elemenNomor . ' ' . $mitra['kode']);
+                                $success = 'Berkas PDF untuk elemen ' . BASELINE_12_DEFS[$elemenNomor]['nama'] . ' berhasil diunggah.';
+                            } else {
+                                $errors[] = 'Gagal menyimpan file di server.';
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 5. Update PIC Data (Internal & Mitra)
+    elseif ($action === 'update_pic') {
+        if (!$canEdit) {
+            $errors[] = 'Akses ditolak.';
+        } elseif ($isLocked) {
+            $errors[] = 'Baseline FIX telah dikunci.';
+        } else {
+            $picType = $_POST['pic_type'] ?? '';
+            $namaPic = trim($_POST['nama_pic'] ?? '');
+            $jabatanPic = trim($_POST['jabatan_pic'] ?? '');
+            $unitPic = trim($_POST['unit_pic'] ?? '');
+            $kontakPic = trim($_POST['kontak_pic'] ?? '');
+            $skPic = trim($_POST['sk_pic'] ?? '');
+
+            if ($namaPic === '') {
+                $errors[] = 'Nama PIC wajib diisi.';
+            } else {
+                $summaryPic = $namaPic . ($jabatanPic ? " ({$jabatanPic})" : '') . ($kontakPic ? " - HP/WA: {$kontakPic}" : '');
+                if ($picType === 'internal') {
+                    $detailFakta = "PIC Internal: {$namaPic}\nJabatan: " . ($jabatanPic ?: '-') . "\nUnit: " . ($unitPic ?: '-') . "\nKontak: " . ($kontakPic ?: '-') . "\nDasar Penetapan/SK: " . ($skPic ?: '-');
+                    $stmtM = $pdo->prepare('UPDATE mitra_kinerja SET pic_internal = ? WHERE id = ?');
+                    $stmtM->execute([$summaryPic, $id]);
+                    $stmtE = $pdo->prepare('UPDATE baseline_elemen SET fakta_pemeriksaan = ?, status = \'TERVERIFIKASI\' WHERE mitra_id = ? AND nomor_elemen = 7');
+                    $stmtE->execute([$detailFakta, $id]);
+                    logAudit($id, $user['id'], 'UPDATE_PIC_INTERNAL', 'Update PIC Internal ' . $mitra['kode']);
+                    $success = 'Data PIC Internal berhasil diperbarui dan diverifikasi.';
+                } elseif ($picType === 'mitra') {
+                    $detailFakta = "PIC Mitra: {$namaPic}\nJabatan: " . ($jabatanPic ?: '-') . "\nInstansi: " . ($unitPic ?: $mitra['nama_mitra']) . "\nKontak: " . ($kontakPic ?: '-') . "\nKeterangan: " . ($skPic ?: '-');
+                    $stmtM = $pdo->prepare('UPDATE mitra_kinerja SET pic_mitra = ? WHERE id = ?');
+                    $stmtM->execute([$summaryPic, $id]);
+                    $stmtE = $pdo->prepare('UPDATE baseline_elemen SET fakta_pemeriksaan = ?, status = \'TERVERIFIKASI\' WHERE mitra_id = ? AND nomor_elemen = 8');
+                    $stmtE->execute([$detailFakta, $id]);
+                    logAudit($id, $user['id'], 'UPDATE_PIC_MITRA', 'Update PIC Mitra ' . $mitra['kode']);
+                    $success = 'Data PIC Mitra berhasil diperbarui dan diverifikasi.';
+                }
+                // Refresh data mitra
+                $stmt = $pdo->prepare('SELECT * FROM mitra_kinerja WHERE id = ?');
+                $stmt->execute([$id]);
+                $mitra = $stmt->fetch();
+            }
+        }
+    }
+}
 }
 
 /* ── VIEW ROUTER ─────────────────────────────────────────── */
@@ -234,6 +522,24 @@ if ($id > 0) {
     $elemenData = [];
     foreach ($rowsRaw as $r) {
         $elemenData[(int)$r['nomor_elemen']] = $r;
+    }
+
+    // Self-healing: pastikan ke-12 elemen ada di database
+    for ($i = 1; $i <= 12; $i++) {
+        if (!isset($elemenData[$i])) {
+            $def = BASELINE_12_DEFS[$i];
+            $pdo->prepare('INSERT INTO baseline_elemen (mitra_id, nomor_elemen, kelompok, nama_elemen, yang_diperiksa, sumber_bukti_minimum, status) VALUES (?, ?, ?, ?, ?, ?, \'BELUM DIISI\') ON DUPLICATE KEY UPDATE id=id')
+                ->execute([$id, $i, $def['kelompok'], $def['nama'], $def['yang_diperiksa'], $def['sumber_minimum']]);
+            $elemenData[$i] = [
+                'mitra_id' => $id,
+                'nomor_elemen' => $i,
+                'kelompok' => $def['kelompok'],
+                'nama_elemen' => $def['nama'],
+                'status' => 'BELUM DIISI',
+                'fakta_pemeriksaan' => '',
+                'link_sumber_bukti' => ''
+            ];
+        }
     }
 
     // Hitung status kelengkapan
@@ -298,9 +604,9 @@ if ($id > 0) {
             <table style="margin-bottom:14px;">
                 <tr><th style="width:25%;">Kode &amp; Mitra</th><td><strong><?= h($mitra['kode']) ?></strong> &mdash; <?= h($mitra['nama_mitra']) ?></td><th style="width:20%;">Portofolio</th><td><?= h($mitra['portofolio']) ?></td></tr>
                 <tr><th>Judul Kerja Sama</th><td colspan="3"><?= h($mitra['judul']) ?></td></tr>
-                <tr><th>Jenis &amp; Masa Berlaku</th><td><?= h($mitra['jenis']) ?> (<?= formatTanggal($mitra['tanggal_mulai']) ?> s.d. <?= formatTanggal($mitra['tanggal_berakhir']) ?>)</td><th>Status Tanggal</th><td><?= h($mitra['status_tanggal']) ?></td></tr>
+                <tr><th>Bidang &amp; Bentuk Naskah</th><td><strong><?= h($mitra['bidang'] ?? 'AHU') ?></strong> &mdash; <?= h($mitra['jenis']) ?> (<?= formatTanggal($mitra['tanggal_mulai']) ?> s.d. <?= formatTanggal($mitra['tanggal_berakhir']) ?>)</td><th>Status Tanggal</th><td><?= h($mitra['status_tanggal']) ?></td></tr>
                 <tr><th>Tanggal Cut-off Baseline</th><td><strong><?= formatTanggal($mitra['cutoff_date']) ?></strong></td><th>Status Kunci</th><td><strong><?= h($mitra['baseline_status']) ?></strong> <?= $mitra['baseline_locked_at'] ? '(' . formatTanggal($mitra['baseline_locked_at']) . ')' : '' ?></td></tr>
-                <tr><th>Pemeriksa Baseline</th><td><?= h($mitra['baseline_pemeriksa'] ?? 'Tim Penilai') ?></td><th>Sumber Rujukan</th><td><?= h($mitra['sumber_baseline'] ?? 'P2MA Kemenkumham') ?></td></tr>
+                <tr><th>Pemeriksa Baseline</th><td><?= h($mitra['baseline_pemeriksa'] ?? 'Tim Penilai') ?></td><th>Sumber Rujukan</th><td><?= h($mitra['sumber_baseline'] ?? 'P2MA Kementerian Hukum') ?></td></tr>
             </table>
 
             <table>
@@ -334,7 +640,7 @@ if ($id > 0) {
                         </td>
                         <td style="text-align:center;"><span class="badge badge-<?= $bClass ?>"><?= h($st) ?></span></td>
                         <td><?= nl2br(h($el['fakta_pemeriksaan'] ?? '-')) ?></td>
-                        <td style="font-size:10.5px;"><?= nl2br(h($el['link_sumber_bukti'] ?? '-')) ?></td>
+                        <td style="font-size:10.5px;"><?= formatLinkSumberBukti($el['link_sumber_bukti'] ?? '') ?></td>
                     </tr>
                     <?php endfor; ?>
                 </tbody>
@@ -345,7 +651,7 @@ if ($id > 0) {
                     <div>Unit Pengampu / PIC,</div>
                     <div style="height:60px;"></div>
                     <div style="font-weight:700;text-decoration:underline;">Pejabat Pemangku Kegiatan</div>
-                    <div class="muted">Kanwil Kemenkumham Kepri</div>
+                    <div class="muted">Kanwil Kementerian Hukum Kepri</div>
                 </div>
                 <div>
                     <div>Pemeriksa / Verifikator,</div>
@@ -376,8 +682,16 @@ if ($id > 0) {
             <h1 style="margin:0;font-size:20px;"><?= h($mitra['kode']) ?> — Baseline FIX (Kondisi Awal)</h1>
             <div class="muted" style="font-size:13px;"><?= h($mitra['nama_mitra']) ?> &bull; <?= h($mitra['judul']) ?></div>
         </div>
-        <div style="display:flex;gap:8px;">
+        <div style="display:flex;gap:8px;align-items:center;">
             <a href="baseline.php" class="btn btn-outline btn-sm">&larr; Daftar Baseline</a>
+            <a href="public/templates/template_baseline_12_elemen.xlsx" download="Template_Baseline_<?= h($mitra['kode']) ?>.xlsx" class="btn btn-outline btn-sm" style="font-size:11px;display:inline-flex;align-items:center;gap:4px;color:#4338ca;border-color:#c7d2fe;background:#eef2ff;" title="Unduh Formulir Template Baseline (.xlsx)">
+                <span>📥</span> Unduh Template (.xlsx)
+            </a>
+            <?php if ($canEdit && (!$isLocked || $isAdmin)): ?>
+            <button type="button" onclick="openImportModal(<?= $id ?>, <?= htmlspecialchars(json_encode((string)$mitra['kode']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$mitra['nama_mitra']), ENT_QUOTES, 'UTF-8') ?>)" class="btn btn-sm" style="font-size:11px;display:inline-flex;align-items:center;gap:4px;background:#4f46e5;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="Import Data Baseline">
+                <span>📤</span> Import Baseline (.xlsx)
+            </button>
+            <?php endif; ?>
             <a href="mitra_edit.php?id=<?= $id ?>" class="btn btn-outline btn-sm">Buka Scorecard &rarr;</a>
             <a href="baseline.php?view=print&id=<?= $id ?>" target="_blank" class="btn btn-primary btn-sm">🖨️ Cetak / PDF</a>
         </div>
@@ -468,7 +782,7 @@ if ($id > 0) {
                 </div>
                 <div class="field">
                     <label>Sumber Baseline Utama</label>
-                    <input type="text" name="sumber_baseline" value="<?= h($mitra['sumber_baseline'] ?? 'P2MA Kemenkumham RI') ?>" placeholder="P2MA / Berkas Fisik" <?= $isLocked || !$canEdit ? 'disabled' : '' ?>>
+                    <input type="text" name="sumber_baseline" value="<?= h($mitra['sumber_baseline'] ?? 'P2MA Kementerian Hukum RI') ?>" placeholder="P2MA / Berkas Fisik" <?= $isLocked || !$canEdit ? 'disabled' : '' ?>>
                 </div>
                 <div class="field" style="grid-column:1/-1;">
                     <label>Catatan Ringkasan Kondisi Awal</label>
@@ -489,16 +803,23 @@ if ($id > 0) {
                 <?php endif; ?>
             </div>
 
+            <?php
+            $stmtTLCount = $pdo->prepare('SELECT COUNT(*) FROM tindak_lanjut WHERE mitra_id = ?');
+            $stmtTLCount->execute([$id]);
+            $kegiatanCount = (int)$stmtTLCount->fetchColumn();
+            ?>
+
             <div class="table-wrap">
                 <table>
                     <thead>
                         <tr>
                             <th style="width:4%;text-align:center;">No</th>
-                            <th style="width:12%;">Kelompok</th>
-                            <th style="width:24%;">Elemen &amp; Standar Bukti</th>
-                            <th style="width:15%;">Status Baseline</th>
-                            <th style="width:25%;">Fakta / Hasil Pemeriksaan</th>
-                            <th style="width:20%;">Sumber / Bukti Minimum</th>
+                            <th style="width:10%;">Kelompok</th>
+                            <th style="width:20%;">Elemen &amp; Standar Bukti</th>
+                            <th style="width:12%;">Status Baseline</th>
+                            <th style="width:20%;">Fakta / Hasil Pemeriksaan</th>
+                            <th style="width:16%;">Sumber / Bukti Minimum</th>
+                            <th style="width:18%;text-align:center;">Aksi / Tindakan</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -538,9 +859,124 @@ if ($id > 0) {
                             </td>
                             <td>
                                 <?php if ($isLocked || !$canEdit): ?>
-                                    <div style="font-size:11px;color:#475569;"><?= nl2br(h($el['link_sumber_bukti'] ?? '-')) ?></div>
+                                    <div style="font-size:11px;color:#475569;"><?= formatLinkSumberBukti($el['link_sumber_bukti'] ?? '') ?></div>
                                 <?php else: ?>
                                     <textarea name="bukti_<?= $num ?>" rows="2" style="width:100%;font-size:11px;" placeholder="Tautan P2MA / surat / nomor arsip..."><?= h($el['link_sumber_bukti'] ?? '') ?></textarea>
+                                <?php endif; ?>
+                            </td>
+                            <!-- Kolom Aksi / Tindakan Khusus Elemen -->
+                            <td style="text-align:center;vertical-align:middle;">
+                                <?php if ($num === 1): // IDENTITAS: fitur upload file pdf ?>
+                                    <div style="display:flex;flex-direction:column;gap:4px;align-items:center;">
+                                        <?php 
+                                            $pdfPath = $el['link_sumber_bukti'] ?: ($mitra['file_naskah'] ?? '');
+                                            if ($pdfPath && (file_exists(__DIR__ . '/' . $pdfPath) || preg_match('/^https?:\/\//i', $pdfPath))): 
+                                        ?>
+                                            <a href="<?= h($pdfPath) ?>" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm" style="font-size:10.5px;padding:3px 7px;">📄 Lihat PDF</a>
+                                        <?php endif; ?>
+                                        <?php if (!$isLocked && $canEdit): ?>
+                                            <button type="button" onclick="openUploadModal(1, 'Identitas Naskah')" class="btn btn-outline btn-sm" style="font-size:10.5px;padding:3px 7px;">📤 Upload PDF</button>
+                                        <?php endif; ?>
+                                    </div>
+
+                                <?php elseif ($num === 3): // SUBSTANSI: fitur upload file pdf ?>
+                                    <div style="display:flex;flex-direction:column;gap:4px;align-items:center;">
+                                        <?php 
+                                            $subPath = $el['link_sumber_bukti'] ?? '';
+                                            if ($subPath && (file_exists(__DIR__ . '/' . $subPath) || preg_match('/^https?:\/\//i', $subPath))): 
+                                        ?>
+                                            <a href="<?= h($subPath) ?>" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm" style="font-size:10.5px;padding:3px 7px;">📄 Lihat PDF</a>
+                                        <?php endif; ?>
+                                        <?php if (!$isLocked && $canEdit): ?>
+                                            <button type="button" onclick="openUploadModal(3, 'Dokumen Ruang Lingkup')" class="btn btn-outline btn-sm" style="font-size:10.5px;padding:3px 7px;">📤 Upload PDF</button>
+                                        <?php endif; ?>
+                                    </div>
+
+                                <?php elseif ($num === 7): // PIC internal: fitur update data PIC internal ?>
+                                    <div style="display:flex;flex-direction:column;gap:4px;align-items:center;">
+                                        <?php if (!empty($mitra['pic_internal'])): ?>
+                                            <div style="font-size:11px;color:#1e40af;font-weight:600;max-width:140px;"><?= h(singkat($mitra['pic_internal'], 28)) ?></div>
+                                        <?php endif; ?>
+                                        <?php if (!$isLocked && $canEdit): ?>
+                                            <button type="button" onclick="openPicModal('internal')" class="btn btn-outline btn-sm" style="font-size:10.5px;padding:3px 7px;display:inline-flex;align-items:center;gap:3px;">
+                                                👤 Update PIC
+                                            </button>
+                                        <?php endif; ?>
+                                    </div>
+
+                                <?php elseif ($num === 8): // PIC mitra: fitur update data PIC mitra ?>
+                                    <div style="display:flex;flex-direction:column;gap:4px;align-items:center;">
+                                        <?php if (!empty($mitra['pic_mitra'])): ?>
+                                            <div style="font-size:11px;color:#1e40af;font-weight:600;max-width:140px;"><?= h(singkat($mitra['pic_mitra'], 28)) ?></div>
+                                        <?php endif; ?>
+                                        <?php if (!$isLocked && $canEdit): ?>
+                                            <button type="button" onclick="openPicModal('mitra')" class="btn btn-outline btn-sm" style="font-size:10.5px;padding:3px 7px;display:inline-flex;align-items:center;gap:3px;">
+                                                🤝 Update PIC
+                                            </button>
+                                        <?php endif; ?>
+                                    </div>
+
+                                <?php elseif ($num === 9): // TINDAK LANJUT: fitur upload multiple pdf ?>
+                                    <div style="display:flex;flex-direction:column;gap:3px;align-items:center;">
+                                        <?php 
+                                            $tlFiles = [];
+                                            if (!empty($el['link_sumber_bukti'])) {
+                                                $decoded = json_decode($el['link_sumber_bukti'], true);
+                                                if (is_array($decoded)) {
+                                                    $tlFiles = $decoded;
+                                                } elseif (str_contains($el['link_sumber_bukti'], ';')) {
+                                                    $tlFiles = explode(';', $el['link_sumber_bukti']);
+                                                } elseif (str_ends_with(strtolower($el['link_sumber_bukti']), '.pdf')) {
+                                                    $tlFiles = [$el['link_sumber_bukti']];
+                                                }
+                                            }
+                                            foreach ($tlFiles as $idxF => $fPath):
+                                                $fName = basename(trim($fPath));
+                                        ?>
+                                            <a href="<?= h(trim($fPath)) ?>" target="_blank" class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 5px;margin-bottom:2px;">
+                                                📄 <?= h(singkat($fName, 16)) ?>
+                                            </a>
+                                        <?php endforeach; ?>
+                                        <?php if (!$isLocked && $canEdit): ?>
+                                            <button type="button" onclick="openUploadMultipleModal(9, 'Dokumen Rencana Tindak Lanjut')" class="btn btn-outline btn-sm" style="font-size:10.5px;padding:3px 7px;">
+                                                📤 Upload PDF (Multi)
+                                            </button>
+                                        <?php endif; ?>
+                                    </div>
+
+                                <?php elseif ($num === 10): // PELAKSANAAN: terbaca "(angka) Kegiatan" dari menu Tindak Lanjut ?>
+                                    <div>
+                                        <span class="badge badge-<?= $kegiatanCount > 0 ? 'success' : 'secondary' ?>" style="font-size:11.5px;font-weight:700;padding:4px 8px;">
+                                            <?= $kegiatanCount ?> Kegiatan
+                                        </span>
+                                        <div class="muted" style="font-size:10px;margin-top:2px;">Dari Tindak Lanjut</div>
+                                    </div>
+
+                                <?php elseif ($num === 11): // EVIDEN: jika terdapat kegiatan, tampilkan tombol ke menu Tindak Lanjut ?>
+                                    <div>
+                                        <?php if ($kegiatanCount > 0): ?>
+                                            <a href="tindak_lanjut.php?mitra_id=<?= $id ?>" target="_blank" class="btn btn-primary btn-sm" style="font-size:10.5px;display:inline-flex;align-items:center;gap:3px;padding:3px 6px;">
+                                                📂 Buka Tindak Lanjut &rarr;
+                                            </a>
+                                        <?php else: ?>
+                                            <a href="tindak_lanjut.php" target="_blank" class="btn btn-outline btn-sm" style="font-size:10px;color:#64748b;padding:2px 5px;">
+                                                + Tambah Kegiatan
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
+
+                                <?php elseif ($num === 12): // HAMBATAN: fitur upload file pdf ?>
+                                    <div style="display:flex;flex-direction:column;gap:4px;align-items:center;">
+                                        <?php if (!empty($el['link_sumber_bukti']) && file_exists(__DIR__ . '/' . $el['link_sumber_bukti'])): ?>
+                                            <a href="<?= h($el['link_sumber_bukti']) ?>" target="_blank" class="btn btn-outline btn-sm" style="font-size:10.5px;padding:3px 7px;">📄 Lihat PDF</a>
+                                        <?php endif; ?>
+                                        <?php if (!$isLocked && $canEdit): ?>
+                                            <button type="button" onclick="openUploadModal(12, 'Dokumen Kendala / Gap')" class="btn btn-outline btn-sm" style="font-size:10.5px;padding:3px 7px;">📤 Upload PDF</button>
+                                        <?php endif; ?>
+                                    </div>
+
+                                <?php else: ?>
+                                    <span class="muted" style="font-size:11px;">-</span>
                                 <?php endif; ?>
                             </td>
                         </tr>
@@ -557,6 +993,194 @@ if ($id > 0) {
             <?php endif; ?>
         </div>
     </form>
+
+    <!-- Modal Upload Single PDF (Elemen 1, 3, 12) -->
+    <div id="modalUploadSingle" class="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;overflow:auto;">
+        <div style="background:#fff;max-width:480px;margin:80px auto;padding:20px;border-radius:8px;box-shadow:0 10px 25px rgba(0,0,0,0.15);">
+            <div class="flex-between" style="margin-bottom:12px;">
+                <h3 id="modalSingleTitle" style="margin:0;font-size:16px;color:#1e40af;">Upload Berkas PDF</h3>
+                <button type="button" onclick="document.getElementById('modalUploadSingle').style.display='none'" style="background:none;border:none;font-size:18px;cursor:pointer;">&times;</button>
+            </div>
+            <form method="post" enctype="multipart/form-data">
+                <input type="hidden" name="action" value="upload_baseline_pdf">
+                <input type="hidden" id="modalSingleElemen" name="elemen_nomor" value="1">
+                <div class="field" style="margin-bottom:16px;">
+                    <label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;">Pilih File Dokumen (.PDF) *</label>
+                    <input type="file" name="pdf_file" accept=".pdf" required style="width:100%;font-size:12.5px;">
+                    <div class="muted" style="font-size:11px;margin-top:4px;">Wajib format .PDF resmi bertanda tangan.</div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:8px;">
+                    <button type="button" onclick="document.getElementById('modalUploadSingle').style.display='none'" class="btn btn-outline btn-sm">Batal</button>
+                    <button type="submit" class="btn btn-primary btn-sm">📤 Unggah PDF</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Upload Multiple PDF (Elemen 9: Tindak Lanjut) -->
+    <div id="modalUploadMulti" class="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;overflow:auto;">
+        <div style="background:#fff;max-width:520px;margin:80px auto;padding:20px;border-radius:8px;box-shadow:0 10px 25px rgba(0,0,0,0.15);">
+            <div class="flex-between" style="margin-bottom:12px;">
+                <h3 style="margin:0;font-size:16px;color:#1e40af;">Upload Dokumen Tindak Lanjut (Bisa Multiple PDF)</h3>
+                <button type="button" onclick="document.getElementById('modalUploadMulti').style.display='none'" style="background:none;border:none;font-size:18px;cursor:pointer;">&times;</button>
+            </div>
+            <p style="font-size:12px;color:#475569;margin-top:0;">
+                Anda dapat memilih satu atau beberapa file PDF sekaligus. Sistem mendukung dokumen berukuran besar hingga 50 MB tanpa perlu menggabungkan secara manual.
+            </p>
+            <form method="post" enctype="multipart/form-data">
+                <input type="hidden" name="action" value="upload_baseline_pdf">
+                <input type="hidden" name="elemen_nomor" value="9">
+                <div class="field" style="margin-bottom:16px;">
+                    <label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;">Pilih File PDF (Multiple) *</label>
+                    <input type="file" name="pdf_files[]" multiple accept=".pdf" required style="width:100%;font-size:12.5px;">
+                    <div class="muted" style="font-size:11px;margin-top:4px;">Gunakan tombol Ctrl atau Shift untuk memilih lebih dari 1 file PDF.</div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:8px;">
+                    <button type="button" onclick="document.getElementById('modalUploadMulti').style.display='none'" class="btn btn-outline btn-sm">Batal</button>
+                    <button type="submit" class="btn btn-primary btn-sm">📤 Unggah Dokumen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Update PIC (Elemen 7: Internal & Elemen 8: Mitra) -->
+    <div id="modalUpdatePic" class="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;overflow:auto;">
+        <div style="background:#fff;max-width:520px;margin:60px auto;padding:22px;border-radius:8px;box-shadow:0 10px 25px rgba(0,0,0,0.15);">
+            <div class="flex-between" style="margin-bottom:14px;">
+                <h3 id="modalPicTitle" style="margin:0;font-size:16px;color:#1e40af;">Update Data PIC</h3>
+                <button type="button" onclick="document.getElementById('modalUpdatePic').style.display='none'" style="background:none;border:none;font-size:18px;cursor:pointer;">&times;</button>
+            </div>
+            <form method="post">
+                <input type="hidden" name="action" value="update_pic">
+                <input type="hidden" id="modalPicType" name="pic_type" value="internal">
+                <div class="field" style="margin-bottom:12px;">
+                    <label id="lblNamaPic" style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;">Nama Lengkap PIC *</label>
+                    <input type="text" id="picNama" name="nama_pic" required style="width:100%;padding:6px 8px;font-size:12.5px;border:1px solid #cbd5e1;border-radius:4px;">
+                </div>
+                <div class="field" style="margin-bottom:12px;">
+                    <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;">Jabatan</label>
+                    <input type="text" id="picJabatan" name="jabatan_pic" style="width:100%;padding:6px 8px;font-size:12.5px;border:1px solid #cbd5e1;border-radius:4px;">
+                </div>
+                <div class="field" style="margin-bottom:12px;">
+                    <label id="lblUnitPic" style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;">Unit Kerja / Instansi</label>
+                    <input type="text" id="picUnit" name="unit_pic" style="width:100%;padding:6px 8px;font-size:12.5px;border:1px solid #cbd5e1;border-radius:4px;">
+                </div>
+                <div class="field" style="margin-bottom:12px;">
+                    <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;">Nomor Kontak / WhatsApp</label>
+                    <input type="text" id="picKontak" name="kontak_pic" placeholder="08xxxxxxxxxx" style="width:100%;padding:6px 8px;font-size:12.5px;border:1px solid #cbd5e1;border-radius:4px;">
+                </div>
+                <div class="field" style="margin-bottom:16px;">
+                    <label id="lblSkPic" style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;">Dasar Penetapan (SK / ND / Surat Resmi)</label>
+                    <input type="text" id="picSk" name="sk_pic" placeholder="Nomor SK / Dasar Penunjukan" style="width:100%;padding:6px 8px;font-size:12.5px;border:1px solid #cbd5e1;border-radius:4px;">
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:8px;">
+                    <button type="button" onclick="document.getElementById('modalUpdatePic').style.display='none'" class="btn btn-outline btn-sm">Batal</button>
+                    <button type="submit" class="btn btn-primary btn-sm">💾 Simpan Data PIC</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Import Baseline (.xlsx) Detail View -->
+    <div id="modalImportBaseline" class="modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;padding:20px;">
+        <div style="background:#ffffff;border-radius:12px;max-width:540px;width:100%;box-shadow:0 20px 25px -5px rgba(0,0,0,0.2), 0 10px 10px -5px rgba(0,0,0,0.1);overflow:hidden;margin:auto;">
+            <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;">
+                <div style="font-size:16px;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:8px;">
+                    <span>📋</span> Import Data Baseline FIX (12 Elemen)
+                </div>
+                <button type="button" onclick="closeImportModal()" style="background:none;border:none;font-size:20px;color:#94a3b8;cursor:pointer;line-height:1;">&times;</button>
+            </div>
+
+            <form method="post" enctype="multipart/form-data">
+                <input type="hidden" name="action" value="import_baseline">
+                <input type="hidden" name="mitra_id" id="modalImportMitraId" value="<?= $id ?>">
+
+                <div style="padding:20px;">
+                    <div style="margin-bottom:16px;padding:12px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;">
+                        <div style="font-size:11px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:0.5px;">Target Naskah Kerja Sama:</div>
+                        <div id="modalImportMitraKodeNama" style="font-size:14px;font-weight:700;color:#1e3a8a;margin-top:2px;">[<?= h($mitra['kode']) ?>] <?= h($mitra['nama_mitra']) ?></div>
+                    </div>
+
+                    <div style="margin-bottom:18px;">
+                        <label style="display:block;font-size:13px;font-weight:600;color:#334155;margin-bottom:6px;">
+                            Pilih Berkas Spreadsheet Excel (.xlsx) <span style="color:#ef4444;">*</span>
+                        </label>
+                        <input type="file" name="excel_file" accept=".xlsx" required style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;background:#f8fafc;">
+                        <div style="font-size:11.5px;color:#64748b;margin-top:4px;">
+                            Format didukung: <strong>.xlsx</strong> (Maks. 25 MB). Gunakan template resmi <code>template_baseline_12_elemen.xlsx</code>.
+                        </div>
+                    </div>
+
+                    <div style="font-size:12.5px;color:#475569;background:#f1f5f9;padding:12px 14px;border-radius:6px;line-height:1.5;">
+                        <div style="font-weight:600;margin-bottom:4px;color:#1e293b;">Data yang akan otomatis diperbarui:</div>
+                        &bull; <strong>12 Elemen Baseline:</strong> Status pemeriksaan, fakta audit, dan tautan bukti.<br>
+                        &bull; <strong>Kontrol Naskah:</strong> Tanggal cut-off dan nama pemeriksa jika terisi di file.<br>
+                        &bull; <strong>Tautan Naskah Resmi:</strong> Tautan naskah P2MA resmi pada Elemen 1 otomatis terhubung.
+                    </div>
+                </div>
+
+                <div style="padding:14px 20px;border-top:1px solid #e2e8f0;background:#f8fafc;display:flex;justify-content:flex-end;gap:10px;">
+                    <button type="button" onclick="closeImportModal()" class="btn btn-outline" style="font-size:12.5px;padding:7px 14px;">
+                        Batal
+                    </button>
+                    <button type="submit" class="btn" style="background:#4f46e5;color:#ffffff;font-size:12.5px;padding:7px 18px;font-weight:600;border:none;border-radius:4px;cursor:pointer;">
+                        📥 Mulai Proses Import
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    function openUploadModal(elemenNo, label) {
+        document.getElementById('modalSingleElemen').value = elemenNo;
+        document.getElementById('modalSingleTitle').innerText = 'Upload ' + label + ' (.PDF)';
+        document.getElementById('modalUploadSingle').style.display = 'block';
+    }
+
+    function openUploadMultipleModal(elemenNo, label) {
+        document.getElementById('modalUploadMulti').style.display = 'block';
+    }
+
+    function openPicModal(type) {
+        document.getElementById('modalPicType').value = type;
+        if (type === 'internal') {
+            document.getElementById('modalPicTitle').innerText = 'Update Data PIC Internal (Kanwil Kepri)';
+            document.getElementById('lblNamaPic').innerText = 'Nama PIC Internal *';
+            document.getElementById('lblUnitPic').innerText = 'Divisi / Subbagian Internal';
+            document.getElementById('lblSkPic').innerText = 'Dasar Penunjukan (Nomor SK / Nota Dinas)';
+            document.getElementById('picNama').value = '<?= addslashes($mitra['pic_internal'] ?? '') ?>';
+        } else {
+            document.getElementById('modalPicTitle').innerText = 'Update Data PIC Mitra Kerja Sama';
+            document.getElementById('lblNamaPic').innerText = 'Nama PIC Mitra *';
+            document.getElementById('lblUnitPic').innerText = 'Instansi / Lembaga Mitra';
+            document.getElementById('lblSkPic').innerText = 'Surat Tugas / Konfirmasi Resmi Mitra';
+            document.getElementById('picNama').value = '<?= addslashes($mitra['pic_mitra'] ?? '') ?>';
+        }
+        document.getElementById('modalUpdatePic').style.display = 'block';
+    }
+
+    function openImportModal(id, kode, nama) {
+        var idEl = document.getElementById('modalImportMitraId');
+        if (idEl) idEl.value = id;
+        var nameEl = document.getElementById('modalImportMitraKodeNama');
+        if (nameEl) nameEl.textContent = '[' + kode + '] ' + nama;
+        var modal = document.getElementById('modalImportBaseline');
+        if (modal) modal.style.display = 'flex';
+    }
+
+    function closeImportModal() {
+        var modal = document.getElementById('modalImportBaseline');
+        if (modal) modal.style.display = 'none';
+    }
+
+    window.addEventListener('click', function(e) {
+        var modal = document.getElementById('modalImportBaseline');
+        if (e.target === modal) {
+            closeImportModal();
+        }
+    });
+    </script>
 
     <?php
     require __DIR__ . '/includes/footer.php';
@@ -597,6 +1221,9 @@ require __DIR__ . '/includes/header.php';
     <a href="dashboard.php" class="btn btn-outline btn-sm">&larr; Dashboard</a>
 </div>
 
+<?php if ($success): ?><div class="alert alert-info" style="margin-bottom:16px;"><?= h($success) ?></div><?php endif; ?>
+<?php foreach ($errors as $e): ?><div class="alert alert-warning" style="margin-bottom:16px;"><?= h($e) ?></div><?php endforeach; ?>
+
 <!-- KPI Cards -->
 <div class="kpi-grid" style="margin-bottom:20px;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));">
     <div class="kpi-card">
@@ -627,7 +1254,7 @@ require __DIR__ . '/includes/header.php';
                 <th>Jenis</th>
                 <th>Masa Berlaku</th>
                 <th>Cut-off</th>
-                <th>Status Baseline</th>
+                <th style="min-width:210px;text-align:center;">📋 DATA BASELINE (12 ELEMEN)</th>
                 <th>Kelengkapan 12 Elemen</th>
                 <th>Aksi</th>
             </tr>
@@ -654,10 +1281,26 @@ require __DIR__ . '/includes/header.php';
                 <td><span class="badge badge-primary" style="font-size:10px;"><?= h($m['jenis']) ?></span></td>
                 <td><?= formatTanggal($m['tanggal_mulai']) ?> s.d.<br><?= formatTanggal($m['tanggal_berakhir']) ?></td>
                 <td><?= $m['cutoff_date'] ? formatTanggal($m['cutoff_date']) : '-' ?></td>
-                <td>
-                    <span class="badge badge-<?= $bBadge ?>" style="font-size:11px;">
-                        <?= $b['is_locked'] ? '🔒 Dikunci' : h($b['status']) ?>
-                    </span>
+                <td style="text-align:center;vertical-align:middle;">
+                    <div style="margin-bottom:6px;">
+                        <span class="badge badge-<?= $bBadge ?>" style="font-size:10.5px;">
+                            <?= $b['is_locked'] ? '🔒 Dikunci' : h($b['status']) ?>
+                        </span>
+                    </div>
+                    <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
+                        <a href="public/templates/template_baseline_12_elemen.xlsx" download="Template_Baseline_<?= h($m['kode']) ?>.xlsx" class="btn btn-outline btn-sm" style="font-size:10.5px;padding:3px 8px;display:inline-flex;align-items:center;gap:3px;color:#4338ca;border-color:#c7d2fe;background:#eef2ff;" title="Unduh Formulir Template Baseline (.xlsx)">
+                            <span>📥</span> Unduh Template
+                        </a>
+                        <?php if ($canEdit && (!$b['is_locked'] || $isAdmin)): ?>
+                        <button type="button" class="btn btn-sm" onclick="openImportModal(<?= (int)$m['id'] ?>, <?= htmlspecialchars(json_encode((string)$m['kode']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$m['nama_mitra']), ENT_QUOTES, 'UTF-8') ?>)" style="font-size:10.5px;padding:3px 8px;display:inline-flex;align-items:center;gap:3px;background:#4f46e5;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="Import Data Baseline">
+                            <span>📤</span> Import
+                        </button>
+                        <?php else: ?>
+                        <button type="button" class="btn btn-sm" disabled style="font-size:10.5px;padding:3px 8px;color:#94a3b8;background:#f8fafc;border:1px solid #e2e8f0;cursor:not-allowed;" title="<?= $b['is_locked'] ? 'Baseline telah dikunci' : 'Akses terbatas' ?>">
+                            <span>🔒</span> Terkunci
+                        </button>
+                        <?php endif; ?>
+                    </div>
                 </td>
                 <td>
                     <div style="font-size:11.5px;font-weight:600;margin-bottom:2px;">
@@ -679,5 +1322,78 @@ require __DIR__ . '/includes/header.php';
     </table>
     </div>
 </div>
+
+<!-- Modal Import Baseline (.xlsx) Overview View -->
+<div id="modalImportBaseline" class="modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;padding:20px;">
+    <div style="background:#ffffff;border-radius:12px;max-width:540px;width:100%;box-shadow:0 20px 25px -5px rgba(0,0,0,0.2), 0 10px 10px -5px rgba(0,0,0,0.1);overflow:hidden;margin:auto;">
+        <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;">
+            <div style="font-size:16px;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:8px;">
+                <span>📋</span> Import Data Baseline FIX (12 Elemen)
+            </div>
+            <button type="button" onclick="closeImportModal()" style="background:none;border:none;font-size:20px;color:#94a3b8;cursor:pointer;line-height:1;">&times;</button>
+        </div>
+
+        <form method="post" enctype="multipart/form-data">
+            <input type="hidden" name="action" value="import_baseline">
+            <input type="hidden" name="mitra_id" id="modalImportMitraId" value="0">
+
+            <div style="padding:20px;">
+                <div style="margin-bottom:16px;padding:12px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;">
+                    <div style="font-size:11px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:0.5px;">Target Naskah Kerja Sama:</div>
+                    <div id="modalImportMitraKodeNama" style="font-size:14px;font-weight:700;color:#1e3a8a;margin-top:2px;">-</div>
+                </div>
+
+                <div style="margin-bottom:18px;">
+                    <label style="display:block;font-size:13px;font-weight:600;color:#334155;margin-bottom:6px;">
+                        Pilih Berkas Spreadsheet Excel (.xlsx) <span style="color:#ef4444;">*</span>
+                    </label>
+                    <input type="file" name="excel_file" accept=".xlsx" required style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;background:#f8fafc;">
+                    <div style="font-size:11.5px;color:#64748b;margin-top:4px;">
+                        Format didukung: <strong>.xlsx</strong> (Maks. 25 MB). Gunakan template resmi <code>template_baseline_12_elemen.xlsx</code>.
+                    </div>
+                </div>
+
+                <div style="font-size:12.5px;color:#475569;background:#f1f5f9;padding:12px 14px;border-radius:6px;line-height:1.5;">
+                    <div style="font-weight:600;margin-bottom:4px;color:#1e293b;">Data yang akan otomatis diperbarui:</div>
+                    &bull; <strong>12 Elemen Baseline:</strong> Status pemeriksaan, fakta audit, dan tautan bukti.<br>
+                    &bull; <strong>Kontrol Naskah:</strong> Tanggal cut-off dan nama pemeriksa jika terisi di file.<br>
+                    &bull; <strong>Tautan Naskah Resmi:</strong> Tautan naskah P2MA resmi pada Elemen 1 otomatis terhubung.
+                </div>
+            </div>
+
+            <div style="padding:14px 20px;border-top:1px solid #e2e8f0;background:#f8fafc;display:flex;justify-content:flex-end;gap:10px;">
+                <button type="button" onclick="closeImportModal()" class="btn btn-outline" style="font-size:12.5px;padding:7px 14px;">
+                    Batal
+                </button>
+                <button type="submit" class="btn" style="background:#4f46e5;color:#ffffff;font-size:12.5px;padding:7px 18px;font-weight:600;border:none;border-radius:4px;cursor:pointer;">
+                    📥 Mulai Proses Import
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openImportModal(id, kode, nama) {
+    var idEl = document.getElementById('modalImportMitraId');
+    if (idEl) idEl.value = id;
+    var nameEl = document.getElementById('modalImportMitraKodeNama');
+    if (nameEl) nameEl.textContent = '[' + kode + '] ' + nama;
+    var modal = document.getElementById('modalImportBaseline');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeImportModal() {
+    var modal = document.getElementById('modalImportBaseline');
+    if (modal) modal.style.display = 'none';
+}
+
+window.addEventListener('click', function(e) {
+    var modal = document.getElementById('modalImportBaseline');
+    if (e.target === modal) {
+        closeImportModal();
+    }
+});
+</script>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>

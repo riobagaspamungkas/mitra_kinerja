@@ -29,14 +29,24 @@ Aplikasi ini **aman dijalankan di domain root atau di subfolder mana pun** (cont
 path relatif, dan koneksi database diatur lewat file konfigurasi terpisah yang
 tidak ikut dipindah otomatis saat naik ke production. Lihat bagian 1b untuk detail.
 
-1. Buat database dan tabel:
-   ```
+### Opsi A: 1-Klik Import Database Lengkap (Direkomendasikan)
+Cukup import file dump lengkap (sudah mencakup skema seluruh tabel V2.2, 18 naskah, rencana kerja, siklus monev, dan baseline):
+```bash
+mysql -u root -p < database/mitra_kinerja_dump.sql
+```
+*(Atau buka phpMyAdmin, buat/pilih database `mitra_kinerja`, lalu import `database/mitra_kinerja_dump.sql`).*
+
+### Opsi B: Import Skema & Seed Terpisah
+1. Buat database dan struktur tabel:
+   ```bash
    mysql -u root -p < database/schema.sql
    ```
-2. Isi data awal 15 naskah (identitas, 6 indikator, 4 dimensi warning, 5 pemicu intervensi):
-   ```
+2. Isi data awal:
+   ```bash
    mysql -u root -p mitra_kinerja < database/seed_data.sql
    ```
+
+*Catatan: Jika lupa mengimpor database, aplikasi memiliki mesin **auto-migration mandiri** (`includes/auto_migrate.php`) yang otomatis membuat tabel dan kolom yang belum ada saat aplikasi dibuka.*
 3. Upload seluruh isi folder ini ke document root/subfolder tujuan (mis. `public_html/`).
 4. Atur kredensial database — **jangan edit `config/database.php` langsung**, ikuti 1b.
 5. Login pertama kali:

@@ -14,6 +14,83 @@ const BOBOT_INDIKATOR = [
     'I1' => 10, 'I2' => 15, 'I3' => 15, 'I4' => 20, 'I5' => 20, 'I6' => 10, 'I7' => 10,
 ];
 
+if (!defined('BASELINE_12_DEFS')) {
+    define('BASELINE_12_DEFS', [
+        1 => [
+            'kelompok' => 'IDENTITAS',
+            'nama' => 'Identitas naskah',
+            'yang_diperiksa' => 'Jenis, seluruh nomor para pihak, judul, dan nama resmi mitra sesuai naskah.',
+            'sumber_minimum' => 'Naskah bertanda tangan; P2MA sebagai pembanding.'
+        ],
+        2 => [
+            'kelompok' => 'MASA BERLAKU',
+            'nama' => 'Masa berlaku',
+            'yang_diperiksa' => 'Tanggal efektif, durasi, dan tanggal berakhir sesuai klausul naskah.',
+            'sumber_minimum' => 'Klausul jangka waktu; halaman tanda tangan; P2MA.'
+        ],
+        3 => [
+            'kelompok' => 'SUBSTANSI',
+            'nama' => 'Ruang lingkup',
+            'yang_diperiksa' => 'Ruang kerja, kewajiban, atau kegiatan utama yang disepakati.',
+            'sumber_minimum' => 'Pasal ruang lingkup/hak-kewajiban; lampiran.'
+        ],
+        4 => [
+            'kelompok' => 'TATA KELOLA',
+            'nama' => 'Status arsip',
+            'yang_diperiksa' => 'Ketersediaan naskah lengkap pada lokasi arsip resmi dan dapat ditemukan kembali.',
+            'sumber_minimum' => 'Arsip resmi; register; folder organisasi.'
+        ],
+        5 => [
+            'kelompok' => 'TATA KELOLA',
+            'nama' => 'Status P2MA',
+            'yang_diperiksa' => 'Keberadaan entri dan kesesuaian metadata P2MA dengan naskah resmi.',
+            'sumber_minimum' => 'P2MA dan naskah bertanda tangan.'
+        ],
+        6 => [
+            'kelompok' => 'PENGAMPU',
+            'nama' => 'Unit pengampu',
+            'yang_diperiksa' => 'Unit internal yang bertanggung jawab atas substansi dan implementasi kerja sama.',
+            'sumber_minimum' => 'ND/SK/pembagian tugas; konfirmasi tertulis unit.'
+        ],
+        7 => [
+            'kelompok' => 'PIC',
+            'nama' => 'PIC internal',
+            'yang_diperiksa' => 'PIC utama dan cadangan yang aktif, lengkap dengan jabatan, kontak, dan dasar penetapan.',
+            'sumber_minimum' => 'ND/SK/daftar PIC; konfirmasi tertulis unit.'
+        ],
+        8 => [
+            'kelompok' => 'PIC',
+            'nama' => 'PIC mitra',
+            'yang_diperiksa' => 'Penghubung operasional pihak mitra yang telah dikonfirmasi.',
+            'sumber_minimum' => 'Surat/email/form konfirmasi resmi dari mitra.'
+        ],
+        9 => [
+            'kelompok' => 'TINDAK LANJUT',
+            'nama' => 'Rencana tindak lanjut',
+            'yang_diperiksa' => 'Dokumen atau komitmen operasional yang memuat kegiatan, periode, target, dan/atau PIC.',
+            'sumber_minimum' => 'Rencana aksi; matriks kerja; kalender; notula.'
+        ],
+        10 => [
+            'kelompok' => 'PELAKSANAAN',
+            'nama' => 'Pelaksanaan dan hasil',
+            'yang_diperiksa' => 'Kegiatan aktual, realisasi terhadap target jatuh tempo, serta output yang dihasilkan.',
+            'sumber_minimum' => 'Laporan; undangan; notula; daftar hadir; data hasil.'
+        ],
+        11 => [
+            'kelompok' => 'EVIDEN',
+            'nama' => 'Eviden implementasi',
+            'yang_diperiksa' => 'Bukti pelaksanaan/output, lokasi penyimpanan, dan tingkat keteraturannya.',
+            'sumber_minimum' => 'Folder resmi; indeks bukti; dokumen/data kegiatan.'
+        ],
+        12 => [
+            'kelompok' => 'HAMBATAN',
+            'nama' => 'Hambatan/gap',
+            'yang_diperiksa' => 'Kendala faktual atau kekosongan data yang memengaruhi implementasi dan sudah dikonfirmasi.',
+            'sumber_minimum' => 'Konfirmasi unit/PIC/mitra; notula; laporan; bukti keterlambatan.'
+        ]
+    ]);
+}
+
 /**
  * Hitung status "Cek" untuk satu baris indikator V2.1.
  * Mendukung: DAPAT DINILAI / BUKTI MEMADAI, BUKTI BELUM MEMADAI, BELUM DAPAT DINILAI, BELUM DITELAAH.
@@ -70,14 +147,14 @@ function ringkasanIndikator(array $indikatorRows): array {
         $st = $row['status_pemeriksaan'] ?? 'BELUM DITELAAH';
         if (in_array($st, ['DAPAT DINILAI', 'BUKTI CUKUP', 'BUKTI MEMADAI'], true)) {
             $dapatDinilaiCount++;
-            $bobotDinilai += (int)($row['bobot'] ?? BOBOT_INDIKATOR[$row['kode_indikator']] ?? 0);
+            $bobotDinilai += (int)($row['bobot'] ?? BOBOT_INDIKATOR[$row['kode_indikator'] ?? ''] ?? 0);
         } elseif ($st === 'BELUM DAPAT DINILAI') {
             $bdnCount++;
         } elseif (in_array($st, ['BUKTI BELUM CUKUP', 'BUKTI BELUM MEMADAI'], true)) {
             $buktiKurangCount++;
         }
 
-        if ($row['skor'] !== null) {
+        if (($row['skor'] ?? null) !== null) {
             $skorTerisi++;
             $nilaiBerjalan += (float)($row['nilai'] ?? 0);
         }
@@ -91,14 +168,20 @@ function ringkasanIndikator(array $indikatorRows): array {
     $skorLengkap = ($cekOkCount === $n);
     $cekLengkapOk = ($cekOkCount === $n);
 
-    if ($kelengkapan < 100) {
-        $kategori = 'BELUM LENGKAP';
+    // V3: Nilai Final HANYA dihitung jika seluruh 7 indikator berstatus DAPAT DINILAI.
+    // Jika belum lengkap, nilai = null (tampil strip '-').
+    $allEvaluable = ($dapatDinilaiCount === $n);
+    $nilaiFinal = $allEvaluable ? round($nilaiBerjalan, 2) : null;
+
+    if (!$allEvaluable) {
+        $kategori = 'DALAM PROSES';
     } else {
         $kategori = kategoriDariNilai($nilaiBerjalan);
     }
 
     return [
         'nilai_berjalan'    => round($nilaiBerjalan, 2),
+        'nilai_final'       => $nilaiFinal,
         'bobot_dinilai'     => $bobotDinilai,
         'kelengkapan'       => $kelengkapan,
         'skor_lengkap'      => $skorLengkap,
@@ -107,6 +190,7 @@ function ringkasanIndikator(array $indikatorRows): array {
         'dapat_dinilai_n'   => $dapatDinilaiCount,
         'bdn_n'             => $bdnCount,
         'bukti_kurang_n'    => $buktiKurangCount,
+        'all_evaluable'     => $allEvaluable,
     ];
 }
 
@@ -114,7 +198,7 @@ function ringkasanIndikator(array $indikatorRows): array {
 function hitungPosisiPortofolio(array $indikatorRows): string {
     $scores = [];
     foreach ($indikatorRows as $r) {
-        $scores[$r['kode_indikator']] = $r['skor'];
+        if (isset($r['kode_indikator'])) { $scores[$r['kode_indikator']] = $r['skor'] ?? null; }
     }
 
     if (($scores['I5'] ?? null) !== null && $scores['I5'] >= 3) {
@@ -152,25 +236,24 @@ function hitungRekomendasi(float $nilai, string $warningStatus, string $posisiPo
     return 'PERBAIKI';
 }
 
-/** Kategori nilai: 75-100 PRODUKTIF, 50-<75 BERJALAN, 25-<50 PERLU AKTIVASI, <25 KRITIS. */
+/** Kategori Kinerja V3: KUAT ≥80, CUKUP/PERLU PENGUATAN 60-79, PERLU PERBAIKAN 40-59, KRITIS <40. */
 function kategoriDariNilai(float $nilai): string {
-    if ($nilai >= 75) return 'PRODUKTIF';
-    if ($nilai >= 50) return 'BERJALAN';
-    if ($nilai >= 25) return 'PERLU AKTIVASI';
+    if ($nilai >= 80) return 'KUAT';
+    if ($nilai >= 60) return 'CUKUP/PERLU PENGUATAN';
+    if ($nilai >= 40) return 'PERLU PERBAIKAN';
     return 'KRITIS';
 }
 
 /**
- * Status Scorecard. Persis rumus H21.
- *   - skor belum 7/7 terisi            -> BELUM LENGKAP
- *   - skor 7/7 tapi Cek belum semua OK -> PERLU DILENGKAPI
- *   - Cek 7/7 OK, validasi DISETUJUI   -> FINAL/TERVALIDASI
- *   - Cek 7/7 OK, validasi PERLU PERBAIKAN -> PERLU PERBAIKAN
- *   - Cek 7/7 OK, validasi lainnya     -> SIAP DIVALIDASI
+ * Status Scorecard V3. Hierarki prioritas:
+ *   BUKTI BELUM MEMADAI > SIAP DIVALIDASI > MASA IMPLEMENTASI AWAL > BELUM DINILAI > DALAM PENILAIAN.
  */
-function hitungStatusScorecard(bool $skorLengkap, bool $cekLengkapOk, string $statusValidasi): string {
-    if (!$skorLengkap) return 'BELUM LENGKAP';
-    if (!$cekLengkapOk) return 'PERLU DILENGKAPI';
+function hitungStatusScorecard(bool $skorLengkap, bool $cekLengkapOk, string $statusValidasi, int $buktiKurangN = 0, int $bdnN = 0, int $dapatDinilaiN = 0): string {
+    // V3: if any indicator has BUKTI BELUM MEMADAI, that status takes priority
+    if ($buktiKurangN > 0) return 'BUKTI BELUM MEMADAI';
+    if (!$skorLengkap && $dapatDinilaiN === 0 && $bdnN === 0) return 'BELUM DINILAI';
+    if (!$skorLengkap) return 'DALAM PENILAIAN';
+    if (!$cekLengkapOk) return 'DALAM PENILAIAN';
     if ($statusValidasi === 'DISETUJUI') return 'FINAL/TERVALIDASI';
     if ($statusValidasi === 'PERLU PERBAIKAN') return 'PERLU PERBAIKAN';
     return 'SIAP DIVALIDASI';
@@ -251,12 +334,15 @@ function hitungMasaBerlaku(?string $tanggalBerakhir, ?string $cutoffDate, ?strin
 
 /**
  * Menghitung kebutuhan siklus scorecard selama masa berlaku kerja sama (flow.pdf & SOP 5).
- * Cadence default: 4 kali per tahun (setiap 3 bulan).
+ * Parameter $evaluasiPerTahun: berapa kali evaluasi rencana kerja dilakukan per tahun (default 4).
+ * Contoh: 36 Bulan Durasi Berjalan / 4 = 9 Kali Target Evaluasi Rencana Kerja.
  */
-function hitungKebutuhanScorecard(?string $tanggalMulai, ?string $tanggalBerakhir, int $cadenceBulan = 3): array {
+function hitungKebutuhanScorecard(?string $tanggalMulai, ?string $tanggalBerakhir, int $evaluasiPerTahun = 4): array {
+    $evaluasiPerTahun = max(1, $evaluasiPerTahun);
     $fallback = [
         'total_siklus'             => 0,
         'durasi_bulan'             => 0,
+        'evaluasi_per_tahun'       => $evaluasiPerTahun,
         'warning_1_bulan'          => false,
         'hari_menuju_evaluasi'     => null,
         'target_evaluasi_terdekat' => null,
@@ -278,6 +364,7 @@ function hitungKebutuhanScorecard(?string $tanggalMulai, ?string $tanggalBerakhi
         return [
             'total_siklus'             => 1,
             'durasi_bulan'             => 0,
+            'evaluasi_per_tahun'       => $evaluasiPerTahun,
             'warning_1_bulan'          => false,
             'hari_menuju_evaluasi'     => null,
             'target_evaluasi_terdekat' => null,
@@ -287,7 +374,9 @@ function hitungKebutuhanScorecard(?string $tanggalMulai, ?string $tanggalBerakhi
 
     $diff = $start->diff($end);
     $durasiBulan = ($diff->y * 12) + $diff->m + ($diff->d > 15 ? 1 : 0);
-    $totalSiklus = max(1, (int)ceil($durasiBulan / $cadenceBulan));
+    // Formula arahan tim: Durasi bulan dibagi evaluasi rencana kerja per tahun
+    $totalSiklus = max(1, (int)ceil($durasiBulan / $evaluasiPerTahun));
+    $cadenceBulan = max(1, (int)round($durasiBulan / $totalSiklus));
 
     $today = new DateTime('now');
     $milestones = [];
@@ -305,7 +394,7 @@ function hitungKebutuhanScorecard(?string $tanggalMulai, ?string $tanggalBerakhi
 
         $milestones[] = [
             'siklus_ke'   => $i,
-            'nama'        => $i === 1 ? 'SC-1: Baseline / Awal' : 'SC-' . $i . ': Evaluasi Triwulan ' . ($i - 1),
+            'nama'        => $i === 1 ? 'SC-1: Baseline / Awal' : 'SC-' . $i . ': Evaluasi Tahap ' . $i,
             'target_tgl'  => $targetStr,
             'sisa_hari'   => $diffDays,
             'is_due_soon' => ($diffDays >= 0 && $diffDays <= 30),
@@ -324,6 +413,7 @@ function hitungKebutuhanScorecard(?string $tanggalMulai, ?string $tanggalBerakhi
     return [
         'total_siklus'             => $totalSiklus,
         'durasi_bulan'             => $durasiBulan,
+        'evaluasi_per_tahun'       => $evaluasiPerTahun,
         'warning_1_bulan'          => $warning1Bulan,
         'hari_menuju_evaluasi'     => $hariMenujuEvaluasi,
         'target_evaluasi_terdekat' => $targetEvaluasiTerdekat,
@@ -419,14 +509,18 @@ function cekUsulanIntervensi(array $pemicuRows, string $hasilUji, ?string $upaya
     return 'TIDAK PERLU USULAN PIMPINAN';
 }
 
-/** Warna badge untuk kategori nilai, dipakai di dashboard/list. */
+/** Warna badge untuk kategori kinerja V3, dipakai di dashboard/list. */
 function warnaKategori(string $kategori): string {
     return match ($kategori) {
+        'KUAT' => 'success',
+        'CUKUP/PERLU PENGUATAN' => 'primary',
+        'PERLU PERBAIKAN' => 'warning',
+        'KRITIS' => 'danger',
+        'BELUM FINAL', 'DALAM PROSES' => 'orange',
+        // Legacy fallback
         'PRODUKTIF' => 'success',
         'BERJALAN' => 'primary',
         'PERLU AKTIVASI' => 'warning',
-        'KRITIS' => 'danger',
-        'BELUM FINAL' => 'orange',
         default => 'secondary',
     };
 }
@@ -443,11 +537,23 @@ function warnaWarning(string $status): string {
 }
 
 function formatTanggal(?string $tgl): string {
-    if (!$tgl) return '-';
+    if (!$tgl || $tgl === '0000-00-00' || $tgl === '0000-00-00 00:00:00' || str_starts_with($tgl, '0000-00-00')) {
+        return '-';
+    }
     $t = strtotime($tgl);
     if (!$t) return '-';
     $bulan = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
     return date('d', $t) . ' ' . $bulan[(int)date('n', $t)] . ' ' . date('Y', $t);
+}
+
+function formatTanggalPanjang(?string $tgl): string {
+    if (!$tgl || $tgl === '0000-00-00' || $tgl === '0000-00-00 00:00:00' || str_starts_with($tgl, '0000-00-00')) {
+        return '-';
+    }
+    $t = strtotime($tgl);
+    if (!$t) return '-';
+    $bulanPanjang = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    return (int)date('d', $t) . ' ' . $bulanPanjang[(int)date('n', $t)] . ' ' . date('Y', $t);
 }
 
 function h(?string $s): string {
@@ -461,6 +567,27 @@ function singkat(?string $teks, int $panjang, string $akhiran = '…'): string {
         return mb_strimwidth($teks, 0, $panjang, $akhiran, 'UTF-8');
     }
     return strlen($teks) > $panjang ? substr($teks, 0, max(1, $panjang - 1)) . $akhiran : $teks;
+}
+
+/** Verifikasi file PDF asli melalui magic header %PDF (mencegah file palsu/script). */
+function isPdfValid(string $filePath): bool {
+    if (!file_exists($filePath) || filesize($filePath) < 4) {
+        return false;
+    }
+    $h = @fopen($filePath, 'rb');
+    if (!$h) return false;
+    $bytes = fread($h, 4);
+    fclose($h);
+    return str_starts_with($bytes, '%PDF');
+}
+
+/** Verifikasi integritas file gambar (JPG, PNG, WebP) melalui getimagesize. */
+function isImageValid(string $filePath): bool {
+    if (!file_exists($filePath) || filesize($filePath) < 12) {
+        return false;
+    }
+    $info = @getimagesize($filePath);
+    return ($info !== false && in_array($info[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_WEBP], true));
 }
 
 /* ============================================================
@@ -481,8 +608,8 @@ const ASPEK_LABELS = [
 /** Map kategori scorecard ke status efektivitas untuk dashboard. */
 function statusEfektivitas(string $kategori): string {
     return match ($kategori) {
-        'PRODUKTIF', 'BERJALAN' => 'Efektif',
-        'PERLU AKTIVASI', 'BELUM LENGKAP', 'BELUM FINAL' => 'Perlu Perhatian',
+        'KUAT', 'CUKUP/PERLU PENGUATAN', 'PRODUKTIF', 'BERJALAN' => 'Efektif',
+        'PERLU PERBAIKAN', 'DALAM PROSES', 'BELUM LENGKAP', 'BELUM FINAL', 'PERLU AKTIVASI' => 'Perlu Perhatian',
         'KRITIS' => 'Berisiko',
         default => 'Perlu Perhatian',
     };
@@ -496,4 +623,314 @@ function warnaEfektivitas(string $status): string {
         default => 'warning',
     };
 }
+
+/**
+ * Format teks sumber/link bukti menjadi tampilan interaktif yang rapi.
+ * Mengenali link P2MA Kemenkum, Google Drive, berkas lokal, dan tautan web lainnya.
+ */
+function formatLinkSumberBukti(?string $raw): string {
+    if (!$raw || trim($raw) === '' || trim($raw) === '-') {
+        return '<span class="muted">-</span>';
+    }
+    $raw = trim($raw);
+
+    // Jika berupa JSON array (misal multiple file upload di elemen 9)
+    if (str_starts_with($raw, '[') && str_ends_with($raw, ']')) {
+        $decoded = json_decode($raw, true);
+        if (is_array($decoded)) {
+            $html = '<div style="display:flex;flex-direction:column;gap:3px;">';
+            foreach ($decoded as $idx => $f) {
+                $leaf = basename($f);
+                $html .= '<a href="' . h($f) . '" target="_blank" class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 6px;">📄 Berkas ' . ($idx + 1) . ' (' . h(singkat($leaf, 20)) . ')</a>';
+            }
+            $html .= '</div>';
+            return $html;
+        }
+    }
+
+    // Jika diawali http:// atau https://
+    if (preg_match('/^https?:\/\//i', $raw)) {
+        if (str_contains($raw, 'p2ma.kemenkum.go.id')) {
+            if (str_ends_with(strtolower($raw), '.pdf') || str_contains($raw, '/naskah/')) {
+                return '<a href="' . h($raw) . '" target="_blank" rel="noopener noreferrer" class="badge badge-primary" style="font-size:10.5px;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;">📄 Naskah P2MA (PDF) &rarr;</a>';
+            } elseif (str_contains($raw, '/pencarian')) {
+                return '<a href="' . h($raw) . '" target="_blank" rel="noopener noreferrer" class="badge badge-primary" style="font-size:10.5px;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;">🔍 Verifikasi P2MA &rarr;</a>';
+            } else {
+                return '<a href="' . h($raw) . '" target="_blank" rel="noopener noreferrer" class="badge badge-primary" style="font-size:10.5px;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;">🌐 Portal P2MA &rarr;</a>';
+            }
+        } elseif (str_contains($raw, 'drive.google.com') || str_contains($raw, 'docs.google.com')) {
+            return '<a href="' . h($raw) . '" target="_blank" rel="noopener noreferrer" class="badge badge-success" style="font-size:10.5px;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;">📁 Google Drive &rarr;</a>';
+        } else {
+            return '<a href="' . h($raw) . '" target="_blank" rel="noopener noreferrer" class="badge badge-secondary" style="font-size:10.5px;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;">🔗 Tautan Bukti &rarr;</a>';
+        }
+    }
+
+    // Jika mengandung URL di dalam teks, linkify URL-nya
+    if (preg_match('/https?:\/\/[^\s]+/i', $raw)) {
+        $replaced = preg_replace_callback('/https?:\/\/[^\s]+/i', function($m) {
+            $u = $m[0];
+            $label = str_contains($u, 'p2ma') ? '🌐 Portal P2MA' : (str_contains($u, 'google') ? '📁 Google Drive' : '🔗 Tautan');
+            return '<a href="' . h($u) . '" target="_blank" rel="noopener noreferrer" style="color:#2563eb;text-decoration:underline;font-weight:600;">[' . $label . ']</a>';
+        }, h($raw));
+        return nl2br($replaced);
+    }
+
+    return nl2br(h($raw));
+}
+
+/* ============================================================
+ * ROBUST ZIP & EXCEL PARSING (FALLBACK UNTUK PHP TANPA EXT-ZIP)
+ * ============================================================ */
+
+/**
+ * Pembersih XML untuk mencegah warning SimpleXML / XPath namespace prefix.
+ * Menghapus prefix namespace (<x:row> -> <row>) dan atribut xmlns sehingga
+ * SimpleXML dapat membaca seluruh elemen Excel secara langsung dan aman.
+ */
+function cleanXmlString(string $xml): string {
+    // 1. Remove all xmlns attributes first
+    $xml = preg_replace('/\s*xmlns(?::[\w-]+)?="[^"]*"/i', '', $xml);
+    // 2. Remove namespace prefixes from tag names: <x:row> -> <row>, </x:row> -> </row>
+    $xml = preg_replace('/(<\/?)([\w-]+):([^>]*>)/', '$1$3', $xml);
+    // 3. Remove namespace prefixes from remaining attributes: r:id="..." -> id="..."
+    $xml = preg_replace('/\s+([\w-]+):([\w-]+)="/i', ' $2="', $xml);
+    return $xml;
+}
+
+/**
+ * Universal ZIP archive reader that transparently uses PHP's ZipArchive when available,
+ * or falls back to a built-in pure PHP PKZip parser using gzinflate() if php_zip extension is disabled.
+ */
+class RobustZipReader {
+    private ?ZipArchive $nativeZip = null;
+    protected array $entries = [];
+    private bool $isNative = false;
+
+    public function open(string $filename): bool {
+        $this->entries = [];
+        $this->nativeZip = null;
+        $this->isNative = false;
+
+        // 1. Try native ZipArchive if available
+        if (class_exists('ZipArchive')) {
+            $zip = new ZipArchive();
+            if ($zip->open($filename) === true) {
+                $this->nativeZip = $zip;
+                $this->isNative = true;
+                return true;
+            }
+        }
+
+        // 2. Pure PHP PKZip Fallback using End of Central Directory (EOCD)
+        $data = @file_get_contents($filename);
+        if ($data === false || strlen($data) < 22) {
+            return false;
+        }
+
+        $eocdPos = strrpos($data, "\x50\x4B\x05\x06");
+        if ($eocdPos === false) {
+            return false;
+        }
+
+        $eocd = substr($data, $eocdPos);
+        $totalEntries = unpack('v', substr($eocd, 10, 2))[1] ?? 0;
+        $cdOffset = unpack('V', substr($eocd, 16, 4))[1] ?? 0;
+
+        $pos = $cdOffset;
+        for ($i = 0; $i < $totalEntries; $i++) {
+            if ($pos + 46 > strlen($data) || substr($data, $pos, 4) !== "\x50\x4B\x01\x02") {
+                break;
+            }
+            $header = substr($data, $pos, 46);
+            $compMethod = unpack('v', substr($header, 10, 2))[1];
+            $compSize = unpack('V', substr($header, 20, 4))[1];
+            $uncompSize = unpack('V', substr($header, 24, 4))[1];
+            $fnLen = unpack('v', substr($header, 28, 2))[1];
+            $extraLen = unpack('v', substr($header, 30, 2))[1];
+            $commentLen = unpack('v', substr($header, 32, 2))[1];
+            $localOffset = unpack('V', substr($header, 42, 4))[1];
+
+            $entryName = substr($data, $pos + 46, $fnLen);
+            $pos += 46 + $fnLen + $extraLen + $commentLen;
+
+            // Read local header for actual data offset
+            if ($localOffset + 30 > strlen($data) || substr($data, $localOffset, 4) !== "\x50\x4B\x03\x04") {
+                continue;
+            }
+            $locFnLen = unpack('v', substr($data, $localOffset + 26, 2))[1];
+            $locExtraLen = unpack('v', substr($data, $localOffset + 28, 2))[1];
+            $dataOffset = $localOffset + 30 + $locFnLen + $locExtraLen;
+
+            $this->entries[$entryName] = [
+                'method' => $compMethod,
+                'compSize' => $compSize,
+                'uncompSize' => $uncompSize,
+                'offset' => $dataOffset,
+                'raw' => substr($data, $dataOffset, $compSize)
+            ];
+        }
+
+        return !empty($this->entries);
+    }
+
+    public function getFromName(string $name): ?string {
+        if ($this->isNative && $this->nativeZip) {
+            $content = $this->nativeZip->getFromName($name);
+            return ($content !== false) ? $content : null;
+        }
+
+        $cleanTarget = ltrim(str_replace('\\', '/', $name), '/');
+        foreach ($this->entries as $entryName => $entry) {
+            $cleanEntry = ltrim(str_replace('\\', '/', $entryName), '/');
+            if (strcasecmp($cleanEntry, $cleanTarget) === 0) {
+                if ($entry['method'] === 0) {
+                    return $entry['raw'];
+                } elseif ($entry['method'] === 8) {
+                    $uncompressed = @gzinflate($entry['raw']);
+                    return ($uncompressed !== false) ? $uncompressed : null;
+                }
+            }
+        }
+        return null;
+    }
+
+    public function close(): void {
+        if ($this->isNative && $this->nativeZip) {
+            $this->nativeZip->close();
+            $this->nativeZip = null;
+        }
+        $this->entries = [];
+    }
+}
+
+/**
+ * Parsing seluruh sheet pada file workbook .xlsx secara aman,
+ * menggunakan RobustZipReader dan pembersih namespace XML sehingga
+ * tidak memicu warning SimpleXML / XPath pada PHP versi/setting manapun.
+ */
+function parseFullWorkbookXlsx(string $filePath): array {
+    $zip = new RobustZipReader();
+    if (!$zip->open($filePath)) return [];
+
+    // 1. Shared Strings
+    $sharedStrings = [];
+    $ssContent = $zip->getFromName('xl/sharedStrings.xml');
+    if ($ssContent) {
+        $cleanSs = cleanXmlString($ssContent);
+        $ssXml = @simplexml_load_string($cleanSs);
+        if ($ssXml !== false && isset($ssXml->si)) {
+            foreach ($ssXml->si as $si) {
+                if (isset($si->t)) {
+                    $sharedStrings[] = (string)$si->t;
+                } else {
+                    $parts = [];
+                    if (isset($si->r)) {
+                        foreach ($si->r as $r) {
+                            $parts[] = (string)($r->t ?? '');
+                        }
+                    }
+                    $sharedStrings[] = implode('', $parts);
+                }
+            }
+        }
+    }
+
+    // 2. Mapping Relationships & Sheets
+    $relsContent = $zip->getFromName('xl/_rels/workbook.xml.rels');
+    $relMap = [];
+    if ($relsContent) {
+        preg_match_all('/<Relationship[^>]+>/i', $relsContent, $rm);
+        foreach ($rm[0] as $tag) {
+            preg_match('/Id=\"([^\"]+)\"/i', $tag, $mId);
+            preg_match('/Target=\"([^\"]+)\"/i', $tag, $mTgt);
+            if (!empty($mId[1]) && !empty($mTgt[1])) {
+                $t = ltrim($mTgt[1], '/');
+                if (!str_starts_with($t, 'xl/')) $t = 'xl/' . $t;
+                $relMap[$mId[1]] = $t;
+            }
+        }
+    }
+
+    $wbContent = $zip->getFromName('xl/workbook.xml');
+    $sheetTargets = [];
+    if ($wbContent) {
+        $cleanWb = cleanXmlString($wbContent);
+        $wbXml = @simplexml_load_string($cleanWb);
+        if ($wbXml !== false && isset($wbXml->sheets->sheet)) {
+            foreach ($wbXml->sheets->sheet as $s) {
+                $sName = (string)$s['name'];
+                $rId = (string)($s['id'] ?? '');
+                if (!$rId) {
+                    foreach ($s->attributes() as $k => $v) {
+                        if (str_ends_with(strtolower($k), 'id')) {
+                            $rId = (string)$v;
+                            break;
+                        }
+                    }
+                }
+                if ($rId && isset($relMap[$rId])) {
+                    $sheetTargets[$sName] = $relMap[$rId];
+                }
+            }
+        }
+        if (empty($sheetTargets)) {
+            preg_match_all('/<[^>]*sheet[^>]+>/i', $wbContent, $sm);
+            foreach ($sm[0] as $tag) {
+                preg_match('/name=\"([^\"]+)\"/i', $tag, $mName);
+                preg_match('/(?:r:id|\bid)=\"([^\"]+)\"/i', $tag, $mRid);
+                if (!empty($mName[1]) && !empty($mRid[1]) && isset($relMap[$mRid[1]])) {
+                    $sheetTargets[htmlspecialchars_decode($mName[1])] = $relMap[$mRid[1]];
+                }
+            }
+        }
+    }
+
+    // 3. Ekstraksi Data Tiap Sheet
+    $result = [];
+    foreach ($sheetTargets as $sheetName => $targetFile) {
+        $sXmlContent = $zip->getFromName($targetFile);
+        if (!$sXmlContent) continue;
+        $cleanSheet = cleanXmlString($sXmlContent);
+        $sXml = @simplexml_load_string($cleanSheet);
+        if ($sXml === false || !isset($sXml->sheetData->row)) continue;
+
+        $rows = [];
+        foreach ($sXml->sheetData->row as $r) {
+            $rNum = (int)$r['r'];
+            $cells = [];
+            if (isset($r->c)) {
+                foreach ($r->c as $c) {
+                    $ref = (string)$c['r'];
+                    preg_match('/^([A-Z]+)/', $ref, $m);
+                    $colLetters = $m[1] ?? 'A';
+                    $colNum = 0;
+                    for ($ci = 0; $ci < strlen($colLetters); $ci++) {
+                        $colNum = $colNum * 26 + (ord($colLetters[$ci]) - ord('A') + 1);
+                    }
+
+                    $type = (string)($c['t'] ?? '');
+                    $val = (string)($c->v ?? '');
+
+                    if ($type === 's' && isset($sharedStrings[(int)$val])) {
+                        $cellVal = $sharedStrings[(int)$val];
+                    } elseif ($type === 'inlineStr' && isset($c->is->t)) {
+                        $cellVal = (string)$c->is->t;
+                    } else {
+                        $cellVal = $val;
+                    }
+                    $cells[$colNum] = trim($cellVal);
+                }
+            }
+            if (!empty($cells)) {
+                $rows[$rNum] = $cells;
+            }
+        }
+        $result[$sheetName] = $rows;
+    }
+
+    $zip->close();
+    return $result;
+}
+
+
 

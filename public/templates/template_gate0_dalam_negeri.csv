@@ -1,2 +1,45 @@
-﻿nomor_usulan;tipe_kerjasama;jenis_naskah;unit_pemrakarsa;penanggung_jawab_usulan;calon_mitra;judul_rencana;tujuan_singkat;ruang_lingkup;penerima_manfaat;perkiraan_mulai;perkiraan_selesai;q1_tusi_kewenangan;q1_bukti;q2_sasaran_kinerja;q2_bukti;q3_batas_kewenangan;q3_bukti;q4_kebutuhan_nyata;q4_bukti;q5_kejelasan_manfaat;q5_bukti;q6_output_outcome;q6_bukti;q7_daya_ungkit;q7_bukti;q8_legalitas_mitra;q8_bukti;q9_kapasitas_mitra;q9_bukti;q10_integritas_reputasi;q10_bukti;q11_peran_kontribusi;q11_bukti;q12_focal_point;q12_bukti;q13_kesiapan_sdm_anggaran;q13_bukti;q14_indikator_awal;q14_bukti;q15_manajemen_risiko;q15_bukti;q16_tindak_lanjut_pascattd;q16_bukti;q17_keberlanjutan_manfaat;q17_bukti;q18_mitigasi_hambatan;q18_bukti;trigger1_pihak_asing;trigger2_keuangan_aset;trigger3_data_sistem;trigger4_kekayaan_intelektual;trigger5_teknologi_api;trigger6_risiko_hukum_reputasi;trigger7_publikasi_branding;catatan_verifikasi;gap_penyempurnaan;unit_review_tambahan
-PRA-DN-001;Dalam Negeri;PKS;Divisi Pelayanan Hukum dan HAM;Kabid Pelayanan Hukum;Universitas Maritim Raja Ali Haji (UMRAH);Fasilitasi Sentra Riset Hukum Maritim dan Bantuan Hukum Nelayan Pesisir;Mendekatkan akses keadilan masyarakat nelayan pesisir;Penyuluhan hukum, riset kebijakan maritim, dan klinik konsultasi hukum keliling;Masyarakat nelayan tradisional dan sivitas akademika UMRAH;2026-11-01;2029-10-31;YA;Sesuai Renstra Kanwil Kemenkumham Kepri;YA;Mendukung target kinerja BPHN & Kanwil;YA;Ruang lingkup dalam batas kewenangan wilayah;YA;Terdapat kebutuhan bantuan hukum nelayan;YA;Peningkatan literasi hukum pesisir;YA;Output: klinik hukum keliling & modul advokasi;YA;Optimalisasi jejaring akademisi dan LBH kampus;YA;PTN berbadan hukum sah;YA;Fakultas Hukum terakreditasi Unggul;YA;Tidak ada rekam jejak negatif;YA;Pembagian peran diatur dalam rencana kerja;YA;Ditunjuk Subbid Luhbankum sebagai focal point;YA;Sarana penyuluhan dan anggaran tersedia;YA;Target 12 sesi konsultasi per tahun;YA;Risiko operasional dimitigasi jadwal terjadwal;YA;Evaluasi triwulanan terjadwal pada siklus monev;YA;Manfaat berkelanjutan bagi nelayan binaan;YA;Mitigasi cuaca dan transportasi pulau tersedia;TIDAK;TIDAK;TIDAK;TIDAK;TIDAK;TIDAK;TIDAK;Proposal lengkap dan telah dicek legalitas mitra.;Tidak ada gap material.;Subbagian Humas, RB, dan TI
+﻿NO;KOMPONEN / PARAMETER / PERTANYAAN EVALUASI;ISIAN DATA / PILIHAN (YA/TIDAK);BUKTI DUKUNG / KETERANGAN / CATATAN REVIU
+#;BAGIAN I: IDENTITAS & PROFIL USULAN;;
+1;Nomor Usulan;PRA-DN-001;Format: PRA-[DN/LN]-XXX
+2;Tipe Kerja Sama;Dalam Negeri;Pilihan: Dalam Negeri / Luar Negeri
+3;Jenis Naskah;PKS;Pilihan: PKS / MoU / Lainnya
+4;Unit Pemrakarsa;Divisi Pelayanan Hukum dan HAM;Unit pengusul di lingkungan Kanwil Kepri
+5;Penanggung Jawab Usulan;Kabid Pelayanan Hukum;Nama & Jabatan Penanggung Jawab Usulan
+6;Calon Mitra;Universitas Maritim Raja Ali Haji (UMRAH);Nama resmi instansi / lembaga calon mitra
+7;Judul Rencana Kerja Sama;Fasilitasi Sentra Riset Hukum Maritim dan Bantuan Hukum Nelayan Pesisir;Judul lengkap rencana naskah kerja sama
+8;Tujuan Singkat;Mendekatkan akses keadilan masyarakat nelayan pesisir;Tujuan pokok pelaksanaan kerja sama
+9;Ruang Lingkup Utama;Penyuluhan hukum, riset kebijakan maritim, dan klinik konsultasi;Uraian ruang lingkup kegiatan yang disepakati
+10;Penerima Manfaat;Masyarakat nelayan tradisional dan sivitas akademika;Sasaran kelompok penerima manfaat
+11;Perkiraan Tanggal Mulai;2026-11-01;Format tanggal: YYYY-MM-DD
+12;Perkiraan Tanggal Selesai;2029-10-31;Format tanggal: YYYY-MM-DD
+#;BAGIAN II: UJI KELAYAKAN 5 KRITERIA (18 PERTANYAAN EVALUASI);;
+Q1;K1.1: Kesesuaian dengan tugas pokok dan fungsi (Tusi) Kementerian Hukum;YA;Sesuai Renstra Kanwil Kementerian Hukum Kepri
+Q2;K1.2: Kesesuaian dengan sasaran kinerja organisasi dan prioritas wilayah;YA;Mendukung target kinerja BPHN & Kanwil Kepri
+Q3;K1.3: Tidak melampaui batas kewenangan kewilayahan/substansi;YA;Ruang lingkup dalam batas kewenangan wilayah Kepri
+Q4;K2.1: Terdapat kebutuhan nyata atas pelaksanaan kerja sama;YA;Kebutuhan nyata akses keadilan masyarakat pesisir
+Q5;K2.2: Kejelasan manfaat yang akan diperoleh Kanwil maupun masyarakat;YA;Peningkatan literasi hukum masyarakat pesisir
+Q6;K2.3: Kejelasan target output dan outcome yang terukur;YA;Target output: klinik hukum keliling & modul advokasi
+Q7;K2.4: Memberikan daya ungkit terhadap peningkatan kinerja pelayanan;YA;Optimalisasi jejaring akademisi dan LBH kampus
+Q8;K3.1: Legalitas dan status kelembagaan mitra sah dan terverifikasi;YA;Institusi resmi berbadan hukum sah
+Q9;K3.2: Kapasitas teknis, operasional, dan sumber daya mitra memadai;YA;Memiliki SDM dan fasilitas operasional memadai
+Q10;K3.3: Reputasi baik dan tidak memiliki rekam jejak negatif;YA;Tidak ada catatan sengketa atau rekam jejak negatif
+Q11;K4.1: Kejelasan pembagian peran, hak, dan kewajiban para pihak;YA;Pembagian tugas diatur dalam matriks rencana kerja
+Q12;K4.2: Kesiapan unit pengampu dan focal point/PIC internal;YA;Telah ditunjuk unit pengampu dan focal point resmi
+Q13;K4.3: Kesiapan sarana pendukung dan pembiayaan non-APBN mengikat;YA;Sarana penyuluhan dan pendampingan tersedia
+Q14;K4.4: Kesiapan indikator awal penilaian keberhasilan;YA;Target minimal 12 sesi konsultasi per tahun
+Q15;K5.1: Manajemen risiko operasional dan mitigasi awal;YA;Risiko operasional dimitigasi jadwal terjadwal
+Q16;K5.2: Komitmen tindak lanjut operasional pasca-penandatanganan;YA;Evaluasi triwulanan terjadwal pada siklus monev
+Q17;K5.3: Keberlanjutan manfaat kerja sama jangka panjang;YA;Manfaat berkelanjutan bagi kelompok binaan
+Q18;K5.4: Kesiapan rencana mitigasi bila timbul hambatan pelaksanaan;YA;Mitigasi cuaca dan sarana transportasi disiapkan
+#;BAGIAN III: PEMICU KARAKTERISTIK KHUSUS (7 TRIGGERS);;
+T1;Pemicu 1: Keterlibatan Pihak Asing / Entitas Luar Negeri;TIDAK;Tidak ada keterlibatan entitas asing
+T2;Pemicu 2: Dampak Keuangan, Aset Negara, atau Pembiayaan Khusus;TIDAK;Tidak ada pendanaan APBN yang mengikat
+T3;Pemicu 3: Penggunaan Data, Kerahasiaan, atau Sistem Informasi;TIDAK;Tidak ada integrasi data rahasia
+T4;Pemicu 4: Hak Kekayaan Intelektual (Pemanfaatan Merek, Cipta, Paten);TIDAK;Tidak ada komersialisasi KI
+T5;Pemicu 5: Integrasi Teknologi Informasi, Server, atau API;TIDAK;Tidak menggunakan API server internal
+T6;Pemicu 6: Potensi Risiko Hukum Signifikan atau Isu Sensitif;TIDAK;Aktivitas pembinaan standar
+T7;Pemicu 7: Publikasi, Penggunaan Logo, dan Branding Resmi;TIDAK;Sesuai pedoman humas Kementerian Hukum
+#;BAGIAN IV: CATATAN & HASIL REVIU VERIFIKATOR;;
+C1;Catatan Verifikator;Proposal lengkap dan telah dicek legalitas mitra.;Komentar tim pengelola kerja sama
+C2;Gap yang Harus Ditutup;Tidak ada gap material.;Syarat perbaikan sebelum penandatanganan
+C3;Unit/Fungsi Reviu Tambahan;Subbagian Humas, RB, dan TI;Unit verifikator tambahan yang dilibatkan

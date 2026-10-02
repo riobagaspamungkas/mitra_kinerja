@@ -19,6 +19,9 @@ $pilotOnly = array_filter($all, function ($s) {
 ?>
 
 <?php
+$user = currentUser();
+$userRole = $user['role'] ?? 'admin';
+
 $dueSoonMonev = [];
 foreach ($all as $s) {
     if (!empty($s['monev']['warning_1_bulan'])) {
@@ -27,24 +30,57 @@ foreach ($all as $s) {
 }
 ?>
 
-<?php if (!empty($dueSoonMonev)): ?>
+<?php if ($userRole === 'pengampu' || $userRole === 'pic' || !empty($dueSoonMonev)): ?>
 <div class="alert alert-warning" style="margin-bottom:20px;border-left:4px solid #ea580c;background:#fff7ed;color:#9a3412;">
-    <div style="font-weight:700;font-size:14px;margin-bottom:4px;">
-        ⚠️ Jadwal Evaluasi Mendatang (&lt; 30 Hari)
-    </div>
-    <div style="font-size:13px;">
-        Terdapat <strong><?= count($dueSoonMonev) ?> kerja sama</strong> yang mendekati jadwal evaluasi:
-        <ul style="margin:6px 0 0 18px;padding:0;">
-            <?php foreach ($dueSoonMonev as $ds): ?>
+    <?php if ($userRole === 'pengampu'): ?>
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:#c2410c;">
+            ⚠️ Notifikasi Pengisian Jadwal Evaluasi (Akun Pengampu)
+        </div>
+        <div style="font-size:13px;line-height:1.5;">
+            Sebagai <strong>Akun Pengampu</strong>, Anda perlu untuk melakukan pengisian setiap <strong>SC1 atau SC2 atau SC3</strong> dan siklus evaluasi lainnya, sebelum <strong>30 hari</strong> dari tenggat waktu jadwal evaluasi tersebut.
+        </div>
+    <?php elseif ($userRole === 'pic'): ?>
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:#c2410c;">
+            ⚠️ Pengingat Jadwal Evaluasi Kinerja (Akun PIC)
+        </div>
+        <div style="font-size:13px;line-height:1.5;">
+            Sebagai <strong>Akun PIC</strong>, Anda perlu melakukan pemantauan dan <strong>mengingatkan Akun Pengampu</strong> untuk melakukan pengisian setiap <strong>SC1 atau SC2 atau SC3</strong> dan siklus evaluasi lainnya, sebelum <strong>30 hari</strong> dari tenggat waktu evaluasi tersebut.
+        </div>
+    <?php else: ?>
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px;">
+            ⚠️ Jadwal Evaluasi Mendatang (&lt; 30 Hari)
+        </div>
+        <div style="font-size:13px;line-height:1.5;">
+            Terdapat <strong><?= count($dueSoonMonev) ?> kerja sama</strong> yang mendekati tenggat evaluasi. Akun Pengampu perlu melakukan pengisian dan pemutakhiran setiap siklus (SC1, SC2, SC3, dst.) sebelum 30 hari dari tenggat waktu, dengan koordinasi oleh Akun PIC:
+        </div>
+    <?php endif; ?>
+
+    <?php if (!empty($dueSoonMonev)): ?>
+    <div style="font-size:13px;margin-top:8px;">
+        <div style="font-weight:600;margin-bottom:4px;">Daftar Naskah Mendekati Tenggat (&lt; 30 Hari):</div>
+        <ul style="margin:4px 0 0 18px;padding:0;">
+            <?php foreach ($dueSoonMonev as $ds): 
+                $msLabel = 'SC-1';
+                if (!empty($ds['monev']['milestones'])) {
+                    foreach ($ds['monev']['milestones'] as $ms) {
+                        if (!empty($ms['is_due_soon'])) {
+                            $msLabel = $ms['nama'];
+                            break;
+                        }
+                    }
+                }
+            ?>
             <li style="margin-bottom:4px;">
                 <strong><?= h($ds['mitra']['kode']) ?></strong> &mdash; <?= h($ds['mitra']['nama_mitra']) ?> &bull; 
+                Siklus: <span class="badge badge-warning" style="font-size:10px;font-weight:600;"><?= h($msLabel) ?></span> &bull;
                 Target: <strong><?= formatTanggal($ds['monev']['target_evaluasi_terdekat']) ?></strong> 
-                (<?= $ds['monev']['hari_menuju_evaluasi'] ?> hari lagi) &bull;
+                (<?= $ds['monev']['hari_menuju_evaluasi'] !== null ? ($ds['monev']['hari_menuju_evaluasi'] >= 0 ? $ds['monev']['hari_menuju_evaluasi'] . ' hari lagi' : abs($ds['monev']['hari_menuju_evaluasi']) . ' hari lalu') : '-' ?>) &bull;
                 <a href="mitra_edit.php?id=<?= $ds['mitra']['id'] ?>" style="color:#2563eb;text-decoration:underline;">Buka Penilaian &rarr;</a>
             </li>
             <?php endforeach; ?>
         </ul>
     </div>
+    <?php endif; ?>
 </div>
 <?php endif; ?>
 
@@ -56,28 +92,28 @@ foreach ($all as $s) {
             <div class="muted" style="font-size:12px;">Ringkasan efektivitas, capaian hasil, dan tindak lanjut portofolio</div>
         </div>
     </div>
-    <div class="kpi-grid" style="margin-top:14px;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));">
-        <div class="kpi-card" style="background:#fff;">
+    <div class="kpi-grid" style="margin-top:14px;grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));">
+        <div class="kpi-card kpi-card-vertical" style="background:#fff;">
             <div class="kpi-value" style="color:#2563eb;"><?= $stats['aktifCount'] ?> / <?= $stats['total'] ?></div>
             <div class="kpi-label">Kerja Sama Aktif</div>
-            <div class="kpi-sub" style="font-size:11px;color:#64748b;">Implementasi berjalan</div>
+            <div class="kpi-sub">Implementasi berjalan</div>
         </div>
-        <div class="kpi-card" style="background:#fff;">
+        <div class="kpi-card kpi-card-vertical" style="background:#fff;">
             <div class="kpi-value" style="color:#0891b2;"><?= $stats['outputOutcomeCount'] ?></div>
             <div class="kpi-label">Output &amp; Outcome</div>
-            <div class="kpi-sub" style="font-size:11px;color:#64748b;">Menghasilkan produk/manfaat</div>
+            <div class="kpi-sub">Menghasilkan produk/manfaat</div>
         </div>
-        <div class="kpi-card" style="background:#fff;">
+        <div class="kpi-card kpi-card-vertical" style="background:#fff;">
             <div class="kpi-value" style="color:#16a34a;"><?= $stats['berdampakCount'] ?></div>
             <div class="kpi-label">Berdampak</div>
-            <div class="kpi-sub" style="font-size:11px;color:#64748b;">Mendukung pelayanan hukum</div>
+            <div class="kpi-sub">Mendukung pelayanan hukum</div>
         </div>
-        <div class="kpi-card" style="background:#fff;">
-            <div class="kpi-value" style="font-size:15px;color:#ca8a04;">
+        <div class="kpi-card kpi-card-vertical" style="background:#fff;">
+            <div class="kpi-value" style="font-size:18px;color:#ca8a04;">
                 <?= $stats['rekomendasiCount']['LANJUT'] + $stats['rekomendasiCount']['PERPANJANG'] + $stats['rekomendasiCount']['REPLIKASI'] ?> Lanjut / <?= $stats['rekomendasiCount']['HENTIKAN'] ?> Henti
             </div>
             <div class="kpi-label">Rekomendasi</div>
-            <div class="kpi-sub" style="font-size:11px;color:#64748b;"><?= $stats['rekomendasiCount']['PERBAIKI'] ?> perlu perbaikan</div>
+            <div class="kpi-sub"><?= $stats['rekomendasiCount']['PERBAIKI'] ?> perlu perbaikan</div>
         </div>
     </div>
 </div>
@@ -89,7 +125,7 @@ foreach ($all as $s) {
         <div class="kpi-data">
             <div class="kpi-number"><?= $stats['total'] ?></div>
             <div class="kpi-label">Total Naskah Kerja Sama</div>
-            <div class="kpi-sub"><?= $stats['pilotCount'] ?> Naskah Pilot<br><?= $stats['total'] - $stats['pilotCount'] ?> Perjanjian Kerja Sama</div>
+            <div class="kpi-sub"><?= $stats['pilotCount'] ?> Pilot Utama<br><?= $stats['total'] - $stats['pilotCount'] ?> Naskah Cadangan</div>
         </div>
     </div>
     <div class="kpi-card">
@@ -106,8 +142,8 @@ foreach ($all as $s) {
         <div class="kpi-data">
             <div class="kpi-number"><?= $stats['efektif'] ?></div>
             <div class="kpi-label">Efektif</div>
-            <div class="kpi-progress"><div class="bar" style="width:<?= $stats['pilotCount'] > 0 ? round($stats['efektif']/$stats['pilotCount']*100) : 0 ?>%;background:#16a34a;"></div></div>
-            <div class="kpi-sub"><?= $stats['pilotCount'] > 0 ? round($stats['efektif']/$stats['pilotCount']*100) : 0 ?>%</div>
+            <div class="kpi-progress"><div class="bar" style="width:<?= $stats['total'] > 0 ? round($stats['efektif']/$stats['total']*100) : 0 ?>%;background:#16a34a;"></div></div>
+            <div class="kpi-sub"><?= $stats['total'] > 0 ? round($stats['efektif']/$stats['total']*100) : 0 ?>% dari total</div>
         </div>
     </div>
     <div class="kpi-card">
@@ -115,8 +151,8 @@ foreach ($all as $s) {
         <div class="kpi-data">
             <div class="kpi-number"><?= $stats['perluPerhatian'] ?></div>
             <div class="kpi-label">Perlu Perhatian</div>
-            <div class="kpi-progress"><div class="bar" style="width:<?= $stats['pilotCount'] > 0 ? round($stats['perluPerhatian']/$stats['pilotCount']*100) : 0 ?>%;background:#ca8a04;"></div></div>
-            <div class="kpi-sub"><?= $stats['pilotCount'] > 0 ? round($stats['perluPerhatian']/$stats['pilotCount']*100) : 0 ?>%</div>
+            <div class="kpi-progress"><div class="bar" style="width:<?= $stats['total'] > 0 ? round($stats['perluPerhatian']/$stats['total']*100) : 0 ?>%;background:#ca8a04;"></div></div>
+            <div class="kpi-sub"><?= $stats['total'] > 0 ? round($stats['perluPerhatian']/$stats['total']*100) : 0 ?>% dari total</div>
         </div>
     </div>
     <div class="kpi-card">
@@ -124,8 +160,8 @@ foreach ($all as $s) {
         <div class="kpi-data">
             <div class="kpi-number"><?= $stats['berisiko'] ?></div>
             <div class="kpi-label">Berisiko</div>
-            <div class="kpi-progress"><div class="bar" style="width:<?= $stats['pilotCount'] > 0 ? round($stats['berisiko']/$stats['pilotCount']*100) : 0 ?>%;background:#dc2626;"></div></div>
-            <div class="kpi-sub"><?= $stats['pilotCount'] > 0 ? round($stats['berisiko']/$stats['pilotCount']*100) : 0 ?>%</div>
+            <div class="kpi-progress"><div class="bar" style="width:<?= $stats['total'] > 0 ? round($stats['berisiko']/$stats['total']*100) : 0 ?>%;background:#dc2626;"></div></div>
+            <div class="kpi-sub"><?= $stats['total'] > 0 ? round($stats['berisiko']/$stats['total']*100) : 0 ?>% dari total</div>
         </div>
     </div>
 </div>
@@ -133,13 +169,13 @@ foreach ($all as $s) {
 <!-- Charts Row -->
 <div class="charts-row">
     <div class="chart-card">
-        <h3>Status Efektivitas Naskah Pilot</h3>
+        <h3>Status Efektivitas Kerja Sama</h3>
         <div class="donut-wrap">
             <canvas id="donutChart" width="160" height="160"></canvas>
             <div class="donut-legend">
-                <div class="leg-item"><span class="leg-dot" style="background:#16a34a;"></span> Efektif <span class="leg-count"><?= $stats['efektif'] ?></span> <span class="leg-pct"><?= $stats['pilotCount'] > 0 ? round($stats['efektif']/$stats['pilotCount']*100) : 0 ?>%</span></div>
-                <div class="leg-item"><span class="leg-dot" style="background:#ca8a04;"></span> Perlu Perhatian <span class="leg-count"><?= $stats['perluPerhatian'] ?></span> <span class="leg-pct"><?= $stats['pilotCount'] > 0 ? round($stats['perluPerhatian']/$stats['pilotCount']*100) : 0 ?>%</span></div>
-                <div class="leg-item"><span class="leg-dot" style="background:#dc2626;"></span> Berisiko <span class="leg-count"><?= $stats['berisiko'] ?></span> <span class="leg-pct"><?= $stats['pilotCount'] > 0 ? round($stats['berisiko']/$stats['pilotCount']*100) : 0 ?>%</span></div>
+                <div class="leg-item"><span class="leg-dot" style="background:#16a34a;"></span> Efektif <span class="leg-count"><?= $stats['efektif'] ?></span> <span class="leg-pct"><?= $stats['total'] > 0 ? round($stats['efektif']/$stats['total']*100) : 0 ?>%</span></div>
+                <div class="leg-item"><span class="leg-dot" style="background:#ca8a04;"></span> Perlu Perhatian <span class="leg-count"><?= $stats['perluPerhatian'] ?></span> <span class="leg-pct"><?= $stats['total'] > 0 ? round($stats['perluPerhatian']/$stats['total']*100) : 0 ?>%</span></div>
+                <div class="leg-item"><span class="leg-dot" style="background:#dc2626;"></span> Berisiko <span class="leg-count"><?= $stats['berisiko'] ?></span> <span class="leg-pct"><?= $stats['total'] > 0 ? round($stats['berisiko']/$stats['total']*100) : 0 ?>%</span></div>
             </div>
         </div>
     </div>
@@ -353,7 +389,7 @@ foreach ($all as $s) {
 </button>
 <?php endif; ?>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="public/js/chart.umd.min.js"></script>
 <script>
 (function(){
     var ctx1 = document.getElementById('donutChart').getContext('2d');

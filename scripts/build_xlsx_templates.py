@@ -167,7 +167,7 @@ sample_dn = [
         'Universitas Maritim Raja Ali Haji (UMRAH)', 'Fasilitasi Sentra Riset Hukum Maritim dan Bantuan Hukum Nelayan Pesisir',
         'Mendekatkan akses keadilan masyarakat nelayan pesisir', 'Penyuluhan hukum, riset kebijakan maritim, dan klinik konsultasi hukum keliling',
         'Masyarakat nelayan tradisional dan sivitas akademika UMRAH', '2026-11-01', '2029-10-31',
-        'YA', 'Sesuai Renstra Kanwil Kemenkumham Kepri',
+        'YA', 'Sesuai Renstra Kanwil Kementerian Hukum Kepri',
         'YA', 'Mendukung target kinerja BPHN & Kanwil',
         'YA', 'Ruang lingkup dalam batas kewenangan wilayah',
         'YA', 'Terdapat kebutuhan bantuan hukum nelayan',
@@ -215,7 +215,7 @@ sample_ln = [
         'YA', 'Penguatan jejaring penyelesaian sengketa perbatasan',
         'YA', 'Mitigasi regulasi hubungan luar negeri dikoordinasikan',
         'YA', 'TIDAK', 'TIDAK', 'TIDAK', 'TIDAK', 'TIDAK', 'TIDAK',
-        'Dalam koordinasi resmi dengan Biro Hukerma Kemenkumham RI.', 'Menunggu surat rekomendasi / clearance hubungan luar negeri.', 'Biro Hukerma Kemenkumham RI & Ditjen AHU'
+        'Dalam koordinasi resmi dengan Biro Hukerma Kementerian Hukum RI.', 'Menunggu surat rekomendasi / clearance hubungan luar negeri.', 'Biro Hukerma Kementerian Hukum RI & Ditjen AHU'
     ]
 ]
 

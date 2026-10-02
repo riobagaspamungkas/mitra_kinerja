@@ -40,6 +40,11 @@ function getDB(): PDO {
         ];
         try {
             $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+            // Auto-check and migrate schema if missing (prevents HTTP 500 on fresh pulls)
+            if (file_exists(__DIR__ . '/../includes/auto_migrate.php')) {
+                require_once __DIR__ . '/../includes/auto_migrate.php';
+                ensureDatabaseSchema($pdo);
+            }
         } catch (PDOException $e) {
             // Di production jangan bocorkan detail koneksi (host/kredensial) ke pengguna.
             error_log('DB connection failed: ' . $e->getMessage());

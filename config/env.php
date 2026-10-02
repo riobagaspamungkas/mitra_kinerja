@@ -14,6 +14,14 @@ if (!defined('APP_ENV')) {
     if (!$env && file_exists(__DIR__ . '/env.local.php')) {
         $env = trim((string) include __DIR__ . '/env.local.php');
     }
+    // Auto-detect development mode on localhost or local LAN
+    if (!$env) {
+        $serverName = $_SERVER['SERVER_NAME'] ?? '';
+        $remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '';
+        if ($serverName === 'localhost' || $remoteAddr === '127.0.0.1' || $remoteAddr === '::1' || str_starts_with($remoteAddr, '192.168.') || str_starts_with($remoteAddr, '10.') || str_starts_with($remoteAddr, '172.')) {
+            $env = 'development';
+        }
+    }
     define('APP_ENV', $env === 'development' ? 'development' : 'production');
 }
 

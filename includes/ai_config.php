@@ -29,7 +29,7 @@ define('AI_CACHE_FILE', __DIR__ . '/../cache/ai_insight.json');
 
 // Prompt template untuk analisis
 define('AI_PROMPT_TEMPLATE', <<<'PROMPT'
-Anda adalah asisten analis untuk sistem monitoring kerja sama Kanwil Kemenkumham Kepri.
+Anda adalah asisten analis untuk sistem monitoring kerja sama Kanwil Kementerian Hukum Kepri.
 
 Berdasarkan data portofolio berikut, buatlah ringkasan insight dalam Bahasa Indonesia yang profesional dan singkat (maksimal 3 paragraf pendek).
 

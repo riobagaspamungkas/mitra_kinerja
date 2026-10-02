@@ -7,7 +7,7 @@ if (currentUser()) {
 }
 
 $error = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
     if ($username === '' || $password === '') {
@@ -44,13 +44,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <button type="submit">Masuk</button>
         </form>
         
-        <div style="margin-top:16px;padding:10px 12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:6px;font-size:12px;color:#475569;">
-            <div style="font-weight:600;margin-bottom:6px;color:#1e293b;">Akun Demo (Klik untuk isi):</div>
+        <div style="margin-top:16px;padding:12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px;font-size:12px;color:#475569;">
+            <div style="font-weight:700;margin-bottom:8px;color:#1e293b;display:flex;align-items:center;gap:6px;">
+                <span>🔑</span> Akun Demo Pengujian (Klik untuk isi cepat):
+            </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-                <button type="button" onclick="fillLogin('admin','admin123')" style="cursor:pointer;padding:5px;background:#fff;border:1px solid #cbd5e1;border-radius:4px;font-size:11px;">Admin</button>
-                <button type="button" onclick="fillLogin('pemeriksa','pemeriksa123')" style="cursor:pointer;padding:5px;background:#fff;border:1px solid #cbd5e1;border-radius:4px;font-size:11px;">Pemeriksa</button>
-                <button type="button" onclick="fillLogin('validator','validator123')" style="cursor:pointer;padding:5px;background:#fff;border:1px solid #cbd5e1;border-radius:4px;font-size:11px;">Validator</button>
-                <button type="button" onclick="fillLogin('pimpinan','pimpinan123')" style="cursor:pointer;padding:5px;background:#fff;border:1px solid #cbd5e1;border-radius:4px;font-size:11px;">Pimpinan</button>
+                <button type="button" class="btn-demo" onclick="fillLogin('admin','admin123')">Admin</button>
+                <button type="button" class="btn-demo" onclick="fillLogin('pemeriksa','pemeriksa123')">Pemeriksa</button>
+                <button type="button" class="btn-demo" onclick="fillLogin('pengampu','pengampu123')">Pengampu</button>
+                <button type="button" class="btn-demo" onclick="fillLogin('pic','pic123')">PIC Kerja Sama</button>
+                <button type="button" class="btn-demo" onclick="fillLogin('validator','validator123')">Validator</button>
+                <button type="button" class="btn-demo" onclick="fillLogin('pimpinan','pimpinan123')">Pimpinan</button>
             </div>
         </div>
 

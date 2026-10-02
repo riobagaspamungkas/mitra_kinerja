@@ -185,7 +185,7 @@ $stakeholderEnrichment = [
     'P08' => [ // Politeknik Negeri Batam
         1 => ['status' => 'TERVERIFIKASI', 'fakta' => 'Nomor para pihak resmi: 118/MOU.PL29/XI/2025 dan W.32-HH.04.04-1120. Naskah bertanda tangan cocok dengan P2MA.', 'link' => 'https://p2ma.kemenkum.go.id/uploads/kerjasama/naskah/1785760267.pdf'],
         6 => ['status' => 'TERVERIFIKASI', 'fakta' => 'Unit Pengampu substansi: Divisi Pelayanan Hukum dan HAM (Subbid Pelayanan Kekayaan Intelektual).', 'link' => 'SK Pembagian Tugas Pelayanan KI Kanwil Kepri'],
-        7 => ['status' => 'TERVERIFIKASI', 'fakta' => 'PIC Internal: Kepala Subbidang Pelayanan Kekayaan Intelektual Kanwil Kemenkumham Kepri.', 'link' => 'Daftar PIC Tim Proper Edison Manik'],
+        7 => ['status' => 'TERVERIFIKASI', 'fakta' => 'PIC Internal: Kepala Subbidang Pelayanan Kekayaan Intelektual Kanwil Kementerian Hukum Kepri.', 'link' => 'Daftar PIC Tim Proper Edison Manik'],
         8 => ['status' => 'TERVERIFIKASI', 'fakta' => 'PIC Mitra terkonfirmasi: Ridwan Purwanto, S.Sos., M.I.Kom. (Kepala Humas & Kerja Sama, HP: 085264686864) & Fitriyanti Nakul, S.Pd., M.Si (Ketua Sentra HKI, HP: 085830206709).', 'link' => 'Formulir Konfirmasi PIC Data Stakeholder Polibatam'],
         9 => ['status' => 'TERVERIFIKASI', 'fakta' => 'Rencana tindak lanjut disepakati: Fasilitasi pendaftaran paten produk hilirisasi, kajian tarif khusus PP 20, dan lisensi komersialisasi KI.', 'link' => 'Sheet Usulan Tindak Lanjut Data Stakeholder Polibatam'],
         10 => ['status' => 'TERVERIFIKASI', 'fakta' => 'Pelaksanaan berjalan: Sosialisasi Perlindungan Hak Cipta di Era AI telah terlaksana di Auditorium Polibatam.', 'link' => 'https://www.polibatam.ac.id/en/polibatam-strengthens-creative-ecosystem-and-copyright-protection-with-kemenkum-kepri-and-djki/'],
@@ -215,7 +215,7 @@ $stakeholderEnrichment = [
     'P05' => [ // STAIN Sultan Abdurrahman
         1 => ['status' => 'TERVERIFIKASI', 'fakta' => 'Nomor resmi: W.32.HH.04.04-1114 dan B-700/Sti.20/1.2/HM.01/03/2025 bertanda tangan sah.', 'link' => 'KESEPAKATAN BERSAMA_STAIN Sultan Abdurrahman Kepri.pdf'],
         6 => ['status' => 'TERVERIFIKASI', 'fakta' => 'Unit Pengampu: Divisi Pelayanan Hukum dan HAM (Subbid Luhbankum dan JDIH).', 'link' => 'SK Penunjukan Pengampu Kerja Sama'],
-        7 => ['status' => 'TERVERIFIKASI', 'fakta' => 'PIC Internal: Penyuluh Hukum Madya Kanwil Kemenkumham Kepri.', 'link' => 'Daftar PIC Internal Kanwil'],
+        7 => ['status' => 'TERVERIFIKASI', 'fakta' => 'PIC Internal: Penyuluh Hukum Madya Kanwil Kementerian Hukum Kepri.', 'link' => 'Daftar PIC Internal Kanwil'],
         8 => ['status' => 'TERVERIFIKASI', 'fakta' => 'PIC Mitra terkonfirmasi: Dr. Fadhila Yonata, M.Pd & Dwi Rio Sudarroji, M.Psi.', 'link' => 'Formulir PIC Data Stakeholder STAIN SAR'],
         9 => ['status' => 'TERVERIFIKASI', 'fakta' => 'Rencana tindak lanjut: Penyuluhan hukum serentak dan klinik bantuan hukum mahasiswa.', 'link' => 'Matriks Usulan STAIN SAR'],
         10 => ['status' => 'TERVERIFIKASI', 'fakta' => 'Pelaksanaan: Telah terlaksana kuliah umum kesadaran hukum dan pembinaan jurnal ilmiah hukum.', 'link' => 'Dokumentasi Kuliah Umum STAIN SAR'],
@@ -233,7 +233,7 @@ $stakeholderEnrichment = [
         12 => ['status' => 'TERVERIFIKASI', 'fakta' => 'Hambatan: Penyesuaian invensi riset terapan perhotelan/pariwisata ke format klaim paten sederhana.', 'link' => 'Catatan Teknis Sentra KI PBC']
     ],
     'C03' => [ // Universitas Ibnu Sina
-        1 => ['status' => 'TERVERIFIKASI', 'fakta' => 'Nomor resmi: W.32.HH.04.04-5 dan 1019/UIS.R/KS/XI/2025 bertanda tangan lengkap.', 'link' => 'P2MA Kemenkumham / Berkas Kerjasama UIS'],
+        1 => ['status' => 'TERVERIFIKASI', 'fakta' => 'Nomor resmi: W.32.HH.04.04-5 dan 1019/UIS.R/KS/XI/2025 bertanda tangan lengkap.', 'link' => 'P2MA Kementerian Hukum / Berkas Kerjasama UIS'],
         6 => ['status' => 'TERVERIFIKASI', 'fakta' => 'Unit Pengampu: Divisi Pelayanan Hukum dan HAM.', 'link' => 'SK Pengampu Kerja Sama Perguruan Tinggi'],
         7 => ['status' => 'TERVERIFIKASI', 'fakta' => 'PIC Internal: Kepala Subbidang Fasilitasi Produk Hukum Daerah.', 'link' => 'Daftar PIC Kanwil'],
         8 => ['status' => 'TERVERIFIKASI', 'fakta' => 'PIC Mitra: Amirullah (Direktur Kerjasama UIS) & Nanda Jarti.', 'link' => 'Formulir PIC Data Stakeholder UIS'],

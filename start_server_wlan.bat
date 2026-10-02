@@ -4,7 +4,7 @@ title MITRA KINERJA - Server WLAN
 cd /d "%~dp0"
 
 echo ============================================================
-echo   MITRA KINERJA - KANWIL KEMENKUMHAM KEPULAUAN RIAU
+echo   MITRA KINERJA - KANWIL KEMENTERIAN HUKUM KEPRI
 echo   Starting Local & WLAN Web Server...
 echo ============================================================
 echo.

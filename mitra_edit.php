@@ -19,7 +19,7 @@ if (!$mitra) {
 $errors = [];
 $saved = false;
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if (!$canEdit) {
         http_response_code(403);
         die('Role Anda tidak dapat mengubah data ini.');
@@ -29,19 +29,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         // --- A. Identitas, kontrol, posisi & rekomendasi ---
         $statusTanggal = in_array($_POST['status_tanggal'] ?? '', ['TERVERIFIKASI','BELUM TERVERIFIKASI'], true)
-            ? $_POST['status_tanggal'] : 'BELUM TERVERIFIKASI';
-        $posisiPortofolio = in_array($_POST['posisi_portofolio'] ?? '', ['BELUM DAPAT DITENTUKAN','AKTIF','OUTPUT TERSEDIA','OUTCOME TERBENTUK','BERDAMPAK'], true)
-            ? $_POST['posisi_portofolio'] : 'BELUM DAPAT DITENTUKAN';
-        $rekomendasi = in_array($_POST['rekomendasi'] ?? '', ['BELUM DITENTUKAN','LANJUT','PERBAIKI','PERPANJANG','REPLIKASI','HENTIKAN'], true)
-            ? $_POST['rekomendasi'] : 'BELUM DITENTUKAN';
+            ? $_POST['status_tanggal'] : ($mitra['status_tanggal'] ?? 'BELUM TERVERIFIKASI');
+        $posisiPortofolio = trim($_POST['posisi_portofolio'] ?? '') ?: 'BELUM DAPAT DITENTUKAN';
+        $rekomendasi = trim($_POST['rekomendasi'] ?? '') ?: 'BELUM DITENTUKAN';
+        $picFocalPoint = trim($_POST['pic_focal_point'] ?? '');
 
-        $stmtU = $pdo->prepare('UPDATE mitra_kinerja SET pemeriksa_id = ?, tanggal_review = ?, status_tanggal = ?, posisi_portofolio = ?, rekomendasi = ? WHERE id = ?');
+        $stmtU = $pdo->prepare('UPDATE mitra_kinerja SET pemeriksa_id = ?, tanggal_review = ?, status_tanggal = ?, posisi_portofolio = ?, rekomendasi = ?, pic_focal_point = ? WHERE id = ?');
         $stmtU->execute([
             $user['id'],
-            $_POST['tanggal_review'] !== '' ? $_POST['tanggal_review'] : null,
+            ($_POST['tanggal_review'] ?? '') !== '' ? $_POST['tanggal_review'] : null,
             $statusTanggal,
             $posisiPortofolio,
             $rekomendasi,
+            $picFocalPoint ?: null,
             $id,
         ]);
 
@@ -113,16 +113,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmtP->execute([$jawaban, $bukti ?: null, $id, $no]);
         }
 
-        $upaya    = trim($_POST['upaya_dilakukan'] ?? '');
+        $kendala   = trim($_POST['uraian_kendala'] ?? '');
+        $upaya     = trim($_POST['upaya_dilakukan'] ?? '');
         $keputusan = trim($_POST['keputusan_diminta'] ?? '');
         $stmtV = $pdo->prepare('SELECT id FROM intervensi_usulan WHERE mitra_id = ?');
         $stmtV->execute([$id]);
         if ($stmtV->fetch()) {
-            $stmtU3 = $pdo->prepare('UPDATE intervensi_usulan SET upaya_dilakukan=?, keputusan_diminta=? WHERE mitra_id=?');
-            $stmtU3->execute([$upaya ?: null, $keputusan ?: null, $id]);
+            $stmtU3 = $pdo->prepare('UPDATE intervensi_usulan SET uraian_kendala=?, upaya_dilakukan=?, keputusan_diminta=? WHERE mitra_id=?');
+            $stmtU3->execute([$kendala ?: null, $upaya ?: null, $keputusan ?: null, $id]);
         } else {
-            $stmtU3 = $pdo->prepare('INSERT INTO intervensi_usulan (mitra_id, upaya_dilakukan, keputusan_diminta) VALUES (?,?,?)');
-            $stmtU3->execute([$id, $upaya ?: null, $keputusan ?: null]);
+            $stmtU3 = $pdo->prepare('INSERT INTO intervensi_usulan (mitra_id, uraian_kendala, upaya_dilakukan, keputusan_diminta) VALUES (?,?,?,?)');
+            $stmtU3->execute([$id, $kendala ?: null, $upaya ?: null, $keputusan ?: null]);
         }
 
         $pdo->commit();
@@ -144,6 +145,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $summary = getMitraSummary($pdo, $mitra);
 
+// Hitung total kegiatan tindak lanjut terkait PKS ini
+$stmtTLCount = $pdo->prepare('SELECT COUNT(*) FROM tindak_lanjut WHERE mitra_id = ?');
+$stmtTLCount->execute([$id]);
+$kegiatanCount = (int)$stmtTLCount->fetchColumn();
+
 $pageTitle = 'Naskah ' . $mitra['kode'];
 require __DIR__ . '/includes/header.php';
 ?>
@@ -160,53 +166,93 @@ require __DIR__ . '/includes/header.php';
 <?php foreach ($errors as $e): ?><div class="alert alert-warning"><?= h($e) ?></div><?php endforeach; ?>
 <?php if (!$canEdit): ?><div class="alert alert-info">Anda melihat data ini sebagai <?= h($user['role']) ?> (mode baca saja).</div><?php endif; ?>
 
-<div class="kpi-grid" style="margin-bottom:20px;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));">
-    <div class="kpi-card">
-        <div class="kpi-value"><?= number_format($summary['nilai_berjalan'], 2) ?></div>
-        <div class="kpi-label">Nilai Berjalan (<?= $summary['bobot_dinilai'] ?>%)</div>
+<div class="kpi-grid" style="margin-bottom:12px;grid-template-columns:repeat(auto-fit, minmax(135px, 1fr));gap:12px;">
+    <div class="kpi-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:92px;padding:10px 8px;">
+        <div class="kpi-value"><?= $summary['nilai_final'] !== null ? number_format($summary['nilai_final'], 2) : '—' ?></div>
+        <div class="kpi-label">Nilai Final</div>
     </div>
-    <div class="kpi-card">
-        <div class="kpi-value"><?= $summary['kelengkapan'] ?>%</div>
-        <div class="kpi-label">Kelengkapan</div>
+    <div class="kpi-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:92px;padding:10px 8px;">
+        <div class="kpi-value" style="font-size:20px;"><?= $summary['dapat_dinilai_n'] ?>/7</div>
+        <div class="kpi-label"><?= $summary['dapat_dinilai_n'] ?>/7 Dapat Dinilai</div>
     </div>
-    <div class="kpi-card">
-        <span class="badge badge-<?= warnaKategori($summary['kategori']) ?>" style="font-size:13px;"><?= h($summary['kategori']) ?></span>
-        <div class="kpi-label">Kategori</div>
+    <div class="kpi-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:92px;padding:10px 8px;">
+        <span class="badge badge-<?= warnaKategori($summary['kategori']) ?>" style="font-size:12px;font-weight:700;white-space:normal;line-height:1.25;padding:4px 8px;max-width:100%;text-align:center;word-break:break-word;display:inline-block;"><?= h($summary['kategori']) ?></span>
+        <div class="kpi-label" style="margin-top:4px;">Kategori</div>
     </div>
-    <div class="kpi-card">
-        <span class="badge badge-primary" style="font-size:12px;"><?= h($summary['posisi_portofolio']) ?></span>
-        <div class="kpi-label">Posisi Portofolio</div>
+    <div class="kpi-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:92px;padding:10px 8px;">
+        <?php
+        $scBadgeColor = match($summary['status_scorecard']) {
+            'FINAL/TERVALIDASI', 'FINAL' => 'success',
+            'SIAP DIVALIDASI' => 'info',
+            'DALAM PENILAIAN' => 'primary',
+            'BUKTI BELUM MEMADAI', 'PERLU PERBAIKAN' => 'warning',
+            default => 'secondary'
+        };
+        ?>
+        <span class="badge badge-<?= $scBadgeColor ?>" style="font-size:11px;font-weight:700;white-space:normal;line-height:1.25;padding:4px 8px;max-width:100%;text-align:center;word-break:break-word;display:inline-block;"><?= h($summary['status_scorecard']) ?></span>
+        <div class="kpi-label" style="margin-top:4px;">Status Scorecard</div>
     </div>
-    <div class="kpi-card">
-        <span class="badge badge-warning" style="font-size:12px;"><?= h($summary['rekomendasi']) ?></span>
-        <div class="kpi-label">Rekomendasi</div>
+    <div class="kpi-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:92px;padding:10px 8px;">
+        <span class="badge badge-<?= warnaWarning($summary['warning']['status']) ?>" style="font-size:11px;font-weight:700;white-space:normal;line-height:1.25;padding:4px 8px;max-width:100%;text-align:center;word-break:break-word;display:inline-block;"><?= h($summary['warning']['label']) ?></span>
+        <div class="kpi-label" style="margin-top:4px;">Warning Tertinggi</div>
     </div>
-    <div class="kpi-card">
-        <span class="badge badge-<?= warnaWarning($summary['warning']['status']) ?>" style="font-size:12px;"><?= h($summary['warning']['label']) ?></span>
-        <div class="kpi-label">Warning Tertinggi</div>
+    <div class="kpi-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:92px;padding:10px 8px;">
+        <div class="kpi-value" style="color:#0284c7;font-weight:800;"><?= $kegiatanCount ?></div>
+        <div class="kpi-label">Kegiatan Terkait</div>
+        <div style="font-size:10px;margin-top:2px;"><a href="tindak_lanjut.php?mitra_id=<?= $id ?>" style="color:#0284c7;text-decoration:none;">Lihat Kegiatan &rarr;</a></div>
     </div>
 </div>
 
+<div class="stat-bar" style="background:#f8fafc;border:1px solid var(--border,#e2e8f0);border-radius:6px;padding:8px 14px;margin-bottom:20px;font-size:12.5px;color:#475569;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:center;text-align:center;font-weight:500;">
+    <span>Dapat Dinilai: <strong><?= (int)$summary['dapat_dinilai_n'] ?></strong></span>
+    <span style="color:#cbd5e1;">|</span>
+    <span>BDN: <strong><?= (int)$summary['bdn_n'] ?></strong></span>
+    <span style="color:#cbd5e1;">|</span>
+    <span>Bukti Belum Memadai: <strong><?= (int)$summary['bukti_kurang_n'] ?></strong></span>
+    <span style="color:#cbd5e1;">|</span>
+    <span>Bobot Dinilai: <strong><?= (int)$summary['bobot_dinilai'] ?>%</strong></span>
+</div>
+
 <form method="post">
+<input type="hidden" name="status_tanggal" value="<?= h($mitra['status_tanggal']) ?>">
 
 <div class="card">
     <h2>Identitas Kerja Sama</h2>
     <div class="form-grid">
-        <div class="field"><label>Kode</label><input value="<?= h($mitra['kode']) ?>" disabled></div>
-        <div class="field"><label>Portofolio</label><input value="<?= h($mitra['portofolio']) ?>" disabled></div>
-        <div class="field"><label>Jenis</label><input value="<?= h($mitra['jenis']) ?>" disabled></div>
-        <div class="field"><label>Mulai</label><input value="<?= formatTanggal($mitra['tanggal_mulai']) ?>" disabled></div>
-        <div class="field"><label>Berakhir</label><input value="<?= formatTanggal($mitra['tanggal_berakhir']) ?>" disabled></div>
         <div class="field">
-            <label>Status Tanggal</label>
-            <select name="status_tanggal" <?= $canEdit ? '' : 'disabled' ?>>
-                <?php foreach (['BELUM TERVERIFIKASI','TERVERIFIKASI'] as $opt): ?>
-                <option value="<?= $opt ?>" <?= $mitra['status_tanggal'] === $opt ? 'selected' : '' ?>><?= $opt ?></option>
-                <?php endforeach; ?>
-            </select>
+            <label>Nama Mitra</label>
+            <input type="text" value="<?= h($mitra['nama_mitra']) ?>" disabled>
         </div>
-        <div class="field"><label>Cut-off</label><input value="<?= formatTanggal($mitra['cutoff_date']) ?>" disabled></div>
-        <div class="field"><label>Sumber Baseline</label><input value="<?= h($mitra['sumber_baseline']) ?>" disabled></div>
+        <div class="field">
+            <label>Nomor/Tanggal Naskah</label>
+            <input type="text" value="<?= h($mitra['kode'] . ' / ' . formatTanggal($mitra['tanggal_mulai'])) ?>" disabled>
+        </div>
+        <div class="field">
+            <label>Ruang Lingkup</label>
+            <input type="text" value="<?= h($mitra['judul']) ?>" disabled>
+        </div>
+        <div class="field">
+            <label>Periode Penilaian</label>
+            <input type="text" value="<?= h(formatTanggal($mitra['cutoff_date'])) ?>" disabled>
+        </div>
+        <div class="field">
+            <label>Reviewer/Pengelola</label>
+            <input type="text" value="<?= h($user['nama'] ?? $user['name'] ?? 'Reviewer') ?>" disabled>
+        </div>
+        <div class="field">
+            <label>Tanggal Penilaian</label>
+            <input type="date" name="tanggal_review" value="<?= h($mitra['tanggal_review'] ?? '') ?>" <?= $canEdit ? '' : 'disabled' ?>>
+        </div>
+        <div class="field">
+            <label>PIC/Focal Point</label>
+            <input type="text" name="pic_focal_point" value="<?= h($mitra['pic_focal_point'] ?? '') ?>" placeholder="Nama PIC / Focal Point" <?= $canEdit ? '' : 'disabled' ?>>
+        </div>
+        <div class="field">
+            <label>Masa Berlaku</label>
+            <input type="text" value="<?= formatTanggal($mitra['tanggal_mulai']) . ' s.d. ' . formatTanggal($mitra['tanggal_berakhir']) ?>" disabled>
+        </div>
+    </div>
+    <div class="form-grid" style="margin-top:14px;border-top:1px solid var(--border,#e2e8f0);padding-top:14px;">
         <div class="field">
             <label>Kondisi Awal (Baseline FIX)</label>
             <div style="display:flex;gap:6px;align-items:center;">
@@ -215,23 +261,32 @@ require __DIR__ . '/includes/header.php';
             </div>
         </div>
         <div class="field">
-            <label>Sisa Masa Berlaku</label>
-            <?php
-            $mb = hitungMasaBerlaku($mitra['tanggal_berakhir'], $mitra['cutoff_date'], $mitra['status_tanggal']);
-            ?>
-            <input value="<?= $mb['sisa_hari'] !== null ? $mb['sisa_hari'] . ' hari (' . h($mb['kondisi']) . ')' : 'Belum dapat dipastikan' ?>" disabled>
+            <label>Dokumen Naskah Asli</label>
+            <div>
+                <?php if (!empty($mitra['file_naskah'])): ?>
+                    <a href="<?= h($mitra['file_naskah']) ?>" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;font-size:12px;font-weight:600;color:#1e40af;border-color:#93c5fd;background:#eff6ff;">
+                        📄 Buka Naskah Resmi (PDF) &rarr;
+                    </a>
+                <?php else: ?>
+                    <span class="muted" style="font-size:12px;">Belum diunggah</span>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
 </div>
 
 <?php
-$stmtRK = $pdo->prepare('SELECT * FROM rencana_kerja WHERE mitra_id = ? ORDER BY tanggal_mulai DESC');
-$stmtRK->execute([$id]);
-$rencanaKerja = $stmtRK->fetchAll();
+$rencanaKerja = [];
+$siklusMonev = [];
+try {
+    $stmtRK = $pdo->prepare('SELECT * FROM rencana_kerja WHERE mitra_id = ? ORDER BY tanggal_mulai DESC');
+    $stmtRK->execute([$id]);
+    $rencanaKerja = $stmtRK->fetchAll();
 
-$stmtSM = $pdo->prepare('SELECT * FROM siklus_monev WHERE mitra_id = ? ORDER BY siklus_ke ASC');
-$stmtSM->execute([$id]);
-$siklusMonev = $stmtSM->fetchAll();
+    $stmtSM = $pdo->prepare('SELECT * FROM siklus_monev WHERE mitra_id = ? ORDER BY siklus_ke ASC');
+    $stmtSM->execute([$id]);
+    $siklusMonev = $stmtSM->fetchAll();
+} catch (Throwable $e) {}
 $monev = $summary['monev'];
 ?>
 
@@ -250,12 +305,12 @@ $monev = $summary['monev'];
 
     <div class="kpi-grid" style="margin:16px 0;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));">
         <div class="kpi-card">
-            <div class="kpi-value"><?= $monev['durasi_bulan'] ?> Bln</div>
-            <div class="kpi-label">Durasi Perjanjian</div>
+            <div class="kpi-value"><?= $monev['durasi_bulan'] ?> Bulan</div>
+            <div class="kpi-label">Durasi Berjalan</div>
         </div>
         <div class="kpi-card">
             <div class="kpi-value"><?= $monev['total_siklus'] ?> Kali</div>
-            <div class="kpi-label">Target Evaluasi</div>
+            <div class="kpi-label">Target Evaluasi Rencana Kerja</div>
         </div>
         <div class="kpi-card">
             <div class="kpi-value" style="font-size:15px;"><?= $monev['target_evaluasi_terdekat'] ? formatTanggal($monev['target_evaluasi_terdekat']) : '-' ?></div>
@@ -342,16 +397,26 @@ $monev = $summary['monev'];
         <div class="field">
             <label>Posisi Portofolio</label>
             <select name="posisi_portofolio" <?= $canEdit ? '' : 'disabled' ?>>
-                <?php foreach (['BELUM DAPAT DITENTUKAN','AKTIF','OUTPUT TERSEDIA','OUTCOME TERBENTUK','BERDAMPAK'] as $opt): ?>
-                <option value="<?= $opt ?>" <?= $summary['posisi_portofolio'] === $opt ? 'selected' : '' ?>><?= $opt ?></option>
+                <?php
+                $posOpts = ['BELUM DAPAT DITENTUKAN','AKTIF','OUTPUT TERSEDIA','OUTCOME TERBENTUK','BERDAMPAK'];
+                if (!empty($summary['posisi_portofolio']) && !in_array($summary['posisi_portofolio'], $posOpts, true)) {
+                    $posOpts[] = $summary['posisi_portofolio'];
+                }
+                foreach ($posOpts as $opt): ?>
+                <option value="<?= h($opt) ?>" <?= $summary['posisi_portofolio'] === $opt ? 'selected' : '' ?>><?= h($opt) ?></option>
                 <?php endforeach; ?>
             </select>
         </div>
         <div class="field">
             <label>Rekomendasi Tindak Lanjut</label>
             <select name="rekomendasi" <?= $canEdit ? '' : 'disabled' ?>>
-                <?php foreach (['BELUM DITENTUKAN','LANJUT','PERBAIKI','PERPANJANG','REPLIKASI','HENTIKAN'] as $opt): ?>
-                <option value="<?= $opt ?>" <?= $summary['rekomendasi'] === $opt ? 'selected' : '' ?>><?= $opt ?></option>
+                <?php
+                $rekOpts = ['BELUM DITENTUKAN','LANJUT','PERBAIKI','PERPANJANG','REPLIKASI','HENTIKAN'];
+                if (!empty($summary['rekomendasi']) && !in_array($summary['rekomendasi'], $rekOpts, true)) {
+                    $rekOpts[] = $summary['rekomendasi'];
+                }
+                foreach ($rekOpts as $opt): ?>
+                <option value="<?= h($opt) ?>" <?= $summary['rekomendasi'] === $opt ? 'selected' : '' ?>><?= h($opt) ?></option>
                 <?php endforeach; ?>
             </select>
         </div>
@@ -363,6 +428,18 @@ $monev = $summary['monev'];
     $kode = $row['kode_indikator'];
     $cek = hitungCekIndikator($row);
     $cekColor = $cek === 'OK' ? 'success' : ($cek === 'PERIKSA BUKTI' ? 'secondary' : 'warning');
+
+    $statusOptions = ['DAPAT DINILAI', 'BUKTI BELUM MEMADAI', 'BELUM DAPAT DINILAI'];
+    $curStatus = $row['status_pemeriksaan'] ?? 'BELUM DITELAAH';
+    if (in_array($curStatus, ['BUKTI CUKUP', 'BUKTI MEMADAI'], true)) {
+        $curStatus = 'DAPAT DINILAI';
+    } elseif (in_array($curStatus, ['BUKTI BELUM CUKUP'], true)) {
+        $curStatus = 'BUKTI BELUM MEMADAI';
+    } elseif (!in_array($curStatus, $statusOptions, true)) {
+        $curStatus = 'BELUM DAPAT DINILAI';
+    }
+    $isScorable = ($curStatus === 'DAPAT DINILAI');
+    $kondisiBaselineVal = !empty($row['kondisi_baseline']) ? $row['kondisi_baseline'] : ($row['referensi_baseline'] ?? '-');
 ?>
 <div class="indikator-block">
     <div class="indikator-head">
@@ -370,32 +447,30 @@ $monev = $summary['monev'];
         <span class="cek-pill badge-<?= $cekColor ?>"><?= h($cek) ?></span>
     </div>
     <div class="indikator-body">
-        <div class="indikator-desc"><?= nl2br(h($row['deskripsi'])) ?></div>
-        <?php if (!empty($row['kondisi_baseline'])): ?>
-        <div class="indikator-baseline"><strong>Kondisi baseline:</strong> <?= h($row['kondisi_baseline']) ?></div>
-        <?php elseif (!empty($row['referensi_baseline'])): ?>
-        <div class="indikator-baseline"><strong>Referensi baseline awal:</strong> <?= h($row['referensi_baseline']) ?></div>
-        <?php endif; ?>
         <div class="field" style="margin: 10px 0;">
-            <label>Kondisi Saat Penilaian / Update</label>
+            <label>Apa yang Dinilai</label>
+            <input type="text" value="<?= h($row['deskripsi']) ?>" readonly disabled style="background:#f8fafc;font-weight:500;">
+        </div>
+        <div class="field" style="margin: 10px 0;">
+            <label>Kondisi Baseline</label>
+            <input type="text" value="<?= h($kondisiBaselineVal) ?>" readonly disabled>
+        </div>
+        <div class="field" style="margin: 10px 0;">
+            <label>Kondisi Saat Ini</label>
             <input type="text" name="kondisi_saat_ini_<?= $kode ?>" value="<?= h($row['kondisi_saat_ini'] ?? '') ?>" placeholder="Fakta kondisi terkini pasca-baseline" <?= $canEdit ? '' : 'disabled' ?>>
         </div>
         <div class="form-grid">
             <div class="field">
                 <label>Status Penilaian</label>
                 <select name="status_<?= $kode ?>" class="status-select" data-kode="<?= $kode ?>" <?= $canEdit ? '' : 'disabled' ?>>
-                    <?php 
-                    $v2StatusList = ['BELUM DITELAAH', 'DAPAT DINILAI', 'BUKTI BELUM MEMADAI', 'BELUM DAPAT DINILAI'];
-                    foreach ($v2StatusList as $opt): 
-                    ?>
-                    <option value="<?= $opt ?>" <?= in_array($row['status_pemeriksaan'], [$opt, $opt === 'DAPAT DINILAI' ? 'BUKTI CUKUP' : ''], true) ? 'selected' : '' ?>><?= $opt ?></option>
+                    <?php foreach ($statusOptions as $opt): ?>
+                    <option value="<?= $opt ?>" <?= $curStatus === $opt ? 'selected' : '' ?>><?= $opt ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
             <div class="field">
                 <label>Skor (0–4)</label>
-                <?php $isScorable = in_array($row['status_pemeriksaan'], ['DAPAT DINILAI', 'BUKTI CUKUP', 'BUKTI MEMADAI'], true); ?>
-                <select name="skor_<?= $kode ?>" class="skor-select" data-kode="<?= $kode ?>"
+                <select name="skor_<?= $kode ?>" class="skor-select" data-kode="<?= $kode ?>" data-bobot="<?= (int)$row['bobot'] ?>"
                     <?= (!$canEdit || !$isScorable) ? 'disabled' : '' ?>>
                     <option value="">-</option>
                     <?php for ($s = 0; $s <= 4; $s++): ?>
@@ -405,16 +480,16 @@ $monev = $summary['monev'];
             </div>
             <div class="field">
                 <label>Nilai Bobot</label>
-                <input value="<?= $row['nilai'] !== null ? number_format($row['nilai'], 2) : '-' ?>" disabled>
+                <input type="text" class="nilai-bobot-display" data-kode="<?= $kode ?>" value="<?= $row['nilai'] !== null ? number_format($row['nilai'], 2) : '-' ?>" disabled>
             </div>
         </div>
         <div class="field" style="margin-top:10px;">
-            <label>Temuan dan Lokasi Bukti</label>
+            <label>Evidence/Lokasi Bukti</label>
             <textarea name="temuan_<?= $kode ?>" placeholder="Fakta singkat dan lokasi/link/file evidence..." <?= $canEdit ? '' : 'disabled' ?>><?= h($row['temuan_bukti']) ?></textarea>
         </div>
         <div class="form-grid" style="margin-top:10px;">
             <div class="field">
-                <label>Alasan Skor</label>
+                <label>Alasan Skor/Temuan</label>
                 <textarea name="alasan_<?= $kode ?>" placeholder="Alasan pemberian skor merujuk rubrik..." <?= $canEdit ? '' : 'disabled' ?>><?= h($row['alasan_skor']) ?></textarea>
             </div>
             <div class="field">
@@ -426,18 +501,34 @@ $monev = $summary['monev'];
 </div>
 <?php endforeach; ?>
 
-<div class="section-title">Early Warning</div>
+<div class="section-title">Early Warning System (EWS) — Area Kontrol</div>
 <div class="card">
     <div class="table-wrap">
     <table>
         <thead><tr><th>Dimensi</th><th>Kondisi</th><th>Status</th><th>Fakta/Bukti</th><th>Tindakan</th><th>PIC</th><th>Tenggat</th><th>Progres</th></tr></thead>
         <tbody>
-        <?php foreach ($summary['warning_rows'] as $w):
+        <?php
+        $dimDisplayMap = [
+            'Masa berlaku' => 'Masa Berlaku',
+            'Aktivitas/tenggat' => 'Pelaksanaan/Tenggat',
+            'Data/eviden' => 'Data/Evidence',
+            'PIC' => 'Penanggung Jawab/Koordinasi',
+        ];
+        $ewsStatusLabels = [
+            'V0' => 'V0 Data Belum Cukup',
+            'E0' => 'E0 Normal',
+            'E1' => 'E1 Perhatian',
+            'E2' => 'E2 Perlu Tindakan',
+            'E3' => 'E3 Kritis',
+        ];
+        foreach ($summary['warning_rows'] as $w):
             $key = preg_replace('/[^a-zA-Z]/', '', $w['dimensi']);
             $isMasaBerlaku = $w['dimensi'] === 'Masa berlaku';
+            $displayDim = $dimDisplayMap[$w['dimensi']] ?? $w['dimensi'];
+            $stLabel = $ewsStatusLabels[$w['status']] ?? labelWarning($w['status']);
         ?>
         <tr>
-            <td><strong><?= h($w['dimensi']) ?></strong>
+            <td><strong><?= h($displayDim) ?></strong>
                 <?php if ($isMasaBerlaku): ?><div class="muted" style="font-size:11px;">otomatis</div><?php endif; ?>
             </td>
             <td>
@@ -451,7 +542,7 @@ $monev = $summary['monev'];
                     </select>
                 <?php endif; ?>
             </td>
-            <td><span class="badge badge-<?= warnaWarning($w['status']) ?>"><?= h(labelWarning($w['status'])) ?></span></td>
+            <td><span class="badge badge-<?= warnaWarning($w['status']) ?>"><?= h($stLabel) ?></span></td>
             <td><input type="text" name="warn_fakta_<?= $key ?>" value="<?= h($w['fakta_bukti']) ?>" <?= $canEdit ? '' : 'disabled' ?>></td>
             <td><input type="text" name="warn_tindakan_<?= $key ?>" value="<?= h($w['tindakan']) ?>" <?= $canEdit ? '' : 'disabled' ?>></td>
             <td><input type="text" name="warn_pic_<?= $key ?>" value="<?= h($w['pic']) ?>" <?= $canEdit ? '' : 'disabled' ?>></td>
@@ -469,7 +560,7 @@ $monev = $summary['monev'];
     </table>
     </div>
     <p class="muted" style="font-size:12px;margin-top:10px;margin-bottom:0;">
-        Warning tertinggi saat ini: <strong><?= h($summary['warning']['label']) ?></strong> &mdash;
+        Warning tertinggi saat ini: <strong><?= h($ewsStatusLabels[$summary['warning']['status']] ?? $summary['warning']['label']) ?></strong> &mdash;
         tingkat penanganan: <strong><?= h($summary['warning']['tingkat_penanganan']) ?></strong>
     </p>
 </div>
@@ -481,7 +572,13 @@ $monev = $summary['monev'];
     <table>
         <thead><tr><th style="width:40%;">Pemicu</th><th>Ada?</th><th>Bukti/Alasan</th></tr></thead>
         <tbody>
-        <?php foreach ($summary['pemicu_rows'] as $p): ?>
+        <?php
+        $perluIntervensi = false;
+        foreach ($summary['pemicu_rows'] as $p):
+            if (($p['jawaban'] ?? '') === 'YA') {
+                $perluIntervensi = true;
+            }
+        ?>
         <tr>
             <td><?= h($p['pemicu_teks']) ?></td>
             <td>
@@ -493,32 +590,44 @@ $monev = $summary['monev'];
             </td>
             <td><input type="text" name="pemicu_bukti_<?= $p['no_pemicu'] ?>" value="<?= h($p['bukti_alasan']) ?>" <?= $canEdit ? '' : 'disabled' ?>></td>
         </tr>
-        <?php endforeach; ?>
+        <?php endforeach;
+        if ($summary['hasil_uji'] === 'CALON BUTUH INTERVENSI PIMPINAN') {
+            $perluIntervensi = true;
+        }
+        ?>
         </tbody>
     </table>
     </div>
 
+    <div style="margin-top:12px;padding:10px 14px;background:#f8fafc;border:1px solid var(--border,#e2e8f0);border-radius:6px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <div style="font-weight:600;font-size:13px;color:#1e293b;">
+            Perlu Intervensi Pimpinan:
+            <?php if ($perluIntervensi): ?>
+                <span class="badge badge-danger" style="font-size:12px;margin-left:6px;">YA</span>
+            <?php else: ?>
+                <span class="badge badge-success" style="font-size:12px;margin-left:6px;">TIDAK</span>
+            <?php endif; ?>
+        </div>
+        <div style="font-size:12px;color:#64748b;">
+            Hasil Uji: <span class="badge badge-<?= $summary['hasil_uji'] === 'CALON BUTUH INTERVENSI PIMPINAN' ? 'warning' : 'secondary' ?>"><?= h($summary['hasil_uji']) ?></span>
+            &nbsp;|&nbsp; Cek Usulan: <strong><?= h($summary['cek_usulan']) ?></strong>
+        </div>
+    </div>
+
     <?php $usulan = $summary['usulan']; ?>
-    <div class="form-grid" style="margin-top:14px;">
+    <div class="field" style="margin-top:14px;">
+        <label>Uraian Singkat Kendala</label>
+        <textarea name="uraian_kendala" placeholder="Uraikan kendala faktual yang dihadapi..." <?= $canEdit ? '' : 'disabled' ?>><?= h($usulan['uraian_kendala'] ?? '') ?></textarea>
+    </div>
+    <div class="form-grid" style="margin-top:10px;">
         <div class="field">
-            <label>Upaya yang Sudah Dilakukan</label>
-            <textarea name="upaya_dilakukan" <?= $canEdit ? '' : 'disabled' ?>><?= h($usulan['upaya_dilakukan']) ?></textarea>
+            <label>Alasan Utama</label>
+            <textarea name="upaya_dilakukan" placeholder="Alasan utama perlunya intervensi atau upaya yang telah dilakukan..." <?= $canEdit ? '' : 'disabled' ?>><?= h($usulan['upaya_dilakukan'] ?? '') ?></textarea>
         </div>
         <div class="field">
             <label>Keputusan Spesifik yang Diminta</label>
-            <textarea name="keputusan_diminta" <?= $canEdit ? '' : 'disabled' ?>><?= h($usulan['keputusan_diminta']) ?></textarea>
+            <textarea name="keputusan_diminta" placeholder="Bentuk keputusan atau arahan pimpinan yang diharapkan..." <?= $canEdit ? '' : 'disabled' ?>><?= h($usulan['keputusan_diminta'] ?? '') ?></textarea>
         </div>
-    </div>
-    <p style="margin-top:12px;">
-        Hasil uji: <span class="badge badge-<?= $summary['hasil_uji'] === 'CALON BUTUH INTERVENSI PIMPINAN' ? 'warning' : 'secondary' ?>"><?= h($summary['hasil_uji']) ?></span>
-        &nbsp; Cek usulan: <strong><?= h($summary['cek_usulan']) ?></strong>
-    </p>
-</div>
-
-<div class="card">
-    <h3 style="margin-top:0;">Tanggal Review</h3>
-    <div class="field" style="max-width:220px;">
-        <input type="date" name="tanggal_review" value="<?= h($mitra['tanggal_review']) ?>" <?= $canEdit ? '' : 'disabled' ?>>
     </div>
 </div>
 
@@ -540,6 +649,27 @@ document.querySelectorAll('.status-select').forEach(function (sel) {
         } else {
             skorSel.disabled = true;
             skorSel.value = '';
+        }
+        if (skorSel) {
+            skorSel.dispatchEvent(new Event('change'));
+        }
+    });
+});
+
+// Auto-compute nilai_bobot display when skor changes
+document.querySelectorAll('.skor-select').forEach(function (sel) {
+    sel.addEventListener('change', function () {
+        var bobot = parseFloat(this.dataset.bobot) || 0;
+        var block = this.closest('.indikator-block');
+        var nilaiInput = block ? block.querySelector('.nilai-bobot-display') : document.querySelector('.nilai-bobot-display[data-kode="' + this.dataset.kode + '"]');
+        if (nilaiInput) {
+            if (this.value !== '' && !this.disabled) {
+                var skor = parseFloat(this.value);
+                var nilai = (skor / 4.0) * bobot;
+                nilaiInput.value = nilai.toFixed(2);
+            } else {
+                nilaiInput.value = '-';
+            }
         }
     });
 });

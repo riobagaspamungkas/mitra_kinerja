@@ -50,7 +50,7 @@ require __DIR__ . '/includes/header.php';
     <div class="table-wrap">
     <table>
         <thead>
-            <tr><th>Kode</th><th>Portofolio</th><th>Mitra</th><th>Jenis</th><th>Berakhir</th><th>Nilai</th><th>Kategori</th><th>Posisi</th><th>Rekomendasi</th><th>Warning</th><th>Status</th></tr>
+            <tr><th>Kode</th><th>Portofolio</th><th>Mitra</th><th>Bidang</th><th>Berakhir</th><th>Nilai</th><th>Kategori</th><th>Posisi</th><th>Rekomendasi</th><th>Warning</th><th>Status</th></tr>
         </thead>
         <tbody>
         <?php foreach ($all as $s): $m = $s['mitra']; ?>
@@ -58,7 +58,7 @@ require __DIR__ . '/includes/header.php';
                 <td><strong><?= h($m['kode']) ?></strong></td>
                 <td><?= h($m['portofolio']) ?></td>
                 <td><?= h($m['nama_mitra']) ?></td>
-                <td><?= h($m['jenis']) ?></td>
+                <td><span class="badge badge-secondary" style="font-size:11px;font-weight:600;"><?= h($m['bidang'] ?? 'AHU') ?></span></td>
                 <td><?= formatTanggal($m['tanggal_berakhir']) ?></td>
                 <td><?= $s['nilai_berjalan'] > 0 ? number_format($s['nilai_berjalan'], 2) : '-' ?></td>
                 <td><span class="badge badge-<?= warnaKategori($s['kategori']) ?>"><?= h($s['kategori']) ?></span></td>
@@ -137,7 +137,7 @@ require __DIR__ . '/includes/header.php';
                 <div style="font-size:10pt;">Kanwil Kementerian Hukum Kepulauan Riau</div>
             </td>
             <td style="border:none;width:50%;text-align:center;font-size:12pt;vertical-align:top;">
-                <div>Tanjungpinang, <?= date('d F Y') ?></div>
+                <div>Tanjungpinang, <?= formatTanggalPanjang(date('Y-m-d')) ?></div>
                 <div style="font-weight:700;">Kepala Kantor Wilayah</div>
                 <div style="height:70px;"></div>
                 <div style="font-weight:700;text-decoration:underline;">EDISON MANIK, S.H., M.Si.</div>
