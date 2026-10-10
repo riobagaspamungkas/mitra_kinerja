@@ -58,7 +58,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                 if ($ext !== 'pdf' || !isPdfValid($_FILES['scan_pdf']['tmp_name'])) {
                     $errors[] = 'File naskah wajib berformat .PDF asli (dokumen hasil scan fisik bertanda tangan, bukan hasil ketik atau berkas palsu).';
                 } else {
-                    $targetName = 'scan_naskah_' . $kodeMitra . '_' . time() . '.pdf';
+                    $safeKodeMitra = preg_replace('/[^a-zA-Z0-9_-]/', '_', (string)$kodeMitra);
+                    $targetName = 'scan_naskah_' . $safeKodeMitra . '_' . time() . '.pdf';
                     $targetPath = __DIR__ . '/public/uploads/' . $targetName;
                     if (move_uploaded_file($_FILES['scan_pdf']['tmp_name'], $targetPath)) {
                         $savedPath = 'public/uploads/' . $targetName;
@@ -190,7 +191,8 @@ if ($id > 0) {
         if (isset($_FILES['file_naskah']) && $_FILES['file_naskah']['error'] === UPLOAD_ERR_OK) {
             $ext = strtolower(pathinfo($_FILES['file_naskah']['name'], PATHINFO_EXTENSION));
             if ($ext === 'pdf' && isPdfValid($_FILES['file_naskah']['tmp_name'])) {
-                $targetName = 'scan_naskah_' . $mitra['kode'] . '_' . time() . '.pdf';
+                $safeKodeEdit = preg_replace('/[^a-zA-Z0-9_-]/', '_', (string)($mitra['kode'] ?? ''));
+                $targetName = 'scan_naskah_' . $safeKodeEdit . '_' . time() . '.pdf';
                 $targetPath = __DIR__ . '/public/uploads/' . $targetName;
                 if (move_uploaded_file($_FILES['file_naskah']['tmp_name'], $targetPath)) {
                     $fileNaskah = 'public/uploads/' . $targetName;
@@ -486,7 +488,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && empty($_POST['action'])) {
     if (!verifyCsrfToken($csrfToken)) {
         $errors[] = 'Token keamanan tidak valid atau telah kedaluwarsa. Silakan muat ulang halaman.';
     } else {
-        $kode       = strtoupper(trim($_POST['kode'] ?? ''));
+        $kode       = preg_replace('/[^a-zA-Z0-9_-]/', '_', strtoupper(trim($_POST['kode'] ?? '')));
         $portofolio = $_POST['portofolio'] ?? 'Pilot Utama';
         $namaMitra  = trim($_POST['nama_mitra'] ?? '');
         $judul      = trim($_POST['judul'] ?? '');
@@ -523,7 +525,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && empty($_POST['action'])) {
     if (isset($_FILES['file_naskah_pdf']) && $_FILES['file_naskah_pdf']['error'] === UPLOAD_ERR_OK) {
         $ext = strtolower(pathinfo($_FILES['file_naskah_pdf']['name'], PATHINFO_EXTENSION));
         if ($ext === 'pdf' && isPdfValid($_FILES['file_naskah_pdf']['tmp_name'])) {
-            $targetName = 'scan_naskah_' . $kode . '_' . time() . '.pdf';
+            $safeKode = preg_replace('/[^a-zA-Z0-9_-]/', '_', $kode);
+            $targetName = 'scan_naskah_' . $safeKode . '_' . time() . '.pdf';
             $targetPath = __DIR__ . '/public/uploads/' . $targetName;
             if (move_uploaded_file($_FILES['file_naskah_pdf']['tmp_name'], $targetPath)) {
                 $fileNaskah = 'public/uploads/' . $targetName;

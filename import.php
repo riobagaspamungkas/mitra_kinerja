@@ -70,9 +70,26 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                     $importType = trim($_POST['import_type'] ?? 'all');
                     $targetCode = strtoupper(trim($targetMitra['kode']));
 
+                    // Authorization check: non-admin cannot import/update finalized/validated partnerships
+                    $stmtVal = $pdo->prepare('SELECT status FROM validasi WHERE mitra_id = ?');
+                    $stmtVal->execute([$targetId]);
+                    $targetValStatus = $stmtVal->fetchColumn() ?: 'BELUM';
+                    $isLockedFinal = in_array($targetMitra['status_scorecard'] ?? '', ['FINAL', 'FINAL/TERVALIDASI'], true) || $targetValStatus === 'DISETUJUI';
+
+                    // Enforce pengampu unit assignment check ($isAssigned)
+                    $userRole = $user['role'] ?? 'pengampu';
+                    $isAssigned = (!empty($targetMitra['pemeriksa_id']) && (int)$targetMitra['pemeriksa_id'] === (int)$user['id'])
+                        || (!empty($targetMitra['pic_internal']) && stripos($targetMitra['pic_internal'], $user['nama'] ?? $user['username'] ?? '') !== false);
+                    $canImportThisMitra = in_array($userRole, ['admin', 'pemeriksa'], true)
+                        || ($userRole === 'pengampu' && ($isAssigned || empty($targetMitra['pemeriksa_id'])));
+
                     // BUG-IM-01 & Bug 5: Allow admin ($isAdmin) to import baseline data on locked records matching baseline.php
                     $isTargetLocked = str_contains($targetMitra['baseline_status'] ?? '', 'DIKUNCI');
-                    if ($importType === 'baseline' && $isTargetLocked && !$isAdmin) {
+                    if (!$canImportThisMitra) {
+                        $errors[] = 'Akses ditolak: Sebagai role pengampu, Anda hanya diizinkan mengimpor data untuk naskah yang ditugaskan kepada Anda.';
+                    } elseif ($isLockedFinal && !$isAdmin) {
+                        $errors[] = "Akses ditolak: Data naskah {$targetMitra['kode']} telah berstatus FINAL/TERVALIDASI atau disetujui validator. Hanya admin yang dapat mengubah atau mengimpor ulang data ini.";
+                    } elseif ($importType === 'baseline' && $isTargetLocked && !$isAdmin) {
                         $errors[] = "Data Baseline untuk naskah {$targetMitra['kode']} telah dikunci (TERVERIFIKASI / DIKUNCI) dan tidak dapat di-import ulang.";
                     } else {
                         // BUG-IM-05: Wrap multi-table import in a database transaction
@@ -395,16 +412,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
 
                     // Sinkronkan total skor dan status scorecard
                     syncStatusScorecard($pdo, $targetId);
-                    // BUG-IM-04: Ensure syncStatusScorecard preserves 'SIAP DIVALIDASI' status
-                    if (!empty($rawScStatus) && !str_contains(strtoupper($rawScStatus), 'BELUM') && (str_contains(strtoupper($rawScStatus), 'SIAP') || strtoupper($rawScStatus) === 'SIAP DIVALIDASI')) {
+                    // Guardrail: Non-admin tidak boleh mem-bypass validasi dengan mengimpor status FINAL langsung dari Excel
+                    $validScStatus = $rawScStatus;
+                    if (!$isAdmin && in_array(strtoupper($rawScStatus), ['FINAL', 'FINAL/TERVALIDASI'], true)) {
+                        $validScStatus = 'SIAP DIVALIDASI';
+                    }
+                    if (!empty($validScStatus) && !str_contains(strtoupper($validScStatus), 'BELUM') && (str_contains(strtoupper($validScStatus), 'SIAP') || strtoupper($validScStatus) === 'SIAP DIVALIDASI')) {
                         $pdo->prepare('UPDATE mitra_kinerja SET status_scorecard = ? WHERE id = ?')->execute(['SIAP DIVALIDASI', $targetId]);
-                    } elseif (!empty($rawScStatus)) {
-                        $pdo->prepare('UPDATE mitra_kinerja SET status_scorecard = ? WHERE id = ?')->execute([$rawScStatus, $targetId]);
+                    } elseif (!empty($validScStatus)) {
+                        $pdo->prepare('UPDATE mitra_kinerja SET status_scorecard = ? WHERE id = ?')->execute([$validScStatus, $targetId]);
                     }
                 }
 
-                // 3. IMPORT DATA IDENTITAS & PIC (JIKA ADA)
-                if ($picSheetName && !empty($parsedWb[$picSheetName])) {
+                // 3. IMPORT DATA IDENTITAS & PIC (JIKA ADA DAN TIDAK DIKUNCI / ADMIN)
+                if ($picSheetName && !empty($parsedWb[$picSheetName]) && (!$isTargetLocked || $isAdmin)) {
                     $picRows = $parsedWb[$picSheetName];
                     $picInternalFound = '';
                     $picMitraFound = '';

@@ -5,7 +5,26 @@ import zipfile
 import subprocess
 from datetime import datetime
 
-def make_backup(tag="major_milestone_v2_1"):
+def prune_backups(backups_dir, retain=5):
+    """Retain the most recent `retain` backups and delete older ones."""
+    archives = []
+    for f in os.listdir(backups_dir):
+        if f.startswith("mitra_kinerja_") and f.endswith(".zip"):
+            fp = os.path.join(backups_dir, f)
+            if os.path.isfile(fp):
+                archives.append((os.path.getmtime(fp), fp, f))
+    
+    archives.sort(key=lambda x: x[0])
+    if len(archives) > retain:
+        to_prune = archives[:-retain]
+        for _, fp, fname in to_prune:
+            try:
+                os.remove(fp)
+                print(f"PRUNED_OLD_BACKUP: {fname}")
+            except OSError as err:
+                print(f"WARN_CANNOT_PRUNE: {fname} ({err})")
+
+def make_backup(tag="v2_5_2_stable", retain=5):
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     backups_dir = os.path.join(project_root, "backups")
     os.makedirs(backups_dir, exist_ok=True)
@@ -48,6 +67,7 @@ def make_backup(tag="major_milestone_v2_1"):
     # Directories/files to exclude
     exclude_dirs = {".git", "backups", "__pycache__", ".venv", "node_modules", "tmp"}
     exclude_extensions = {".pyc", ".tmp", ".bak", ".log"}
+    docs_media_exts = {".mp4", ".mov", ".avi", ".wmv", ".pdf"}
     
     # 2. Create ZIP archive
     file_count = 0
@@ -65,13 +85,21 @@ def make_backup(tag="major_milestone_v2_1"):
         for root, dirs, files in os.walk(project_root):
             # Prune excluded directories
             dirs[:] = [d for d in dirs if d not in exclude_dirs]
+            rel_root = os.path.relpath(root, project_root).replace("\\", "/")
+            is_docs_dir = rel_root == "docs" or rel_root.startswith("docs/")
             
             for f in files:
                 ext = os.path.splitext(f)[1].lower()
                 if ext in exclude_extensions:
                     continue
+                # Exclude heavy media from docs/ to prevent 200+ MB bloat
+                if is_docs_dir and ext in docs_media_exts:
+                    continue
+                # Exclude video formats anywhere
+                if ext in {".mp4", ".mov", ".avi", ".wmv"}:
+                    continue
                 # Skip live cache files except .htaccess
-                if "cache" in root and f != ".htaccess":
+                if (rel_root == "cache" or rel_root.startswith("cache/")) and f != ".htaccess":
                     continue
                 # Skip temporary sql dumps in database folder
                 if f.startswith("backup_") and f.endswith(".sql"):
@@ -87,8 +115,11 @@ def make_backup(tag="major_milestone_v2_1"):
     print(f"PATH: {zip_filepath}")
     print(f"FILES_ARCHIVED: {file_count}")
     print(f"SIZE: {size_mb:.2f} MB")
+
+    # Prune old backups, retaining only the last 5
+    prune_backups(backups_dir, retain=retain)
     return zip_filepath
 
 if __name__ == "__main__":
-    tag_arg = sys.argv[1] if len(sys.argv) > 1 else "v2_1_full_stable"
+    tag_arg = sys.argv[1] if len(sys.argv) > 1 else "v2_5_2_stable"
     make_backup(tag_arg)

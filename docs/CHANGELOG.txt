@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.2] - 2026-10-10
+
+### Security
+- **Proteksi Akses Direktori & File Sensitif Apache / cPanel / Web Server:**
+  - Menambahkan file `.htaccess` (`Require all denied` / `Order deny,allow; Deny from all`) pada direktori `backups/`, `scripts/`, dan `docs/`.
+  - Menambahkan aturan `.htaccess` di root proyek untuk memblokir akses langsung ke `.bat`, `.sh`, `.env`, `.sql`, `.md`, `.gitignore`, dan direktori `/.git/`.
+  - Memperketat `router.php` (PHP built-in server) untuk menolak akses langsung terhadap seluruh ekstensi sensitif dan file tersembunyi (`.env`, `.gitignore`, `.bat`, dll).
+- **Hardening Otorisasi & Pencegahan Bypass Status Validasi:**
+  - Menambahkan verifikasi otorisasi pada `import.php` yang memblokir pengguna non-admin mengimpor atau memodifikasi naskah dengan `status_scorecard` berstatus `FINAL/TERVALIDASI` atau `validasi.status = 'DISETUJUI'`.
+  - Mencegah injeksi status `FINAL/TERVALIDASI` via file spreadsheet impor oleh peran non-admin (otomatis di-clamp ke `SIAP DIVALIDASI`).
+  - Menegakkan pembatasan unit pengampu (`$isAssigned`: `pemeriksa_id` / `pic_internal`) pada `baseline.php` dan `import.php`.
+  - Mengunci metadata dan atribut PIC pada baseline berstatus `TERVERIFIKASI / DIKUNCI` dari overwrite tidak sah.
+  - Memperbaiki sinkronisasi parameter ID pada `baseline.php` (`$id = $targetId`) untuk mencegah IDOR cross-parameter.
+  - Melindungi skrip migrasi internal (`scripts/seed_baseline_fix.php`, `scripts/enrich_baseline_and_workplans.php`) dengan proteksi CLI-only (`php_sapi_name() === 'cli'`).
+  - Mengamankan sanitasi nama file unggahan scan PDF dari path traversal via kode mitra (`preg_replace('/[^a-zA-Z0-9_-]/', '_', $kode)`).
+- **Perbaikan Rate Limiting Login & Proteksi DoS:**
+  - Mengisolasi penghitungan percobaan login gagal pada IP klien secara terpisah dari input username dinamis untuk mencegah Distributed Account Lockout DoS dan password spraying.
+  - Memperbaiki pencocokan wildcard IP pada query audit log dengan delimiter persis (`%IP: <clientIp>`).
+
+### Fixed
+- **Engine Penilaian & Formula Result-Chain V3 (`includes/functions.php` & `includes/data.php`):**
+  - **Boundaries Skor Indikator:** Menambahkan guard ketat pada `hitungNilaiIndikator` ($0 \le skor \le 4$, nilai di luar rentang mengembalikan `null`).
+  - **Fail-Closed Fallback Checker:** Mengubah nilai default `hitungCekIndikator` dari `'OK'` menjadi `'PERIKSA BUKTI'` untuk status tak dikenal atau belum ditelaah.
+  - **Pemisahan Kelengkapan & Validitas:** Memisahkan metrik kelengkapan evaluasi (`$kelengkapan` berdasarkan jumlah indikator yang telah dinilai) dari kepatuhan struktural baris (`$cekLengkapOk`).
+  - **Proteksi Nilai Berjalan & Kuadran Portofolio:** Mencegah indikator dengan status non-evaluatif (`BELUM DAPAT DINILAI`, `BUKTI BELUM MEMADAI`) membocorkan sisa skor lama ke dalam `nilai_berjalan` dan tangga hasil `hitungPosisiPortofolio`.
+  - **Penetapan Status Final Terpadu:** Memastikan `hitungStatusScorecard` hanya menghasilkan status `FINAL/TERVALIDASI` jika seluruh skor indikator terisi lengkap (`$skorLengkap`) dan tervalidasi (`$cekLengkapOk`).
+  - **Koreksi Rekomendasi Masa Berlaku:** Memperbaiki batas waktu `hitungRekomendasi` ($0 \le sisaHari \le 90$) agar naskah yang telah berakhir ($sisaHari < 0$) tidak keliru direkomendasikan `PERPANJANG`, melainkan diarahkan ke penanganan risiko `E3` (`HENTIKAN`).
+  - **Preservasi Rekomendasi Auditor:** Memperbaiki `includes/data.php` agar rekomendasi kualitatif auditor tidak tertimpa otomatis menjadi `BELUM DITENTUKAN` saat status portofolio berada pada fase awal.
+- **Siklus Monev & Alur Evaluasi (`mitra_edit.php` & `scorecard.php`):**
+  - Mengubah transisi milestone evaluasi menjadi `'Selesai'` hanya jika seluruh indikator lengkap dan bukti memadai (`$buktiKurangN === 0`), serta beralih ke `'Sedang Dinilai'` untuk draf parsial.
+  - Menghindari pergeseran milestone yang belum selesai ke siklus berikutnya pada penyimpanan berturut-turut di hari yang sama.
+  - Menampilkan banner peringatan jadwal evaluasi terlewat (*overdue*) secara terpadu pada halaman `scorecard.php`.
+  - Mereset status validasi `PERLU PERBAIKAN` kembali ke `BELUM` secara otomatis saat pemeriksa mengunggah revisi baru via `scorecard.php`.
+
+### Added & Improved
+- **Ketahanan Tooling & Launcher Windows (`start_server_wlan.bat`):**
+  - Deteksi port dinamis yang andal (mencoba port 8080, fallback ke 8085, dan memindai port 8086–8100 jika terjadi tabrakan port).
+  - Pengecualian adapter jaringan virtual (`vEthernet`, `VirtualBox`, `WSL`, `100.*`) pada deteksi IP WLAN agar perangkat ponsel/laptop selalu menerima alamat IP Wi-Fi fisik yang valid.
+  - Penambahan kredensial peran `pengampu` dan `pic` pada banner akun demo launcher.
+- **Optimasi Sistem Backup & Penghematan Disk (`scripts/make_backup.py`):**
+  - Pengecualian berkas video dan media besar (`.mp4`, `.mov`, `.avi`, `.wmv`, `.pdf` dalam `docs/`) dari paket arsip backup, memangkas ukuran arsip dari ~235 MB menjadi ~14 MB (penghematan kapasitas 94%).
+  - Implementasi kebijakan retensi otomatis FIFO: hanya mempertahankan 5 arsip `.zip` terbaru dan memangkas cadangan lama secara aman.
+- **Penyelarasan Responsif Mobile & CSS (`public/css/style.css`):**
+  - Penambahan breakpoint `@media (max-width: 480px)` untuk menyusun kartu KPI secara 1-kolom penuh, mencegah teks bertumpuk atau terpotong pada layar ponsel sempit.
+  - Pengubahan header `.app-hero` menjadi `position: static` pada layar mobile ($\le 768$px) untuk mencegah kanibalisasi sepertiga area layar saat bergulir.
+  - Perataan kontainer identitas pengguna (`.hero-right`) dan flex-wrap pada diagram donat untuk tampilan ponsel yang rapi.
+- **Penyelarasan Dokumentasi (`README.md`):**
+  - Sinkronisasi arsitektur Result-Chain V3 (7 indikator $I_1$–$I_7$ berbobot 100%, 6 peran pengguna, 18 naskah mitra: 13 Pilot + 5 Cadangan).
+  - Pembersihan referensi endpoint ekspor non-eksisten menjadi fitur pelaporan eksekutif cetak resmi A4 (`laporan.php`).
+
 ## [2.5.1] - 2026-10-08
 
 ### Fixed

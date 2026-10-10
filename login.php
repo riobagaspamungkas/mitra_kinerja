@@ -48,35 +48,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
         $escapedIp = addcslashes($clientIp, '%_\\');
 
-        if ($username !== '') {
-            $escapedUsername = addcslashes($username, '%_\\');
-            $stmt = $pdo->prepare("
-                SELECT COUNT(*) AS failed_count, MAX(UNIX_TIMESTAMP(created_at)) AS last_failed
-                FROM audit_log
-                WHERE aksi = 'LOGIN_FAILED'
-                  AND created_at >= NOW() - INTERVAL 5 MINUTE
-                  AND (? IS NULL OR created_at > ?)
-                  AND (
-                      detail LIKE ?
-                      OR detail LIKE ?
-                  )
-            ");
-            $stmt->execute([
-                $lastSuccessTime,
-                $lastSuccessTime,
-                '%Username: ' . $escapedUsername . '%',
-                '%IP: ' . $escapedIp . '%'
-            ]);
-        } else {
-            $stmt = $pdo->prepare("
-                SELECT COUNT(*) AS failed_count, MAX(UNIX_TIMESTAMP(created_at)) AS last_failed
-                FROM audit_log
-                WHERE aksi = 'LOGIN_FAILED'
-                  AND created_at >= NOW() - INTERVAL 5 MINUTE
-                  AND detail LIKE ?
-            ");
-            $stmt->execute(['%IP: ' . $escapedIp . '%']);
-        }
+        // Hitung kegagalan login berdasarkan IP client (mencegah brute-force/spray)
+        // Gunakan delimiter baku untuk mencocokkan IP secara persis
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) AS failed_count, MAX(UNIX_TIMESTAMP(created_at)) AS last_failed
+            FROM audit_log
+            WHERE aksi = 'LOGIN_FAILED'
+              AND created_at >= NOW() - INTERVAL 5 MINUTE
+              AND detail LIKE ?
+        ");
+        $stmt->execute([
+            '%IP: ' . $escapedIp
+        ]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($row) {
             $dbAttempts = (int)($row['failed_count'] ?? 0);

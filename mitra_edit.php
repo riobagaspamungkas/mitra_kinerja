@@ -216,6 +216,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $activeSMId = $stmtRecentSM->fetchColumn() ?: null;
         }
 
+        if (!$activeSMId) {
+            // Fallback ke milestone berikutnya yang belum selesai jika belum ada milestone aktif
+            $stmtNextSM = $pdo->prepare("SELECT id FROM siklus_monev WHERE mitra_id = ? AND status_siklus NOT IN ('Selesai', 'selesai evaluasi') ORDER BY siklus_ke ASC LIMIT 1");
+            $stmtNextSM->execute([$id]);
+            $activeSMId = $stmtNextSM->fetchColumn() ?: null;
+        }
+
         if ($activeSMId) {
             $stmtInd = $pdo->prepare('SELECT * FROM indikator_skor WHERE mitra_id = ?');
             $stmtInd->execute([$id]);
@@ -223,9 +230,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $rInd = ringkasanIndikator($indRows);
             $nilaiBerjalan = $rInd['nilai_berjalan'];
 
-            $tglRealisasi = ($_POST['tanggal_review'] ?? '') !== '' ? $_POST['tanggal_review'] : date('Y-m-d');
-            $stmtUpdSM = $pdo->prepare("UPDATE siklus_monev SET status_siklus = 'Selesai', nilai_siklus = ?, tanggal_realisasi_evaluasi = ? WHERE id = ?");
-            $stmtUpdSM->execute([round($nilaiBerjalan, 2), $tglRealisasi, $activeSMId]);
+            if ($rInd['skor_lengkap'] && $rInd['cek_lengkap_ok'] && ($rInd['bukti_kurang_n'] ?? 0) === 0) {
+                $tglRealisasi = ($_POST['tanggal_review'] ?? '') !== '' ? $_POST['tanggal_review'] : date('Y-m-d');
+                $stmtUpdSM = $pdo->prepare("UPDATE siklus_monev SET status_siklus = 'Selesai', nilai_siklus = ?, tanggal_realisasi_evaluasi = ? WHERE id = ?");
+                $stmtUpdSM->execute([round($nilaiBerjalan, 2), $tglRealisasi, $activeSMId]);
+            } else {
+                $stmtUpdSM = $pdo->prepare("UPDATE siklus_monev SET status_siklus = 'Sedang Dinilai', nilai_siklus = ?, tanggal_realisasi_evaluasi = NULL WHERE id = ?");
+                $stmtUpdSM->execute([round($nilaiBerjalan, 2), $activeSMId]);
+            }
         }
 
         // Bug 2.1: Call syncStatusScorecard inside the try-catch block before or alongside commit
@@ -342,6 +354,11 @@ try {
     $stmtFormSM = $pdo->prepare("SELECT id FROM siklus_monev WHERE mitra_id = ? AND status_siklus IN ('Sedang Dinilai', 'Perlu Penilaian Segera') ORDER BY siklus_ke ASC LIMIT 1");
     $stmtFormSM->execute([$id]);
     $formActiveSMId = $stmtFormSM->fetchColumn() ?: null;
+    if (!$formActiveSMId) {
+        $stmtNextFormSM = $pdo->prepare("SELECT id FROM siklus_monev WHERE mitra_id = ? AND status_siklus NOT IN ('Selesai', 'selesai evaluasi') ORDER BY siklus_ke ASC LIMIT 1");
+        $stmtNextFormSM->execute([$id]);
+        $formActiveSMId = $stmtNextFormSM->fetchColumn() ?: null;
+    }
 } catch (Throwable $e) {}
 ?>
 <?php if ($formActiveSMId): ?>

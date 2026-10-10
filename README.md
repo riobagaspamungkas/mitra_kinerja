@@ -1,24 +1,28 @@
 # Aplikasi Scorecard Efektivitas Mitra Kinerja
 
-Aplikasi web (PHP + MySQL) untuk pengisian form penilaian dan dashboard eksekutif
+Aplikasi web (PHP + MySQL) untuk evaluasi terstruktur, pengisian form penilaian, dan dashboard eksekutif
 Scorecard Efektivitas Mitra Kinerja — Kantor Wilayah Kementerian Hukum Kepulauan Riau.
 
-Dibangun berdasarkan:
-- `Format_Scorecard_Efektivitas_MITRA_KINERJA_V1_1_29_Agustus_2026.xlsx`
-- `Panduan_Pengisian_Scorecard_MITRA_KINERJA_V1_1.docx`
+Dibangun berdasarkan metodologi evaluasi kerja sama terpadu:
+- Arsitektur **V2.1 / V3 Result-Chain** (7 Indikator Kinerja Utama)
+- **Baseline 12 Elemen** & Ledger Bukti Dukung
+- Matriks Penilaian Portofolio & Kuadran Kinerja
+- **Gate 0 (Pra-PKS) Feasibility Screening** (18 Parameter Kelayakan)
+- *Format Scorecard Efektivitas MITRA KINERJA V1.1 / V2.1 / V3*
+- *Panduan Pengisian Scorecard MITRA KINERJA Kanwil Kemenkumham Kepri*
 
 ## 1. Menjalankan Aplikasi
 
 ### Cara Cepat (Windows / Jaringan WLAN / Wi-Fi)
-Cukup **klik dua kali** (double click) file:
-```
+Cukup **klik dua kali** (double-click) file:
+```cmd
 start_server_wlan.bat
 ```
-Script ini akan:
-1. Memeriksa PHP dan memastikan database MySQL (XAMPP) menyala.
-2. Mendeteksi IP Address Wi-Fi / WLAN komputer Anda secara otomatis.
-3. Menjalankan web server pada port `8080`.
-4. Membuka browser secara otomatis dan menampilkan tautan yang bisa dibuka dari HP atau laptop lain yang terhubung di Wi-Fi yang sama (contoh: `http://172.16.x.x:8080/login.php`).
+Script ini secara otomatis akan:
+1. Memeriksa ketersediaan PHP dan memastikan database MySQL (XAMPP) aktif pada port 3306.
+2. Mendeteksi IP Address Wi-Fi / WLAN komputer (dengan filter cerdas membuang adapter virtual seperti vEthernet, VirtualBox, WSL, dan CGNAT/Tailscale 100.*).
+3. Melakukan pemeriksaan port otomatis (menguji port `8080`, lalu `8085`, kemudian port bebas berikutnya jika port terpakai).
+4. Membuka browser default ke halaman login dan menampilkan URL akses untuk perangkat lain (HP / tablet / laptop) dalam jaringan Wi-Fi yang sama (misal: `http://192.168.1.x:8080/login.php`).
 
 ---
 
@@ -90,91 +94,153 @@ tanpa risiko lupa mengganti sebelum go-live:
       folder, tinggal pastikan hosting mengizinkan `.htaccess` (`AllowOverride All`).
 - [ ] Backup database sebelum import ulang seed data apa pun.
 
-## 2. Struktur Role
+## 2. Struktur Role Pengguna (6 Role)
 
-| Role       | Akses                                                              |
-|------------|---------------------------------------------------------------------|
-| admin      | Semua akses + kelola pengguna                                      |
-| pemeriksa  | Mengisi form penilaian (identitas, 6 indikator, warning, uji intervensi) |
-| validator  | Meninjau & memvalidasi (Disetujui / Perlu Perbaikan)               |
-| pimpinan   | Dashboard eksekutif & detail naskah — mode baca saja                |
+Sistem menerapkan Role-Based Access Control (RBAC) ketat dengan 6 tingkatan hak akses:
 
-Buat akun pemeriksa/validator/pimpinan lewat menu **Pengguna** (login sebagai admin).
+| Role | Hak Akses & Tanggung Jawab |
+|---|---|
+| **admin** | Akses penuh seluruh modul sistem, manajemen pengguna, konfigurasi lingkungan, serta mesin import/export workbook Excel. |
+| **pemeriksa** | Pengisian identitas naskah (8-field header), penilaian 7 Indikator Result-Chain, EWS 4 area kontrol, instrumen uji intervensi, serta Gate 0 screening. |
+| **validator** | Penelaahan komprehensif, validasi bukti dukung, dan penetapan status scorecard (*Disetujui* / *Perlu Perbaikan* / *Final*). |
+| **pimpinan** | Pemantauan dashboard eksekutif, analisis ringkasan portofolio, penetapan keputusan Gate 0, dan pengesahan intervensi strategis. |
+| **pengampu** | Unit Pengampu Teknis: pemantauan operasional bidang, pengelolaan ledger data baseline 12 elemen, dan koordinasi rencana tindak lanjut. |
+| **pic** | PIC Operasional Kerja Sama: pelaksanaan kegiatan harian, pemantauan masa berlaku, pelaporan berkala, dan penyiapan eviden mitra. |
 
-## 3. Struktur Aplikasi
+### Akun Demo (Tersedia Tombol Cepat di Layar Login):
+- **Admin**: `admin` / `admin123`
+- **Pemeriksa**: `pemeriksa` / `pemeriksa123`
+- **Validator**: `validator` / `validator123`
+- **Pimpinan**: `pimpinan` / `pimpinan123`
+- **Pengampu**: `pengampu` / `pengampu123`
+- **PIC Kerja Sama**: `pic` / `pic123`
+
+## 3. Struktur Modul & Navigasi Aplikasi
 
 ```
-config/database.php              Koneksi PDO (baca dari database.local.php / env var)
-config/database.local.php.example  Contoh kredensial per-server (salin, jangan commit)
-config/env.php                    APP_ENV, error display, keamanan cookie sesi
-config/env.local.php.example      Aktifkan mode dev (salin HANYA di server dev)
-config/.htaccess                  Blokir akses browser ke folder ini
-includes/auth.php         Session, login, role guard, audit log
-includes/functions.php    Logika bisnis inti (Cek, Kategori, Status, Warning tertinggi, Uji Intervensi)
-includes/data.php         Helper gabungan DB + logika bisnis
-includes/header.php/footer.php   Layout bersama
-includes/.htaccess         Blokir akses browser ke folder ini
-
-login.php / logout.php    Autentikasi
-dashboard.php              Dashboard eksekutif (KPI, distribusi kategori, filter, drill-down)
-mitra_list.php             Daftar 15 naskah (untuk pemeriksa/validator)
-mitra_edit.php             Form pengisian scorecard per naskah
-mitra_validasi.php         Panel keputusan validasi
-users_list.php             Manajemen pengguna (admin)
-
-database/schema.sql        Struktur tabel
-database/seed_data.sql     Data awal 15 naskah (dari file xlsx yang diunggah)
-database/.htaccess         Blokir akses browser ke folder ini (berisi hash password!)
-
-.htaccess                   Hardening dasar folder aplikasi (aman di root maupun subfolder)
+├── config/
+│   ├── database.php              Koneksi PDO terisolasi & fallback environment
+│   ├── database.local.php.example Template kredensial per-server
+│   ├── env.php                   Konfigurasi error handling & cookie session aman
+│   └── .htaccess                 Proteksi akses langsung direktori konfigurasi (403 Forbidden)
+├── includes/
+│   ├── auth.php                  Manajemen sesi, login guard, proteksi CSRF, audit logger
+│   ├── functions.php             Logika bisnis inti Result-Chain V3, rumus nilai, EWS, Uji Intervensi
+│   ├── data.php                  Abstraksi data & query agregasi KPI
+│   ├── ai_service.php            Layanan AI Insight terintegrasi (Gemini, OpenRouter, Groq)
+│   ├── auto_migrate.php          Skrip migrasi mandiri skema database
+│   └── header.php / footer.php   Komponen layout antarmuka bersama & navigasi responsif
+├── public/
+│   ├── css/style.css             Sistem desain antarmuka responsif (desktop, tablet, mobile <480px)
+│   └── js/                       Skrip interaktivitas klien & Chart.js UMD bundle
+├── database/
+│   ├── schema.sql                Definisi struktur tabel DDL
+│   ├── seed_data.sql             Data benih 18 naskah mitra & indikator
+│   └── mitra_kinerja_dump.sql    Snapshot lengkap basis data produksi
+├── scripts/
+│   ├── live_test_suite_v2_4_2.py Suite pengujian komprehensif end-to-end
+│   ├── make_backup.py            Utilitas backup arsip otomatis & rotasi retensi 5 backup
+│   └── ...                       Skrip rekonsiliasi data dan audit paritas
+├── dashboard.php                 Dashboard eksekutif (North Star KPI, grafik distribusi, AI Insight)
+├── scorecard.php                 Matriks tabel Scorecard Result-Chain V3 (I1–I7) & aksi cepat
+├── baseline.php                  Ledger evaluasi 12 Elemen Baseline & penguncian data
+├── portofolio.php                Matriks pemetaan kuadran kinerja & filter multi-dimensi
+├── gate0.php                     Modul Gate 0 (Pra-PKS) Feasibility Screening (18 aspek kelayakan)
+├── mitra_list.php                Daftar 18 naskah mitra kerja sama (13 Pilot Utama + 5 Cadangan)
+├── mitra_edit.php                Form evaluasi komprehensif naskah mitra & input eviden
+├── mitra_validasi.php            Panel penelaahan & pengesahan validasi naskah
+├── import.php                    Mesin import mandiri berkas Excel (.xlsx) Baseline & Scorecard
+├── laporan.php / tindak_lanjut.php Rekomendasi strategis, agenda monev & cetak laporan formal
+├── users_list.php                Manajemen pengguna & otorisasi RBAC (Admin)
+├── ai_insight.php / ai_debug.php Endpoint AI Executive Summary & diagnostic utility
+└── start_server_wlan.bat         Launcher otomatis server lokal & jaringan nirkabel
 ```
 
-Semua link internal (menu, redirect login/logout, referensi CSS) memakai **path
-relatif** (tanpa garis miring di depan), jadi otomatis bekerja baik dipasang di
-domain root maupun di subfolder seperti `/` — sudah diuji langsung dengan
-Apache di kedua skenario.
+Semua tautan internal (menu, redirect login/logout, referensi CSS) memakai **path relatif** (tanpa garis miring di depan), sehingga otomatis bekerja dengan sempurna baik dipasang di domain root maupun di subfolder web server.
 
-## 4. Logika Bisnis Kunci (lihat `includes/functions.php`)
+## 4. Logika Bisnis Kunci & Arsitektur Result-Chain (V2.1 / V3)
 
-**Semua rumus di bawah diterjemahkan LANGSUNG dari formula Excel asli** (dibaca dengan
-`data_only=False` dari file xlsx, bukan diterka dari nilai cache-nya), lalu diverifikasi
-dengan unit test dan uji end-to-end di server sungguhan. Semua ditegakkan di server (PHP),
-bukan hanya di tampilan:
+Seluruh formula dan aturan bisnis dikonversi langsung dari instrumen evaluasi resmi dan ditegakkan di sisi server (PHP):
 
-- **Cek per indikator**: urutan pemeriksaan PERSIS rumus `J13` — skor kosong dicek **paling
-  duluan** (→ `BELUM DIISI`), baru status BELUM DIPERIKSA (→ `PERIKSA BUKTI`), status
-  BUKTI BELUM CUKUP/BELUM DAPAT DINILAI dengan skor terlanjur ada (→ `HAPUS SKOR`), temuan
-  kosong (→ `TULIS TEMUAN/BUKTI`), alasan kosong (→ `TULIS ALASAN`), baru `OK`.
-- **Skor 0–4** hanya tersimpan jika Status Pemeriksaan = `BUKTI CUKUP`.
-- **Kelengkapan** = jumlah indikator yang skornya **terisi** ÷ 6 (bukan jumlah yang
-  Cek-nya OK — dua ukuran ini beda dan dipakai untuk gerbang yang berbeda).
-- **Kategori/Status Scorecard** dua gerbang bertingkat:
-  1. Skor belum 6/6 terisi → `BELUM LENGKAP`
-  2. Skor 6/6 tapi Cek belum semua `OK` → `BELUM FINAL` (kategori) / `PERLU DILENGKAPI` (status)
-  3. Cek 6/6 `OK` → kategori dari nilai (`PRODUKTIF` 75–100, `BERJALAN` 50–<75,
-     `PERLU AKTIVASI` 25–<50, `KRITIS` <25); status → `SIAP DIVALIDASI` /
-     `FINAL/TERVALIDASI` / `PERLU PERBAIKAN` mengikuti keputusan validator.
-- **Early warning — Masa berlaku 100% OTOMATIS**, tidak diisi manual sama sekali:
-  dihitung dari `tanggal berakhir − cut-off` (Sisa Hari), hanya berlaku jika Status
-  Tanggal = TERVERIFIKASI. Ambang: ≤30 hari atau sudah berakhir → `E3`, ≤90 → `E2`,
-  ≤180 → `E1`, lebih dari itu → `E0`; jika Status Tanggal belum terverifikasi → `V0`.
-- **Early warning — 3 dimensi lain** (Aktivitas/tenggat, Data/eviden, PIC): yang diisi
-  manual adalah **Kondisi** (pilihan tetap per dimensi, lihat `KONDISI_OPTIONS`), Status
-  (E0/E1/E3) **diturunkan otomatis** dari Kondisi itu — bukan dipilih langsung.
-- **Warning tertinggi**: urutan keparahan **E3 > E2 > E1 > V0 > E0**. Tingkat penanganan:
-  `E2`/`E3` → *Perlu Koordinasi Project Leader*, `V0` → *Lengkapi Data*, `E0`/`E1` →
-  *Ditangani PIC/Unit*.
-- **Uji Kebutuhan Intervensi Pimpinan** bertingkat: ada pemicu `YA` → `CALON BUTUH
-  INTERVENSI PIMPINAN`; ada yang `BELUM DIPASTIKAN` → `LENGKAPI UJI INTERVENSI`; kalau
-  semua `TIDAK`, hasil ikut status warning tertinggi. **Cek usulan** lebih detail lagi:
-  `LENGKAPI BUKTI PEMICU` (ada YA tanpa bukti) → `LENGKAPI UPAYA DAN KEPUTUSAN` (bukti
-  ada, upaya/keputusan kosong) → `SIAP DIBAWA KE FORUM` (semua lengkap).
+### A. 7 Indikator Result-Chain (I1–I7) & Pembobotan (Total 100%)
+1. **I1: Relevansi & Keselarasan Tugas Fungsi** (Bobot 10%)
+2. **I2: Kualitas Perencanaan & Rencana Kerja** (Bobot 15%)
+3. **I3: Realisasi & Implementasi Kegiatan** (Bobot 15%)
+4. **I4: Capaian Output & Deliverables** (Bobot 20%)
+5. **I5: Kemanfaatan & Dampak/Outcome** (Bobot 20%)
+6. **I6: Ketersediaan & Ketertelusuran Bukti/Eviden** (Bobot 10%)
+7. **I7: Manajemen Risiko, Keberlanjutan & Evaluasi Monev** (Bobot 10%)
 
-## 5. Yang Masih Perlu Diputuskan / Dikembangkan
+### B. Formula Penilaian & Konversi Skor
+- **Status Pemeriksaan**: `DAPAT DINILAI` (atau `BUKTI CUKUP`), `BUKTI BELUM MEMADAI` (atau `BUKTI BELUM CUKUP`), `BELUM DAPAT DINILAI`, `BELUM DITELAAH`.
+- **Aturan Skor**: Skor berkisar antara **0 sampai 4**, dan hanya sah dihitung apabila status pemeriksaan bernilai `DAPAT DINILAI` / `BUKTI CUKUP`.
+- **Nilai Indikator**: Dihitung dengan rumus: `Nilai = (Skor / 4) * Bobot`.
+- **Nilai Final Total**: Akumulasi nilai dari seluruh indikator I1–I7 (skala 0.0 – 100.0). Hanya dihitung jika seluruh 7 indikator lengkap dan berstatus DAPAT DINILAI.
+- **Kelengkapan Pengisian**: Persentase indikator yang telah terisi skor terhadap indikator yang dapat dinilai.
 
-- Import ulang data historis dari cut-off berikutnya (belum ada fitur upload xlsx
-  di aplikasi — saat ini hanya via `seed_data.sql`).
-- Notifikasi/reminder otomatis untuk tenggat early warning.
-- Export laporan (PDF/xlsx) dari dashboard.
-- Riwayat perubahan per field (saat ini audit log hanya mencatat aksi level naskah).
-- Hardening keamanan produksi: CSRF token pada form, rate limiting login, HTTPS wajib.
+### C. Klasifikasi Kategori Kinerja
+Nilai final diklasifikasikan ke dalam 4 kategori kinerja Result-Chain V3:
+- **KUAT** : 80.0 – 100.0
+- **CUKUP / PERLU PENGUATAN** : 60.0 – <80.0
+- **PERLU PERBAIKAN** : 40.0 – <60.0
+- **KRITIS** : <40.0
+- *(Belum lengkap seluruh 7 indikator: **DALAM PROSES**)*
+*(Didukung juga backward compatibility pemetaan kategori V1.1: PRODUKTIF, BERJALAN, PERLU AKTIVASI).*
+
+### D. Early Warning System (EWS) 4 Area Kontrol
+1. **Masa Berlaku & Ketepatan Waktu**: Dihitung 100% otomatis dari selisih tanggal berakhir terhadap cut-off.
+   - <= 30 hari / Kedaluwarsa → **E3** (Kritis)
+   - <= 90 hari → **E2** (Peringatan Tinggi)
+   - <= 180 hari → **E1** (Perhatian)
+   - > 180 hari → **E0** (Aman)
+   - Belum terverifikasi → **V0**
+2. **Pelaksanaan Aktivitas & Rencana Kerja** (E0–E3 diturunkan dari kondisi riil).
+3. **Kelengkapan Data & Bukti Dukung** (E0–E3 diturunkan dari ketersediaan dokumen).
+4. **Komitmen & Peran PIC/Focal Point** (E0–E3 diturunkan dari keaktifan koordinasi).
+
+Tingkat eskalasi penanganan warning tertinggi:
+- `E2` / `E3`: *Perlu Koordinasi Project Leader / Pimpinan*
+- `V0`: *Lengkapi Validasi Data Legalitas*
+- `E0` / `E1`: *Ditangani Mandiri oleh PIC / Unit Pengampu*
+
+### E. Gate 0 (Pra-PKS) Feasibility Screening
+Instrumen uji kelayakan pra-penandatanganan kerja sama mencakup 18 pertanyaan strategis yang terbagi dalam 4 dimensi:
+1. Relevansi dan Dasar Kewenangan
+2. Kebutuhan Nyata dan Kejelasan Manfaat
+3. Profil, Kapasitas, dan Komitmen Mitra
+4. Kesiapan Operasional, Tata Kelola, dan Keberlanjutan
+
+---
+
+## 5. Fitur Keamanan, Import/Export & Pelaporan
+
+1. **Proteksi CSRF Aktif**:
+   Seluruh formulir interaktif (Login, Edit Mitra, Validasi, Import Excel, Gate 0) dilindungi secara ketat menggunakan sinkronisasi token anti-CSRF per-sesi (`csrf_token`).
+2. **Mesin Import Excel Terintegrasi (`import.php`)**:
+   - Mendukung format workbook `.xlsx` untuk sinkronisasi Baseline 12 Elemen dan Scorecard I1–I7 secara instan.
+   - Dilengkapi validasi ekstensi, MIME type checking, boundary sanitization, dan pencatatan audit log otomatis.
+3. **Pelaporan Eksekutif & Format Cetak Standar**:
+   - Tampilan ramah cetak dokumen resmi (`@media print` clean layout berstandar A4 dengan kop instansi).
+   - Matriks rekomendasi tindak lanjut dan pengelompokan portofolio (`tindak_lanjut.php` & `laporan.php`).
+4. **AI Executive Insight Multi-Provider**:
+   - Dashboard dilengkapi ringkasan analitik cerdas yang mendukung failover multi-provider: Google Gemini → OpenRouter → Groq.
+   - Dilengkapi caching lokal, sanitasi output anti-XSS, dan halaman diagnostik konektivitas (`ai_debug.php`).
+5. **Utilitas Pencadangan & Retensi Otomatis (`scripts/make_backup.py`)**:
+   - Menghasilkan arsip `.zip` proyek lengkap termasuk dump basis data MySQL.
+   - Pengecualian berkas media besar dari direktori `docs/` (`.mp4`, `.mov`, `.avi`, `.wmv`, `.pdf`) untuk menghemat kapasitas penyimpanan (dari 235 MB menjadi ~14 MB).
+   - Rotasi otomatis: mempertahankan 5 cadangan terbaru dan memangkas arsip lama.
+
+---
+
+## 6. Verifikasi & Pengujian Sistem
+
+Sistem dilengkapi suite pengujian otomatis Python untuk memvalidasi integritas aplikasi secara end-to-end:
+```bash
+python scripts/live_test_suite_v2_4_2.py
+```
+Suite ini memverifikasi:
+- Jalur autentikasi, cookie sesi, dan validasi token CSRF.
+- Ketahanan terhadap manipulasi tipe data POST array pada PHP 8.
+- Ketercukupan 18 naskah mitra, integritas KPI dashboard, dan proteksi XSS pada AI Insight.
+- Paritas kolom Scorecard Result-Chain V3 dan penguncian baseline 12 elemen.
+- Responsivitas halaman Gate 0, Portofolio, dan form evaluasi mitra.

@@ -150,13 +150,13 @@ function hitungCekIndikator(array $row): string {
         return 'PERIKSA BUKTI';
     }
 
-    return 'OK';
+    return 'PERIKSA BUKTI';
 }
 
 /** Nilai indikator = skor/4 * bobot (null jika skor belum ada). */
 function hitungNilaiIndikator($skor, int $bobot): ?float {
     $skor = ($skor === null || $skor === '') ? null : (int)$skor;
-    if ($skor === null) return null;
+    if ($skor === null || $skor < 0 || $skor > 4) return null;
     return round(($skor / 4) * $bobot, 2);
 }
 
@@ -174,7 +174,8 @@ function ringkasanIndikator(array $indikatorRows): array {
 
     foreach ($indikatorRows as $row) {
         $st = $row['status_pemeriksaan'] ?? 'BELUM DITELAAH';
-        if (in_array($st, ['DAPAT DINILAI', 'BUKTI CUKUP', 'BUKTI MEMADAI'], true)) {
+        $isEvaluable = in_array($st, ['DAPAT DINILAI', 'BUKTI CUKUP', 'BUKTI MEMADAI'], true);
+        if ($isEvaluable) {
             $dapatDinilaiCount++;
             $bobotDinilai += (int)($row['bobot'] ?? BOBOT_INDIKATOR[$row['kode_indikator'] ?? ''] ?? 0);
         } elseif ($st === 'BELUM DAPAT DINILAI') {
@@ -183,7 +184,7 @@ function ringkasanIndikator(array $indikatorRows): array {
             $buktiKurangCount++;
         }
 
-        if (($row['skor'] ?? null) !== null) {
+        if ($isEvaluable && ($row['skor'] ?? null) !== null && ($row['skor'] ?? null) !== '') {
             $skorTerisi++;
             $nilaiBerjalan += (float)($row['nilai'] ?? 0);
         }
@@ -193,9 +194,9 @@ function ringkasanIndikator(array $indikatorRows): array {
     }
 
     $n = count($indikatorRows) ?: 7;
-    $kelengkapan = round(($cekOkCount / $n) * 100);
-    $skorLengkap = ($cekOkCount === $n);
     $cekLengkapOk = ($cekOkCount === $n);
+    $kelengkapan = $dapatDinilaiCount > 0 ? (int)round(($skorTerisi / $dapatDinilaiCount) * 100) : 0;
+    $skorLengkap = ($skorTerisi === $dapatDinilaiCount && $dapatDinilaiCount > 0);
 
     // V3: Nilai Final HANYA dihitung jika seluruh 7 indikator berstatus DAPAT DINILAI dan skor lengkap.
     // Jika belum lengkap, nilai = null (tampil strip '-').
@@ -227,7 +228,11 @@ function ringkasanIndikator(array $indikatorRows): array {
 function hitungPosisiPortofolio(array $indikatorRows): string {
     $scores = [];
     foreach ($indikatorRows as $r) {
-        if (isset($r['kode_indikator'])) { $scores[$r['kode_indikator']] = $r['skor'] ?? null; }
+        $st = $r['status_pemeriksaan'] ?? 'BELUM DITELAAH';
+        $isEvaluable = in_array($st, ['DAPAT DINILAI', 'BUKTI CUKUP', 'BUKTI MEMADAI'], true);
+        if (isset($r['kode_indikator']) && $isEvaluable) {
+            $scores[$r['kode_indikator']] = $r['skor'] ?? null;
+        }
     }
 
     if (($scores['I5'] ?? null) !== null && $scores['I5'] >= 3) {
@@ -250,7 +255,7 @@ function hitungRekomendasi(float $nilai, string $warningStatus, string $posisiPo
     if ($nilai <= 0 && $posisiPortofolio === 'BELUM DAPAT DITENTUKAN') {
         return 'BELUM DITENTUKAN';
     }
-    if ($sisaHari !== null && $sisaHari <= 90 && $nilai >= 75) {
+    if ($sisaHari !== null && $sisaHari >= 0 && $sisaHari <= 90 && $nilai >= 75) {
         return 'PERPANJANG';
     }
     if ($warningStatus === 'E3') {
@@ -346,7 +351,7 @@ function kategoriDariNilai(float $nilai): string {
 function hitungStatusScorecard(bool $skorLengkap, bool $cekLengkapOk, string $statusValidasi, int $buktiKurangN = 0, int $bdnN = 0, int $dapatDinilaiN = 0, bool $allEvaluable = true): string {
     if ($buktiKurangN > 0) return 'BUKTI BELUM MEMADAI';
     if ($bdnN > 0) return 'MASA IMPLEMENTASI AWAL';
-    if ($statusValidasi === 'DISETUJUI' && $allEvaluable && $bdnN === 0) return 'FINAL/TERVALIDASI';
+    if ($statusValidasi === 'DISETUJUI' && $allEvaluable && $bdnN === 0 && $skorLengkap && $cekLengkapOk) return 'FINAL/TERVALIDASI';
     if ($statusValidasi === 'PERLU PERBAIKAN') return 'PERLU PERBAIKAN';
     if ($dapatDinilaiN === 0) return 'BELUM DINILAI';
     if (!$skorLengkap || !$cekLengkapOk) return 'DALAM PENILAIAN';

@@ -214,7 +214,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] 
                                 if (str_contains($rawStatus, 'BELUM DAPAT') || str_contains($rawStatus, 'BELUM DINILAI')) {
                                     $statusPem = 'BELUM DAPAT DINILAI';
                                 } elseif (str_contains($rawStatus, 'DAPAT DINILAI') || (str_contains($rawStatus, 'MEMADAI') && !str_contains($rawStatus, 'BELUM'))) {
-                                    $statusPem = 'BUKTI MEMADAI';
+                                    $statusPem = 'DAPAT DINILAI';
                                 } elseif (str_contains($rawStatus, 'BELUM MEMADAI') || str_contains($rawStatus, 'BELUM CUKUP')) {
                                     $statusPem = 'BUKTI BELUM MEMADAI';
                                 } elseif (str_contains($rawStatus, 'CUKUP') && !str_contains($rawStatus, 'BELUM')) {
@@ -310,22 +310,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] 
                                     }
                                 }
 
-                                // Bug 7.4 & Bug 14: Map imported posisi_portofolio and rekomendasi appropriately
+                                // Map imported posisi_portofolio secara tepat, pertahankan teks resmi jika spesifik
                                 if (!empty($posisiPortofolio)) {
-                                    $uPos = strtoupper(trim($posisiPortofolio));
-                                    if (str_contains($uPos, 'BELUM') || str_contains($uPos, 'TIDAK')) {
-                                        $posisiPortofolio = 'BELUM DAPAT DITENTUKAN';
-                                    } elseif (str_contains($uPos, 'BERDAMPAK')) {
-                                        $posisiPortofolio = 'BERDAMPAK';
-                                    } elseif (str_contains($uPos, 'OUTCOME')) {
-                                        $posisiPortofolio = 'OUTCOME TERBENTUK';
-                                    } elseif (str_contains($uPos, 'OUTPUT')) {
-                                        $posisiPortofolio = 'OUTPUT TERSEDIA';
-                                    } elseif (str_contains($uPos, 'AKTIF') || str_contains($uPos, 'IMPLEMENTASI') || str_contains($uPos, 'BERJALAN')) {
-                                        $posisiPortofolio = 'AKTIF';
-                                    } else {
-                                        $posisiPortofolio = 'BELUM DAPAT DITENTUKAN';
-                                    }
+                                    $posisiPortofolio = trim($posisiPortofolio);
                                 }
 
                                 // Bug 16: Periksa status validasi untuk pembatasan import status FINAL bagi non-admin
@@ -470,6 +457,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] 
                                     $pdo->prepare('UPDATE mitra_kinerja SET status_scorecard = ? WHERE id = ?')->execute([$validScStatus, $targetId]);
                                 }
 
+                                // Reset status validasi PERLU PERBAIKAN ke BELUM setelah import revisi berhasil
+                                resetValidasiJikaPerluPerbaikan($pdo, $targetId);
+
                                 $pdo->commit();
 
                                 logAudit($targetId, $user['id'], 'IMPORT_SCORECARD', "Import Scorecard untuk {$targetMitra['kode']}: {$updatedScorecard} indikator diperbarui.");
@@ -503,9 +493,13 @@ usort($all, function($a, $b) {
 });
 
 $dueSoonMonev = [];
+$overdueMonev = [];
 foreach ($all as $s) {
     if (!empty($s['monev']['warning_1_bulan'])) {
         $dueSoonMonev[] = $s;
+    }
+    if (!empty($s['monev']['has_overdue'])) {
+        $overdueMonev[] = $s;
     }
 }
 
@@ -590,6 +584,34 @@ require __DIR__ . '/includes/header.php';
         <li><?= h($err) ?></li>
         <?php endforeach; ?>
     </ul>
+</div>
+<?php endif; ?>
+
+<?php if (!empty($overdueMonev)): ?>
+<div class="alert alert-danger" style="margin-bottom:20px;border-left:4px solid #dc2626;background:#fef2f2;color:#991b1b;">
+    <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:#b91c1c;">
+        🚨 Jadwal Evaluasi Terlewat (Terlewat / Overdue)
+    </div>
+    <div style="font-size:13px;line-height:1.5;">
+        Terdapat <strong><?= count($overdueMonev) ?> kerja sama</strong> yang memiliki tahapan evaluasi melewati batas waktu dan belum diselesaikan. Harap segera lakukan penuntasan evaluasi:
+    </div>
+    <div style="font-size:13px;margin-top:8px;">
+        <ul style="margin:4px 0 0 18px;padding:0;">
+            <?php foreach ($overdueMonev as $od): 
+                $odMilestones = $od['monev']['overdue_milestones'] ?? [];
+            ?>
+            <?php foreach ($odMilestones as $oms): ?>
+            <li style="margin-bottom:4px;">
+                <strong><?= h($od['mitra']['kode']) ?></strong> &mdash; <?= h($od['mitra']['nama_mitra']) ?> &bull; 
+                Siklus: <span class="badge badge-danger" style="font-size:10px;font-weight:600;"><?= h($oms['nama']) ?></span> &bull;
+                Target: <strong><?= formatTanggal($oms['target_tgl']) ?></strong> 
+                (<span style="color:#b91c1c;font-weight:600;">Terlewat <?= abs($oms['sisa_hari']) ?> hari lalu</span>) &bull;
+                <a href="mitra_edit.php?id=<?= $od['mitra']['id'] ?>" style="color:#dc2626;text-decoration:underline;font-weight:600;">Buka Penilaian &rarr;</a>
+            </li>
+            <?php endforeach; ?>
+            <?php endforeach; ?>
+        </ul>
+    </div>
 </div>
 <?php endif; ?>
 

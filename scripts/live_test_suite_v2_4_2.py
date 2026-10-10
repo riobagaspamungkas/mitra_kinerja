@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Comprehensive live test for Mitra Kinerja v2.4.2 bug fixes and features."""
+import os
 import re
 import sys
 import requests
@@ -8,12 +9,16 @@ BASE = "http://localhost:8080"
 if len(sys.argv) > 1:
     BASE = sys.argv[1]
 else:
-    try:
-        r_probe = requests.get("http://localhost:8085/login.php", timeout=0.5)
-        if r_probe.status_code == 200 and "Mitra Kinerja" in r_probe.text:
-            BASE = "http://localhost:8085"
-    except Exception:
-        pass
+    # Discover active port dynamically (8080, 8085, 8086..8100)
+    candidate_ports = [8080, 8085] + list(range(8086, 8101))
+    for p in candidate_ports:
+        try:
+            r_probe = requests.get(f"http://localhost:{p}/login.php", timeout=0.3)
+            if r_probe.status_code == 200 and "Mitra Kinerja" in r_probe.text:
+                BASE = f"http://localhost:{p}"
+                break
+        except Exception:
+            continue
 session = requests.Session()
 
 tests_run = 0
@@ -58,7 +63,8 @@ test("Type safety: array POST parameter handled gracefully (no 500)", r_array.st
 print("\n[2] DASHBOARD INTEGRITY")
 r_dash = session.get(f"{BASE}/dashboard.php")
 test("Dashboard HTTP 200", r_dash.status_code == 200)
-with open("dashboard.php", "r", encoding="utf-8") as df:
+dashboard_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "dashboard.php"))
+with open(dashboard_path, "r", encoding="utf-8") as df:
     dash_src = df.read()
 test("DOM XSS protection in formatInsight", "escapeHtml(text)" in dash_src or ("div.textContent = text" in dash_src and "div.innerHTML" in dash_src))
 test("Local Chart.js loaded", "chart.umd.min.js" in r_dash.text)

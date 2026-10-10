@@ -343,7 +343,7 @@ a:hover { text-decoration: underline; }
 .chart-card h3 { font-size: 14px; font-weight: 700; margin: 0 0 16px; color: var(--navy); }
 
 /* Donut */
-.donut-wrap { display: flex; align-items: center; gap: 20px; }
+.donut-wrap { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
 .donut-legend { font-size: 12.5px; }
 .donut-legend .leg-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .donut-legend .leg-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
@@ -647,12 +647,20 @@ tr:hover td { background: #fafbfc; }
     .dash-tables { grid-template-columns: 1fr; }
     .dash-tables.dash-tables-2col { grid-template-columns: 1fr; }
     .action-card { flex: 1 1 100%; }
-    .app-hero { flex-direction: column; align-items: flex-start; gap: 12px; padding-left: 18px; }
+    .app-hero { position: static; flex-direction: column; align-items: flex-start; gap: 12px; padding-left: 18px; }
     .hero-left { display: flex; align-items: center; gap: 12px; width: 100%; }
     .hero-title { font-size: 20px; }
+    .hero-right { width: 100%; display: flex; justify-content: flex-end; }
     .header-user { align-self: flex-end; }
     .ai-toast { width: calc(100vw - 32px); right: 16px; bottom: 56px; }
     .ai-trigger-btn { bottom: 64px; right: 16px; }
+}
+
+@media (max-width: 480px) {
+    .kpi-row,
+    .kpi-row.kpi-row-4 {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* ── AI Insight Floating Toast ─────────────────────────── */

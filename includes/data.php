@@ -151,12 +151,12 @@ function getMitraSummary(PDO $pdo, array $mitra, bool $forceRecalculate = false)
     $calculatedRekomendasi = ($ringkasan['dapat_dinilai_n'] === 0 || $ringkasan['nilai_berjalan'] <= 0 || $posisiPortofolio === 'BELUM DAPAT DITENTUKAN')
         ? 'BELUM DITENTUKAN'
         : hitungRekomendasi($ringkasan['nilai_berjalan'], $warning['status'], $posisiPortofolio, $sisaHari);
-    if ($ringkasan['dapat_dinilai_n'] === 0 || $posisiPortofolio === 'BELUM DAPAT DITENTUKAN') {
-        $rekomendasi = 'BELUM DITENTUKAN';
-    } elseif ($forceRecalculate || !isset($mitra['rekomendasi']) || $mitra['rekomendasi'] === '') {
-        $rekomendasi = $calculatedRekomendasi;
-    } else {
+    if (!empty($mitra['rekomendasi']) && !$forceRecalculate) {
         $rekomendasi = $mitra['rekomendasi'];
+    } elseif ($ringkasan['dapat_dinilai_n'] === 0 || $posisiPortofolio === 'BELUM DAPAT DITENTUKAN') {
+        $rekomendasi = 'BELUM DITENTUKAN';
+    } else {
+        $rekomendasi = $calculatedRekomendasi;
     }
 
     $evaluasiPerTahun = (int)($mitra['evaluasi_per_tahun'] ?? 4);

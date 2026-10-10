@@ -7,11 +7,25 @@ requireLogin();
 $pdo = getDB();
 $user = currentUser();
 $role = $user['role'];
-$canEdit = in_array($role, ['admin', 'pemeriksa', 'pengampu'], true);
 $isAdmin = ($role === 'admin');
 
-$id = (int)($_GET['id'] ?? 0);
+$id = (int)($_GET['id'] ?? ($_POST['mitra_id'] ?? 0));
 $view = $_GET['view'] ?? 'ledger';
+
+// Pengampu unit assignment check ($isAssigned: pemeriksa_id == user.id or pic_internal matching user name/username)
+$isAssigned = false;
+$authMitra = null;
+if ($id > 0) {
+    $stmtAuth = $pdo->prepare('SELECT pemeriksa_id, pic_internal FROM mitra_kinerja WHERE id = ?');
+    $stmtAuth->execute([$id]);
+    $authMitra = $stmtAuth->fetch();
+    if ($authMitra) {
+        $isAssigned = (!empty($authMitra['pemeriksa_id']) && (int)$authMitra['pemeriksa_id'] === (int)$user['id'])
+            || (!empty($authMitra['pic_internal']) && stripos($authMitra['pic_internal'], $user['nama'] ?? $user['username'] ?? '') !== false);
+    }
+}
+$canEdit = in_array($role, ['admin', 'pemeriksa'], true)
+    || ($role === 'pengampu' && ($isAssigned || (isset($authMitra) && empty($authMitra['pemeriksa_id']))));
 
 $errors = [];
 $success = '';
@@ -76,7 +90,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $targetMitra = $stmt->fetch();
             if ($targetMitra) {
                 $isTargetLocked = ($targetMitra['baseline_status'] === 'TERVERIFIKASI / DIKUNCI');
+                $isAssigned = (!empty($targetMitra['pemeriksa_id']) && (int)$targetMitra['pemeriksa_id'] === (int)$user['id'])
+                    || (!empty($targetMitra['pic_internal']) && stripos($targetMitra['pic_internal'], $user['nama'] ?? $user['username'] ?? '') !== false);
+                $canEdit = in_array($role, ['admin', 'pemeriksa'], true)
+                    || ($role === 'pengampu' && ($isAssigned || empty($targetMitra['pemeriksa_id'])));
             }
+        }
+
+        // Pastikan aksi penguncian tidak dapat menimpa baseline yang sudah dikunci tanpa hak akses admin
+        if ($action === 'lock_baseline' && $isTargetLocked && !$isAdmin) {
+            $errors[] = 'Akses ditolak: Baseline naskah ini sudah berstatus DIKUNCI.';
         }
 
         // 0. Import Data Baseline (12 Elemen) dari Berkas Spreadsheet (.xlsx)
@@ -328,11 +351,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
     }
 
-    // Detail Handlers untuk ID tertentu (Bug 2: check $id > 0 || $targetId > 0)
+    // Detail Handlers untuk ID tertentu
     elseif ($id > 0 || $targetId > 0) {
-        if ($id <= 0 && $targetId > 0) {
-            $id = $targetId;
-        }
+        $id = $targetId; // Selalu sinkronkan $id dengan $targetId dari POST agar otorisasi dan mutasi konsisten
         $mitra = $targetMitra;
         $isLocked = $isTargetLocked;
 
@@ -453,6 +474,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     elseif ($action === 'lock_baseline') {
         if (!$canEdit) {
             $errors[] = 'Akses ditolak.';
+        } elseif ($isLocked) {
+            $errors[] = 'Akses ditolak: Baseline naskah ini sudah berstatus DIKUNCI.';
         } else {
             // Periksa apakah semua 12 elemen sudah terisi (tidak ada yang BELUM DIISI)
             $stmtC = $pdo->prepare('SELECT COUNT(*) FROM baseline_elemen WHERE mitra_id = ? AND status != \'BELUM DIISI\'');
@@ -1494,7 +1517,13 @@ require __DIR__ . '/includes/header.php';
                         <a href="public/templates/template_baseline_12_elemen.xlsx" download="Template_Baseline_<?= h($m['kode']) ?>.xlsx" class="btn btn-outline btn-sm" style="font-size:10.5px;padding:3px 8px;display:inline-flex;align-items:center;gap:3px;color:#4338ca;border-color:#c7d2fe;background:#eef2ff;" title="Unduh Formulir Template Baseline (.xlsx)">
                             <span>📥</span> Unduh Template
                         </a>
-                        <?php if ($canEdit && (!$b['is_locked'] || $isAdmin)): ?>
+                        <?php
+                        $isRowAssigned = (!empty($m['pemeriksa_id']) && (int)$m['pemeriksa_id'] === (int)$user['id'])
+                            || (!empty($m['pic_internal']) && stripos($m['pic_internal'], $user['nama'] ?? $user['username'] ?? '') !== false);
+                        $canEditRow = in_array($role, ['admin', 'pemeriksa'], true)
+                            || ($role === 'pengampu' && ($isRowAssigned || empty($m['pemeriksa_id'])));
+                        ?>
+                        <?php if ($canEditRow && (!$b['is_locked'] || $isAdmin)): ?>
                         <button type="button" class="btn btn-sm" onclick="openImportModal(<?= (int)$m['id'] ?>, <?= htmlspecialchars(json_encode((string)$m['kode']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$m['nama_mitra']), ENT_QUOTES, 'UTF-8') ?>)" style="font-size:10.5px;padding:3px 8px;display:inline-flex;align-items:center;gap:3px;background:#4f46e5;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="Import Data Baseline">
                             <span>📤</span> Import
                         </button>

@@ -492,8 +492,9 @@ function fetchInsight(force){
                 var providerEl = document.querySelector('.ai-provider');
                 if(providerEl){
                     var prov = d.provider || '';
-                    var provClass = 'ai-prov-' + prov.toLowerCase();
-                    providerEl.innerHTML = prov ? '<span class="ai-provider-badge '+provClass+'">'+prov+'</span>' : '';
+                    var provSafe = escapeHtml(prov);
+                    var provClass = 'ai-prov-' + encodeURIComponent(prov.toLowerCase().replace(/[^a-z0-9_-]/g, ''));
+                    providerEl.innerHTML = prov ? '<span class="ai-provider-badge '+provClass+'">'+provSafe+'</span>' : '';
                 }
                 try{ localStorage.setItem('ai_dismissed',''); }catch(e){}
             } else {
@@ -501,9 +502,13 @@ function fetchInsight(force){
                 var msg = escapeHtml(rawMsg);
                 if(d.detail) msg += '<br><small>' + escapeHtml(d.detail) + '</small>';
                 msg += '<br><small style="color:#64748b">Provider: Gemini → OpenRouter → Groq</small>';
-                if(d.debug_url) {
-                    var safeUrl = encodeURI(d.debug_url).replace(/["'<>]/g, '');
-                    msg += '<br><a href="' + safeUrl + '" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#2563eb">🔍 Buka Diagnostic Tool</a>';
+                if(d.debug_url && typeof d.debug_url === 'string') {
+                    var u = d.debug_url.trim();
+                    var isSafeScheme = /^https?:\/\//i.test(u) || (!u.includes(':') && /\.php(\?.*)?$/i.test(u));
+                    if (isSafeScheme) {
+                        var safeUrl = encodeURI(u).replace(/["'<>]/g, '');
+                        msg += '<br><a href="' + safeUrl + '" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#2563eb">🔍 Buka Diagnostic Tool</a>';
+                    }
                 }
                 showError(msg);
             }

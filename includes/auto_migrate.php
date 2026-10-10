@@ -25,6 +25,11 @@ function ensureDatabaseSchema(PDO $pdo): void {
         if (!$roleCol || !str_contains($roleCol['Type'] ?? '', 'pengampu') || !str_contains($roleCol['Type'] ?? '', 'pic')) {
             throw new Exception("Role migration needed");
         }
+        $countUsers = (int)$pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
+        $countMitra = (int)$pdo->query("SELECT COUNT(*) FROM mitra_kinerja")->fetchColumn();
+        if ($countUsers === 0 || $countMitra === 0) {
+            throw new Exception("Database seeding needed");
+        }
         $checked = true;
         return;
     } catch (Throwable $e) {

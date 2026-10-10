@@ -10,7 +10,8 @@ cache/*.json
 *.log
 
 # Backups & Temporary Files
-backups/
+backups/*
+!backups/.htaccess
 *.tmp
 *.bak
 Thumbs.db
@@ -20,5 +21,6 @@ __pycache__/
 
 # Large Documentation Archives & Media Files
 docs/*
+!docs/.htaccess
 !docs/CHANGELOG.txt
 !docs/*.md
