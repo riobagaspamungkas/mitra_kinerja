@@ -1,0 +1,17 @@
+[Unit]
+Description=Mitra Kinerja - Web Application Server (PHP 8.5)
+After=network.target mysql-userland.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/afra/Agentic Folder/mitra-kinerja
+Environment=PATH=/home/afra/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PHPRC=/home/afra/.local/etc/php8.5
+ExecStart=/bin/bash "/home/afra/Agentic Folder/mitra-kinerja/start_server.sh"
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

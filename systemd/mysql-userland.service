@@ -1,0 +1,15 @@
+[Unit]
+Description=MySQL 8.4 Userland Daemon
+After=network.target
+
+[Service]
+Type=simple
+Environment=LD_LIBRARY_PATH=/home/afra/.local/lib/mysql
+ExecStart=/home/afra/.local/bin/mysqld --defaults-file=/home/afra/.local/etc/my.cnf
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

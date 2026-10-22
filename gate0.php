@@ -309,8 +309,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
 
                 // BUG-G0-14: Truncate / fit rencana_kerja judul_rencana to 255 chars
                 $rkJudul = 'Rencana Kerja ' . $pra['judul_rencana'];
-                if (mb_strlen($rkJudul) > 255) {
-                    $rkJudul = mb_substr($rkJudul, 0, 252) . '...';
+                $rkLen = function_exists('mb_strlen') ? mb_strlen($rkJudul) : strlen($rkJudul);
+                if ($rkLen > 255) {
+                    $rkJudul = (function_exists('mb_substr') ? mb_substr($rkJudul, 0, 252) : substr($rkJudul, 0, 252)) . '...';
                 }
 
                 // Bug 20: Clamp work plan duration so tanggal_selesai does not exceed $selesaiPks

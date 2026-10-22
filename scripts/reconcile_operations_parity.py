@@ -2,12 +2,31 @@ import os
 import re
 import datetime
 import subprocess
+import shutil
 import openpyxl
 
 print("=== RECONCILING OPERATIONS DATABASE (100% 1:1 PARITY) ===")
 
+def get_mysql_cmd():
+    mysql_cmd = "mysql"
+    userland_mysql = os.path.expanduser("~/.local/bin/mysql")
+    if os.path.exists(userland_mysql):
+        mysql_cmd = userland_mysql
+    elif shutil.which("mysql"):
+        mysql_cmd = shutil.which("mysql")
+    elif os.path.exists(r"C:\xampp\mysql\bin\mysql.exe"):
+        mysql_cmd = r"C:\xampp\mysql\bin\mysql.exe"
+    elif os.path.exists(r"D:\xampp\mysql\bin\mysql.exe"):
+        mysql_cmd = r"D:\xampp\mysql\bin\mysql.exe"
+    cmd = [mysql_cmd, "-u", "root"]
+    if os.name != 'nt':
+        cmd.extend(["-h", "127.0.0.1", "--port", "3306"])
+    cmd.extend(["--default-character-set=utf8mb4", "mitra_kinerja"])
+    return cmd
+
 def run_sql(q):
-    p = subprocess.run([r'C:\xampp\mysql\bin\mysql.exe', '-u', 'root', '--default-character-set=utf8mb4', 'mitra_kinerja', '-e', q, '-B'], capture_output=True)
+    cmd = get_mysql_cmd() + ["-e", q, "-B"]
+    p = subprocess.run(cmd, capture_output=True)
     out = p.stdout.decode('utf-8', errors='replace')
     if p.returncode != 0:
         err = p.stderr.decode('utf-8', errors='replace')

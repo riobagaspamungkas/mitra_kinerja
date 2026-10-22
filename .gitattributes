@@ -1,0 +1,37 @@
+# Default line ending behavior: auto text detection with LF on commit
+* text=auto eol=lf
+
+# Explicit LF enforcement for all source code, config, scripts, and documentation
+*.php text eol=lf
+*.py text eol=lf
+*.sh text eol=lf
+*.sql text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.csv text eol=lf
+*.json text eol=lf
+*.svg text eol=lf
+*.htaccess text eol=lf
+*.example text eol=lf
+.gitignore text eol=lf
+
+# Windows command / batch scripts: strictly enforce CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary files: prevent Git line ending transformations or corruption
+*.xlsx binary
+*.xlsm binary
+*.docx binary
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.zip binary
+*.tar.gz binary
+*.mp4 binary
+*.mov binary
+*.pyc binary

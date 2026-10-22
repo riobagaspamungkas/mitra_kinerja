@@ -9,9 +9,9 @@ Source: docs/Paket_Scorecard_dan_Baseline_Final/Paket_Scorecard_dan_Baseline_Fin
 - Synchronizes database dumps
 """
 
-import openpyxl, os, sys, subprocess
+import openpyxl, os, sys, subprocess, shutil
 
-cwd = r"C:\Users\afra\Desktop\Agentic Folder\mitra-kinerja"
+cwd = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 path_base = os.path.join(cwd, "docs", "Paket_Scorecard_dan_Baseline_Final", "Paket_Scorecard_dan_Baseline_Final")
 baseline_file = os.path.join(path_base, "03_Baseline_Final", "FINAL_BASELINE_MITRA_KINERJA_28_AGUSTUS_2026.xlsx")
 
@@ -74,8 +74,34 @@ examiner_names = {
 }
 
 # Python MySQL helper via CLI
+def get_mysqldump_cmd():
+    for candidate in [
+        shutil.which("mysqldump"),
+        shutil.which("mariadb-dump"),
+        os.path.expanduser("~/.local/bin/mysqldump"),
+        os.path.expanduser("~/.local/bin/mysqldump"),
+        r"C:\xampp\mysql\bin\mysqldump.exe",
+        r"D:\xampp\mysql\bin\mysqldump.exe",
+    ]:
+        if candidate and (os.path.exists(candidate) or shutil.which(candidate)):
+            return candidate
+    return "mysqldump"
+
 def run_mysql(sql):
-    cmd = [r"C:\xampp\mysql\bin\mysql.exe", "-u", "root", "mitra_kinerja", "-e", sql]
+    mysql_cmd = "mysql"
+    userland_mysql = os.path.expanduser("~/.local/bin/mysql")
+    if os.path.exists(userland_mysql):
+        mysql_cmd = userland_mysql
+    elif shutil.which("mysql"):
+        mysql_cmd = shutil.which("mysql")
+    elif os.path.exists(r"C:\xampp\mysql\bin\mysql.exe"):
+        mysql_cmd = r"C:\xampp\mysql\bin\mysql.exe"
+    elif os.path.exists(r"D:\xampp\mysql\bin\mysql.exe"):
+        mysql_cmd = r"D:\xampp\mysql\bin\mysql.exe"
+    cmd = [mysql_cmd, "-u", "root"]
+    if os.name != 'nt':
+        cmd.extend(["-h", "127.0.0.1", "--port", "3306"])
+    cmd.extend(["mitra_kinerja", "-e", sql])
     res = subprocess.run(cmd, capture_output=True, text=True)
     if res.returncode != 0:
         raise RuntimeError(f"MySQL Error: {res.stderr}\nQuery: {sql[:200]}")
@@ -256,11 +282,16 @@ print(f"   [DONE] Ingested {kegiatan_inserted} authentic field activities and {u
 
 # Step 5: Update MySQL Dumps
 print("4. Updating clean SQL dumps (mitra_kinerja_dump.sql, schema.sql, seed_data.sql)...")
+mysqldump_cli = get_mysqldump_cmd()
+extra_opts = []
+if os.name != 'nt':
+    extra_opts = ["-h", "127.0.0.1", "--port", "3306"]
 
 # 1. Complete dump
 cmd_dump = [
-    r"C:\xampp\mysql\bin\mysqldump.exe",
+    mysqldump_cli,
     "-u", "root",
+] + extra_opts + [
     "--databases", "mitra_kinerja",
     "--add-drop-database",
     "--routines",
@@ -277,8 +308,9 @@ else:
 
 # 2. Seed data
 cmd_seed = [
-    r"C:\xampp\mysql\bin\mysqldump.exe",
+    mysqldump_cli,
     "-u", "root",
+] + extra_opts + [
     "--no-create-info",
     "--complete-insert",
     "--extended-insert",
@@ -292,8 +324,9 @@ if res_seed.returncode == 0:
 
 # 3. Schema
 cmd_schema = [
-    r"C:\xampp\mysql\bin\mysqldump.exe",
+    mysqldump_cli,
     "-u", "root",
+] + extra_opts + [
     "--no-data",
     "--routines",
     "mitra_kinerja"

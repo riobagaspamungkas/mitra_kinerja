@@ -42,13 +42,16 @@ def get_csrf(s, path="/login.php"):
     m = re.search(r'name="csrf_token" value="([^"]+)"', r.text)
     return m.group(1) if m else ""
 
-# 1. AUTHENTICATION & LOGIN
+# 1. AUTHENTICATION & CSRF
 print("\n[1] AUTHENTICATION & CSRF")
-r = session.get(f"{BASE}/login.php")
-test("Login page loads HTTP 200", r.status_code == 200)
-
-csrf_token = get_csrf(session, "/login.php")
-test("Login page includes CSRF token", bool(csrf_token))
+try:
+    r = session.get(f"{BASE}/login.php", timeout=5)
+    test("Login page loads HTTP 200", r.status_code == 200)
+    csrf_token = get_csrf(session, "/login.php")
+    test("Login page includes CSRF token", bool(csrf_token))
+except Exception as e:
+    print(f"  [FAIL] Cannot connect to server at {BASE}: {e}")
+    sys.exit(1)
 
 # Submit valid demo admin with CSRF token
 r_post = session.post(f"{BASE}/login.php", data={"username": "admin", "password": "admin123", "csrf_token": csrf_token}, allow_redirects=True)

@@ -75,7 +75,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                                     } else {
                                         $uploadDir = __DIR__ . '/public/uploads/tindak_lanjut/';
                                         if (!is_dir($uploadDir)) {
-                                            mkdir($uploadDir, 0777, true);
+                                            mkdir($uploadDir, 0775, true);
                                         }
                                         $cleanBase = preg_replace('/[^a-zA-Z0-9_\.-]/', '_', pathinfo($_FILES['file_bukti']['name'], PATHINFO_FILENAME));
                                         $targetFile = 'bukti_' . $mitraId . '_' . time() . '_' . $cleanBase . '.' . $ext;
@@ -150,8 +150,8 @@ usort($tindakLanjut, function($a, $b) {
         return $isDoneA ? 1 : -1;
     }
 
-    $hasDateA = !empty($a['tenggat']) && $a['tenggat'] !== '0000-00-00';
-    $hasDateB = !empty($b['tenggat']) && $b['tenggat'] !== '0000-00-00';
+    $hasDateA = !empty($a['tenggat']) && $a['tenggat'] !== '0000-00-00' && $a['tenggat'] > '1970-01-01';
+    $hasDateB = !empty($b['tenggat']) && $b['tenggat'] !== '0000-00-00' && $b['tenggat'] > '1970-01-01';
     if ($hasDateA && !$hasDateB) return -1;
     if (!$hasDateA && $hasDateB) return 1;
     if (!$hasDateA && !$hasDateB) return $b['id'] <=> $a['id'];

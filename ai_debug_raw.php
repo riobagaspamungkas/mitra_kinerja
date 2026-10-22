@@ -67,11 +67,11 @@ function testGemini(): array {
             $r['ai_response'] = $data['candidates'][0]['content']['parts'][0]['text'];
         } else {
             $r['error'] = 'No text in response';
-            $r['response'] = mb_substr((string)$response, 0, 500, 'UTF-8');
+            $r['response'] = function_exists('mb_substr') ? mb_substr((string)$response, 0, 500, 'UTF-8') : substr((string)$response, 0, 500);
         }
     } else {
         $r['error'] = !empty($r['curl_error']) ? ('cURL Error: ' . $r['curl_error']) : ('HTTP ' . $r['http_code']);
-        $r['response'] = mb_substr((string)$response, 0, 500, 'UTF-8');
+        $r['response'] = function_exists('mb_substr') ? mb_substr((string)$response, 0, 500, 'UTF-8') : substr((string)$response, 0, 500);
     }
     
     return $r;
@@ -99,7 +99,7 @@ function testGroq(): array {
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => $payload,
-        CURLOPT_HTTPHEADER => [
+        CURLOPT_HTTPHEADER     => [
             'Content-Type: application/json',
             'Authorization: Bearer ' . GROQ_API_KEY,
         ],
@@ -120,11 +120,11 @@ function testGroq(): array {
             $r['ai_response'] = $data['choices'][0]['message']['content'];
         } else {
             $r['error'] = 'No text in response';
-            $r['response'] = mb_substr((string)$response, 0, 500, 'UTF-8');
+            $r['response'] = function_exists('mb_substr') ? mb_substr((string)$response, 0, 500, 'UTF-8') : substr((string)$response, 0, 500);
         }
     } else {
         $r['error'] = !empty($r['curl_error']) ? ('cURL Error: ' . $r['curl_error']) : ('HTTP ' . $r['http_code']);
-        $r['response'] = mb_substr((string)$response, 0, 500, 'UTF-8');
+        $r['response'] = function_exists('mb_substr') ? mb_substr((string)$response, 0, 500, 'UTF-8') : substr((string)$response, 0, 500);
     }
     
     return $r;
@@ -156,7 +156,7 @@ function testOpenRouter(): array {
             'Content-Type: application/json',
             'Authorization: Bearer ' . OPENROUTER_API_KEY,
             'HTTP-Referer: https://mitra-kinerja.local',
-            'X-Title: Mitra Kinerja Debug Test',
+            'X-Title: Mitra Kinerja AI Debug',
         ],
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 45,
@@ -175,11 +175,11 @@ function testOpenRouter(): array {
             $r['ai_response'] = $data['choices'][0]['message']['content'];
         } else {
             $r['error'] = 'No text in response';
-            $r['response'] = mb_substr((string)$response, 0, 500, 'UTF-8');
+            $r['response'] = function_exists('mb_substr') ? mb_substr((string)$response, 0, 500, 'UTF-8') : substr((string)$response, 0, 500);
         }
     } else {
         $r['error'] = !empty($r['curl_error']) ? ('cURL Error: ' . $r['curl_error']) : ('HTTP ' . $r['http_code']);
-        $r['response'] = mb_substr((string)$response, 0, 500, 'UTF-8');
+        $r['response'] = function_exists('mb_substr') ? mb_substr((string)$response, 0, 500, 'UTF-8') : substr((string)$response, 0, 500);
     }
     
     return $r;

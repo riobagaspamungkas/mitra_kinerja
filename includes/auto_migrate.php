@@ -356,7 +356,11 @@ function ensureDatabaseSchema(PDO $pdo): void {
                 if (file_exists($seedFile)) {
                     $sqlContent = file_get_contents($seedFile);
                     if ($sqlContent) {
-                        $pdo->exec($sqlContent);
+                        try {
+                            $pdo->exec($sqlContent);
+                        } finally {
+                            try { $pdo->exec("UNLOCK TABLES"); } catch (Throwable $ue) {}
+                        }
                     }
                 }
             }

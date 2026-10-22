@@ -527,7 +527,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 $errors[] = 'Elemen tidak valid untuk upload berkas.';
             } else {
                 $targetDir = __DIR__ . '/public/uploads/baseline_pdf/';
-                if (!is_dir($targetDir)) mkdir($targetDir, 0777, true);
+                if (!is_dir($targetDir)) mkdir($targetDir, 0775, true);
                 // BUG-BL-04: Sanitize $mitra['kode']
                 $safeKode = preg_replace('/[^a-zA-Z0-9_-]/', '_', $mitra['kode']);
 

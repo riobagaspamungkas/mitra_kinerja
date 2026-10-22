@@ -1,8 +1,10 @@
+#!/usr/bin/env python3
 import os
 import sys
 import time
 import zipfile
 import subprocess
+import shutil
 from datetime import datetime
 
 def prune_backups(backups_dir, retain=5):
@@ -36,16 +38,27 @@ def make_backup(tag="v2_5_2_stable", retain=5):
     # 1. Dump database if MySQL is accessible
     db_dump_path = os.path.join(backups_dir, f"db_dump_{timestamp}.sql")
     mysqldump_candidates = [
+        "mysqldump",
+        "mariadb-dump",
+        os.path.expanduser("~/.local/bin/mysqldump"),
         r"C:\xampp\mysql\bin\mysqldump.exe",
-        "mysqldump"
+        r"D:\xampp\mysql\bin\mysqldump.exe",
+        r"E:\xampp\mysql\bin\mysqldump.exe",
     ]
-    
+    resolved_cli = shutil.which("mysqldump") or shutil.which("mariadb-dump")
+    if resolved_cli and resolved_cli not in mysqldump_candidates:
+        mysqldump_candidates.insert(0, resolved_cli)
+
     dump_success = False
     for mysqldump in mysqldump_candidates:
         try:
             with open(db_dump_path, "w", encoding="utf-8") as dump_file:
+                cmd = [mysqldump, "-u", "root"]
+                if os.name != 'nt':
+                    cmd.extend(["-h", "127.0.0.1", "--port", "3306"])
+                cmd.append("mitra_kinerja")
                 res = subprocess.run(
-                    [mysqldump, "-u", "root", "mitra_kinerja"],
+                    cmd,
                     stdout=dump_file,
                     stderr=subprocess.PIPE,
                     timeout=30
@@ -60,7 +73,6 @@ def make_backup(tag="v2_5_2_stable", retain=5):
     if not dump_success:
         static_dump = os.path.join(project_root, "database", "mitra_kinerja_dump.sql")
         if os.path.exists(static_dump) and os.path.getsize(static_dump) > 1000:
-            import shutil
             shutil.copyfile(static_dump, db_dump_path)
             dump_success = True
             
@@ -106,7 +118,7 @@ def make_backup(tag="v2_5_2_stable", retain=5):
                     continue
                     
                 full_path = os.path.join(root, f)
-                rel_path = os.path.relpath(full_path, project_root)
+                rel_path = os.path.relpath(full_path, project_root).replace("\\", "/")
                 zipf.write(full_path, arcname=rel_path)
                 file_count += 1
 

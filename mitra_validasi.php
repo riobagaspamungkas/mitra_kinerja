@@ -192,13 +192,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     if (!in_array($status, ['BELUM','DISETUJUI','PERLU PERBAIKAN'], true)) {
         $errors[] = 'Status validasi tidak valid.';
-    } elseif ($status === 'DISETUJUI' && ($summary['kelengkapan'] < 100 || empty($summary['all_evaluable']) || ($summary['bukti_kurang_n'] ?? 0) > 0)) {
-        if (($summary['bukti_kurang_n'] ?? 0) > 0) {
-            $errors[] = 'Tidak dapat menyetujui: terdapat indikator dengan status Bukti Belum Memadai.';
-        } elseif (empty($summary['all_evaluable'])) {
-            $errors[] = 'Tidak dapat menyetujui: seluruh 7 indikator harus berstatus DAPAT DINILAI / BUKTI MEMADAI.';
-        } else {
-            $errors[] = 'Tidak dapat menyetujui: kelengkapan indikator belum 100%.';
+    } elseif ($status === 'DISETUJUI') {
+        $hasIncompleteEvidence = ($summary['bukti_kurang_n'] ?? 0) > 0;
+        $isFullyRated = ($summary['kelengkapan'] >= 100 && $summary['skor_lengkap']);
+        $isLegitimateEarlyStage = ($summary['bdn_n'] > 0 && $isFullyRated && !$hasIncompleteEvidence);
+        $isLegitimateMatureStage = (!empty($summary['all_evaluable']) && $isFullyRated && !$hasIncompleteEvidence);
+
+        if (!$isLegitimateMatureStage && !$isLegitimateEarlyStage) {
+            if ($hasIncompleteEvidence) {
+                $errors[] = 'Tidak dapat menyetujui: terdapat indikator dengan status Bukti Belum Memadai.';
+            } elseif (!$isFullyRated) {
+                $errors[] = 'Tidak dapat menyetujui: kelengkapan indikator belum 100% atau terdapat indikator yang belum dinilai.';
+            } else {
+                $errors[] = 'Tidak dapat menyetujui: indikator belum memenuhi kriteria validasi.';
+            }
         }
     } elseif ($status === 'PERLU PERBAIKAN' && $catatan === '') {
         $errors[] = 'Tulis catatan bagian yang harus diperbaiki.';

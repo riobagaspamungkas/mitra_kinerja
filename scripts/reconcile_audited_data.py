@@ -2,11 +2,30 @@ import openpyxl
 import os
 import re
 import subprocess
+import shutil
 
 print("=== RECONCILING MITRA KINERJA DATABASE WITH AUTHORITATIVE DOCS ===")
 
+def get_mysql_cmd():
+    mysql_cmd = "mysql"
+    userland_mysql = os.path.expanduser("~/.local/bin/mysql")
+    if os.path.exists(userland_mysql):
+        mysql_cmd = userland_mysql
+    elif shutil.which("mysql"):
+        mysql_cmd = shutil.which("mysql")
+    elif os.path.exists(r"C:\xampp\mysql\bin\mysql.exe"):
+        mysql_cmd = r"C:\xampp\mysql\bin\mysql.exe"
+    elif os.path.exists(r"D:\xampp\mysql\bin\mysql.exe"):
+        mysql_cmd = r"D:\xampp\mysql\bin\mysql.exe"
+    cmd = [mysql_cmd, "-u", "root"]
+    if os.name != 'nt':
+        cmd.extend(["-h", "127.0.0.1", "--port", "3306"])
+    cmd.append("mitra_kinerja")
+    return cmd
+
 def run_sql(query):
-    p = subprocess.run([r"C:\xampp\mysql\bin\mysql.exe", "-u", "root", "mitra_kinerja", "-e", query], capture_output=True, text=True)
+    cmd = get_mysql_cmd() + ["-e", query]
+    p = subprocess.run(cmd, capture_output=True, text=True)
     if p.returncode != 0:
         print("SQL Error:", p.stderr)
     return p.stdout
@@ -169,18 +188,33 @@ run_sql(sql_bidang_induk)
 print("[4/5] Operational divisions (Bidang: KI, P3H) and parent MoU links updated.")
 
 # 5. RE-EXPORT DATABASE DUMP & SCHEMA
-mysqldump_exe = r"C:\xampp\mysql\bin\mysqldump.exe"
+mysqldump_candidates = [
+    "mysqldump",
+    "mariadb-dump",
+    os.path.expanduser("~/.local/bin/mysqldump"),
+    r"C:\xampp\mysql\bin\mysqldump.exe",
+    r"D:\xampp\mysql\bin\mysqldump.exe",
+]
+mysqldump_exe = None
+for c in mysqldump_candidates:
+    if os.path.exists(c) or shutil.which(c):
+        mysqldump_exe = c
+        break
 dump_target = r"database/mitra_kinerja_dump.sql"
 
-if os.path.exists(mysqldump_exe):
-    res = subprocess.run([mysqldump_exe, "-u", "root", "mitra_kinerja"], capture_output=True, text=True)
+if mysqldump_exe:
+    cmd_d = [mysqldump_exe, "-u", "root"]
+    if os.name != 'nt':
+        cmd_d.extend(["-h", "127.0.0.1", "--port", "3306"])
+    cmd_d.append("mitra_kinerja")
+    res = subprocess.run(cmd_d, capture_output=True, text=True)
     if res.returncode == 0 and len(res.stdout) > 1000:
         with open(dump_target, "w", encoding="utf-8") as f:
             f.write(res.stdout)
-        print(f"[5/5] Re-exported clean database dump to {dump_target} ({len(res.stdout)} bytes).")
+        print("[5/5] Successfully re-exported database/mitra_kinerja_dump.sql.")
     else:
         print("[5/5] mysqldump failed or empty:", res.stderr)
 else:
-    print("[5/5] mysqldump not found at", mysqldump_exe)
+    print("[5/5] mysqldump not found.")
 
 print("=== RECONCILIATION COMPLETED SUCCESSFULLY ===")

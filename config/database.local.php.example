@@ -10,7 +10,9 @@
  * config/database.php (localhost/root/tanpa password) — cocok untuk dev cepat,
  * TAPI JANGAN dipakai apa adanya di production.
  */
-define('DB_HOST', 'localhost');
+define('DB_HOST', PHP_OS_FAMILY === 'Windows' ? 'localhost' : '127.0.0.1');
+// Optional: specify unix socket on Linux if non-standard (e.g. userland MySQL)
+// define('DB_SOCKET', '/var/run/mysqld/mysqld.sock');
 define('DB_NAME', 'mitra_kinerja');
 define('DB_USER', 'root');
 define('DB_PASS', '');

@@ -209,18 +209,21 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
 
         if (!$activeSMId) {
-            // Jika siklus aktif telah diselesaikan pada tanggal review ini (misal simpan berturut-turut), perbarui skornya tanpa mengorbankan milestone berikutnya
-            $tglCheck = ($_POST['tanggal_review'] ?? '') !== '' ? $_POST['tanggal_review'] : date('Y-m-d');
-            $stmtRecentSM = $pdo->prepare("SELECT id FROM siklus_monev WHERE mitra_id = ? AND status_siklus = 'Selesai' AND tanggal_realisasi_evaluasi = ? ORDER BY siklus_ke DESC LIMIT 1");
-            $stmtRecentSM->execute([$id, $tglCheck]);
-            $activeSMId = $stmtRecentSM->fetchColumn() ?: null;
-        }
+            // Jika siklus aktif telah diselesaikan, perbarui siklus terakhir yang selesai daripada mengorbankan siklus masa depan
+            $stmtRecentSM = $pdo->prepare("SELECT id FROM siklus_monev WHERE mitra_id = ? AND status_siklus = 'Selesai' ORDER BY siklus_ke DESC LIMIT 1");
+            $stmtRecentSM->execute([$id]);
+            $recentCompletedSMId = $stmtRecentSM->fetchColumn() ?: null;
 
-        if (!$activeSMId) {
-            // Fallback ke milestone berikutnya yang belum selesai jika belum ada milestone aktif
-            $stmtNextSM = $pdo->prepare("SELECT id FROM siklus_monev WHERE mitra_id = ? AND status_siklus NOT IN ('Selesai', 'selesai evaluasi') ORDER BY siklus_ke ASC LIMIT 1");
-            $stmtNextSM->execute([$id]);
-            $activeSMId = $stmtNextSM->fetchColumn() ?: null;
+            // Cek apakah ada milestone berikutnya yang sudah jatuh tempo / mendekati (dalam 30 hari ke depan)
+            $stmtNextDueSM = $pdo->prepare("SELECT id FROM siklus_monev WHERE mitra_id = ? AND status_siklus NOT IN ('Selesai', 'selesai evaluasi') AND tanggal_target_evaluasi <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) ORDER BY siklus_ke ASC LIMIT 1");
+            $stmtNextDueSM->execute([$id]);
+            $nextDueSMId = $stmtNextDueSM->fetchColumn() ?: null;
+
+            if ($nextDueSMId) {
+                $activeSMId = $nextDueSMId;
+            } elseif ($recentCompletedSMId) {
+                $activeSMId = $recentCompletedSMId;
+            }
         }
 
         if ($activeSMId) {

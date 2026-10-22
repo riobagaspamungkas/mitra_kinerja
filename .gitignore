@@ -6,7 +6,9 @@ config/*.local.php
 
 # Runtime Caches & Dynamic Data
 cache/*.json
+cache/sessions/*
 !cache/.htaccess
+!cache/sessions/.gitkeep
 *.log
 
 # Backups & Temporary Files
@@ -18,6 +20,11 @@ Thumbs.db
 .DS_Store
 __pycache__/
 *.pyc
+
+# Virtual Environments & Package Managers
+.venv/
+venv/
+vendor/
 
 # Large Documentation Archives & Media Files
 docs/*

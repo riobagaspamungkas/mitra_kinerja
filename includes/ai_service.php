@@ -147,6 +147,7 @@ function callGeminiAPI(string $prompt): ?string {
         ],
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 15,
+        CURLOPT_CONNECTTIMEOUT => 5,
         CURLOPT_SSL_VERIFYPEER => true,
     ]);
     
@@ -227,12 +228,13 @@ function callGroqAPI(string $prompt): ?string {
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => $payload,
-        CURLOPT_HTTPHEADER => [
+        CURLOPT_HTTPHEADER     => [
             'Content-Type: application/json',
             'Authorization: Bearer ' . GROQ_API_KEY,
         ],
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 15,
+        CURLOPT_CONNECTTIMEOUT => 5,
         CURLOPT_SSL_VERIFYPEER => true,
     ]);
     
@@ -312,6 +314,7 @@ function callOpenRouterAPI(string $prompt): ?string {
         ],
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 15,
+        CURLOPT_CONNECTTIMEOUT => 5,
         CURLOPT_SSL_VERIFYPEER => true,
     ]);
     

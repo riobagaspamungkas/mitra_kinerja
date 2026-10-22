@@ -251,11 +251,26 @@ conn.close()
 
 # STEP 5: RE-EXPORT CLEAN DATABASE DUMP
 print("\n--- PHASE 5: RE-EXPORTING DATABASE DUMP ---")
-mysqldump_exe = r"C:\xampp\mysql\bin\mysqldump.exe"
 dump_target = r"database/mitra_kinerja_dump.sql"
+mysqldump_candidates = [
+    shutil.which("mysqldump") or "",
+    shutil.which("mariadb-dump") or "",
+    os.path.expanduser("~/.local/bin/mysqldump"),
+    r"C:\xampp\mysql\bin\mysqldump.exe",
+    r"D:\xampp\mysql\bin\mysqldump.exe",
+]
+mysqldump_exe = None
+for cand in mysqldump_candidates:
+    if cand and (os.path.exists(cand) or shutil.which(cand)):
+        mysqldump_exe = cand
+        break
 
-if os.path.exists(mysqldump_exe):
-    res = subprocess.run([mysqldump_exe, "-u", "root", "mitra_kinerja"], capture_output=True, text=True)
+if mysqldump_exe:
+    cmd = [mysqldump_exe, "-u", "root"]
+    if os.name != "nt":
+        cmd.extend(["-h", "127.0.0.1", "--port", "3306"])
+    cmd.append("mitra_kinerja")
+    res = subprocess.run(cmd, capture_output=True, text=True)
     if res.returncode == 0 and len(res.stdout) > 1000:
         with open(dump_target, "w", encoding="utf-8") as f:
             f.write(res.stdout)
@@ -263,6 +278,6 @@ if os.path.exists(mysqldump_exe):
     else:
         print("mysqldump failed:", res.stderr)
 else:
-    print("mysqldump not found at", mysqldump_exe)
+    print("mysqldump not found in PATH or standard candidate paths")
 
 print("\n=== COMPLETED SUCCESSFULLY ===")

@@ -320,7 +320,7 @@ function getTindakLanjut(PDO $pdo, ?int $mitraId = null, int $limit = 0, bool $e
     if (!empty($where)) {
         $sql .= ' WHERE ' . implode(' AND ', $where);
     }
-    $sql .= " ORDER BY CASE WHEN tl.status = 'Selesai' THEN 1 ELSE 0 END ASC, CASE WHEN tl.tenggat IS NULL OR tl.tenggat = '0000-00-00' THEN 1 ELSE 0 END ASC, tl.tenggat ASC, tl.id DESC";
+    $sql .= " ORDER BY CASE WHEN tl.status = 'Selesai' THEN 1 ELSE 0 END ASC, CASE WHEN tl.tenggat IS NULL OR tl.tenggat <= '1970-01-01' THEN 1 ELSE 0 END ASC, tl.tenggat ASC, tl.id DESC";
     if ($limit > 0) {
         $sql .= ' LIMIT ' . (int)$limit;
     }

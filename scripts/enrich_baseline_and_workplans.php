@@ -151,9 +151,9 @@ foreach ($plans as $kode => $planList) {
             $rkId = (int)$existingRkId;
         }
 
-        // Generate siklus monev jika belum ada
-        $stmtSMCheck = $pdo->prepare('SELECT COUNT(*) FROM siklus_monev WHERE mitra_id = ? AND rencana_kerja_id = ?');
-        $stmtSMCheck->execute([$mid, $rkId]);
+        // Generate siklus monev jika belum ada untuk mitra ini
+        $stmtSMCheck = $pdo->prepare('SELECT COUNT(*) FROM siklus_monev WHERE mitra_id = ?');
+        $stmtSMCheck->execute([$mid]);
         if ((int)$stmtSMCheck->fetchColumn() === 0) {
             // Milestone 1: Baseline & Tata Kelola Awal (Selesai)
             $stmtSm1 = $pdo->prepare('INSERT INTO siklus_monev (

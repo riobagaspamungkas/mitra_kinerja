@@ -2,14 +2,40 @@ import os
 import re
 import json
 import subprocess
+import shutil
 import openpyxl
 
 print("=" * 70)
 print("DEEP AUDIT OPERATIONS PARITY: DATABASE VS REFERENCE DOCS")
 print("=" * 70)
 
+def get_mysql_cmd(extra_args=None):
+    candidates = [
+        os.path.expanduser("~/.local/bin/mysql"),
+        r"C:\xampp\mysql\bin\mysql.exe",
+        r"D:\xampp\mysql\bin\mysql.exe",
+    ]
+    mysql_cmd = "mysql"
+    for c in candidates:
+        if os.path.exists(c):
+            mysql_cmd = c
+            break
+    else:
+        resolved = shutil.which("mysql") or shutil.which("mariadb")
+        if resolved:
+            mysql_cmd = resolved
+    
+    cmd_base = [mysql_cmd, "-u", "root"]
+    if os.name != 'nt':
+        cmd_base.extend(["-h", "127.0.0.1", "--port", "3306"])
+    cmd_base.extend(["--default-character-set=utf8mb4", "mitra_kinerja"])
+    if extra_args:
+        cmd_base.extend(extra_args)
+    return cmd_base
+
 def run_sql(q):
-    p = subprocess.run([r'C:\xampp\mysql\bin\mysql.exe', '-u', 'root', '--default-character-set=utf8mb4', 'mitra_kinerja', '-e', q, '-B'], capture_output=True)
+    cmd = get_mysql_cmd(["-e", q, "-B"])
+    p = subprocess.run(cmd, capture_output=True)
     return p.stdout.decode('utf-8', errors='replace')
 
 # 1. Load Mitra Kinerja
