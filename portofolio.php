@@ -17,7 +17,7 @@ require __DIR__ . '/includes/header.php';
     </div>
     <div style="display:flex;gap:8px;">
         <a href="dashboard.php" class="btn btn-outline btn-sm">&larr; Dashboard</a>
-        <?php if (in_array(currentUser()['role'], ['admin','pemeriksa','pengampu'])): ?>
+        <?php if (in_array(currentUser()['role'] ?? '', ['admin','pemeriksa','pengampu','pic'], true)): ?>
         <a href="mitra_manage.php" class="btn btn-primary btn-sm">+ Tambah Naskah</a>
         <?php endif; ?>
     </div>

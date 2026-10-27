@@ -23,9 +23,9 @@ $role = $user['role'] ?? 'pemeriksa';
 
 $allNavItems = [
     ['page' => 'dashboard',      'label' => 'Dashboard',         'roles' => ['admin','pemeriksa','validator','pimpinan','pengampu','pic']],
-    ['page' => 'gate0',          'label' => 'Gate 0 (Pra-PKS)',  'roles' => ['admin','pemeriksa','pimpinan','pengampu']],
+    ['page' => 'gate0',          'label' => 'Gate 0 (Pra-PKS)',  'roles' => ['admin','pimpinan','pengampu','pic']],
     ['page' => 'portofolio',     'label' => 'Portofolio',        'roles' => ['admin','pemeriksa','validator','pimpinan','pengampu','pic']],
-    ['page' => 'mitra_manage',   'label' => 'Manajemen Naskah',  'roles' => ['admin','pemeriksa','pengampu']],
+    ['page' => 'mitra_manage',   'label' => 'Manajemen Naskah',  'roles' => ['admin','pemeriksa','pengampu','pic']],
     ['page' => 'baseline',       'label' => 'Baseline',          'roles' => ['admin','pemeriksa','validator','pimpinan','pengampu','pic']],
     ['page' => 'scorecard',      'label' => 'Scorecard',         'roles' => ['admin','pemeriksa','validator','pimpinan','pengampu','pic']],
     ['page' => 'mitra_validasi', 'label' => 'Penilaian',         'roles' => ['admin','pemeriksa','validator']],

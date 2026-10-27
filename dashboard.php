@@ -381,7 +381,9 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="dash-table-card">
         <div class="dtc-head">
             <h3>Pipeline Usulan &amp; Antrean Validasi</h3>
+            <?php if (in_array($user['role'] ?? '', ['admin', 'pimpinan', 'pengampu', 'pic'], true)): ?>
             <a href="gate0.php">Ke Gate 0 &rarr;</a>
+            <?php endif; ?>
         </div>
         <div style="padding: 16px 20px;">
             <div style="margin-bottom: 14px;">

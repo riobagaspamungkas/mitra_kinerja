@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/data.php';
-requireRole(['admin', 'pemeriksa', 'pengampu']);
+requireRole(['admin', 'pemeriksa', 'pengampu', 'pic']);
 
 $pdo = getDB();
 $user = currentUser();

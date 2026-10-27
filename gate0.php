@@ -1,12 +1,12 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/data.php';
-requireLogin();
+requireRole(['admin', 'pimpinan', 'pengampu', 'pic']);
 
 $pdo = getDB();
 $user = currentUser();
 $role = $user['role'];
-$canEdit = in_array($role, ['admin', 'pemeriksa'], true);
+$canEdit = in_array($role, ['admin', 'pic', 'pengampu'], true);
 $canDecide = in_array($role, ['admin', 'pimpinan'], true);
 
 $errors = [];
@@ -264,6 +264,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
         $existing = $stmtEx->fetch();
         if (!$existing) {
             $errors[] = 'Data usulan tidak ditemukan.';
+        } elseif (in_array($existing['status_persetujuan'] ?? '', ['Menunggu Persetujuan Pimpinan', 'Disetujui Pimpinan', 'Ditolak Pimpinan'], true)) {
+            $errors[] = 'Akses ditolak: Usulan dengan status ' . h($existing['status_persetujuan']) . ' tidak dapat diedit.';
         } elseif ($nomorUsulan === '' || $calonMitra === '' || $judulRencana === '') {
             $errors[] = 'Nomor Usulan, Calon Mitra, dan Judul Rencana wajib diisi.';
         } elseif ($mulai && $selesai && $selesai < $mulai) {
@@ -1440,13 +1442,85 @@ $usulanList = $pdo->query('SELECT * FROM pra_pks ORDER BY id DESC')->fetchAll();
 
 $totalUsulan = count($usulanList);
 $draftCount = count(array_filter($usulanList, fn($u) => ($u['status_persetujuan'] ?? '') === 'Draft'));
-$disetujuiCount = count(array_filter($usulanList, fn($u) => $u['status_persetujuan'] === 'Disetujui Pimpinan'));
-$menungguCount = count(array_filter($usulanList, fn($u) => $u['status_persetujuan'] === 'Menunggu Persetujuan Pimpinan'));
-$siapPromosiCount = count(array_filter($usulanList, fn($u) => $u['status_persetujuan'] === 'Disetujui Pimpinan' && !$u['is_promoted_to_pks']));
+$menungguCount = count(array_filter($usulanList, fn($u) => ($u['status_persetujuan'] ?? '') === 'Menunggu Persetujuan Pimpinan'));
+$disetujuiCount = count(array_filter($usulanList, fn($u) => ($u['status_persetujuan'] ?? '') === 'Disetujui Pimpinan'));
+$revisiCount = count(array_filter($usulanList, fn($u) => ($u['status_persetujuan'] ?? '') === 'Dikembalikan untuk Revisi'));
+$ditolakCount = count(array_filter($usulanList, fn($u) => ($u['status_persetujuan'] ?? '') === 'Ditolak Pimpinan'));
+$siapPromosiCount = count(array_filter($usulanList, fn($u) => ($u['status_persetujuan'] ?? '') === 'Disetujui Pimpinan' && !$u['is_promoted_to_pks']));
 
 $pageTitle = 'Gate 0 — Pra-Kerja Sama';
 require __DIR__ . '/includes/header.php';
 ?>
+
+<style>
+.g0-tab-btn {
+    padding: 6px 14px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s ease;
+}
+.g0-tab-btn:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+    border-color: #94a3b8;
+}
+.g0-tab-btn.active {
+    background: #1e40af;
+    color: #ffffff;
+    border-color: #1d4ed8;
+    box-shadow: 0 1px 3px rgba(30, 64, 175, 0.25);
+}
+.g0-tab-btn.active .badge-tab {
+    background: rgba(255, 255, 255, 0.25) !important;
+    color: #ffffff !important;
+}
+.badge-tab {
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-weight: 700;
+}
+.g0-page-btn {
+    min-width: 32px;
+    height: 32px;
+    padding: 0 8px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #334155;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+.g0-page-btn:hover:not(:disabled) {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+    color: #0f172a;
+}
+.g0-page-btn.active {
+    background: #1e40af;
+    border-color: #1d4ed8;
+    color: #ffffff;
+    box-shadow: 0 1px 2px rgba(30, 64, 175, 0.25);
+}
+.g0-page-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+</style>
 
 <div class="flex-between" style="margin-bottom:18px;">
     <div>
@@ -1517,19 +1591,57 @@ require __DIR__ . '/includes/header.php';
         </div>
     </div>
 
+    <!-- Quick Status Filter Tabs -->
+    <div class="g0-tabs" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:12px;-webkit-overflow-scrolling:touch;">
+        <button type="button" class="g0-tab-btn active" data-status="" onclick="setGate0StatusTab('', this)">
+            Semua <span class="badge-tab" style="background:#e2e8f0;color:#334155;"><?= $totalUsulan ?></span>
+        </button>
+        <button type="button" class="g0-tab-btn" data-status="Draft" onclick="setGate0StatusTab('Draft', this)">
+            📝 Draft <span class="badge-tab" style="background:#f1f5f9;color:#475569;"><?= $draftCount ?></span>
+        </button>
+        <button type="button" class="g0-tab-btn" data-status="Menunggu Persetujuan Pimpinan" onclick="setGate0StatusTab('Menunggu Persetujuan Pimpinan', this)">
+            ⏳ Menunggu <span class="badge-tab" style="background:#fef3c7;color:#92400e;"><?= $menungguCount ?></span>
+        </button>
+        <button type="button" class="g0-tab-btn" data-status="Disetujui Pimpinan" onclick="setGate0StatusTab('Disetujui Pimpinan', this)">
+            ✅ Disetujui <span class="badge-tab" style="background:#dcfce7;color:#166534;"><?= $disetujuiCount ?></span>
+        </button>
+        <button type="button" class="g0-tab-btn" data-status="Dikembalikan untuk Revisi" onclick="setGate0StatusTab('Dikembalikan untuk Revisi', this)">
+            ↩️ Revisi <span class="badge-tab" style="background:#ffedd5;color:#9a3412;"><?= $revisiCount ?></span>
+        </button>
+        <button type="button" class="g0-tab-btn" data-status="Ditolak Pimpinan" onclick="setGate0StatusTab('Ditolak Pimpinan', this)">
+            ❌ Ditolak <span class="badge-tab" style="background:#fee2e2;color:#991b1b;"><?= $ditolakCount ?></span>
+        </button>
+    </div>
+
     <!-- Filter & Search Bar -->
     <div class="filters" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;background:#f8fafc;padding:10px 14px;border-radius:8px;border:1px solid var(--border,#e2e8f0);">
-        <div style="flex:1;min-width:240px;">
-            <input type="text" id="g0Search" placeholder="🔍 Cari Nomor Usulan / Calon Mitra / Judul..." style="width:100%;padding:7px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;background:#fff;" oninput="applyGate0Filters()">
+        <div style="flex:1;min-width:220px;">
+            <input type="text" id="g0Search" placeholder="🔍 Cari Nomor Usulan / Calon Mitra / Judul..." style="width:100%;padding:7px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;background:#fff;" oninput="onGate0FilterChange()">
         </div>
-        <div style="min-width:220px;">
-            <select id="g0StatusFilter" style="width:100%;padding:7px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;background:#fff;font-weight:600;color:#1e293b;" onchange="applyGate0Filters()">
+        <div style="min-width:180px;">
+            <select id="g0StatusFilter" style="width:100%;padding:7px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;background:#fff;font-weight:600;color:#1e293b;" onchange="onGate0StatusSelectChange()">
                 <option value="">Semua Status Persetujuan</option>
                 <option value="Draft">Draft</option>
                 <option value="Menunggu Persetujuan Pimpinan">Menunggu Persetujuan Pimpinan</option>
                 <option value="Disetujui Pimpinan">Disetujui Pimpinan</option>
                 <option value="Dikembalikan untuk Revisi">Dikembalikan untuk Revisi</option>
                 <option value="Ditolak Pimpinan">Ditolak Pimpinan</option>
+            </select>
+        </div>
+        <div style="min-width:140px;">
+            <select id="g0TipeFilter" style="width:100%;padding:7px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;background:#fff;" onchange="onGate0FilterChange()">
+                <option value="">Semua Tipe</option>
+                <option value="Dalam Negeri">Dalam Negeri</option>
+                <option value="Luar Negeri">Luar Negeri</option>
+            </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+            <label for="g0PageSize" style="font-size:12px;color:#64748b;margin:0;white-space:nowrap;">Tampil:</label>
+            <select id="g0PageSize" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px;background:#fff;" onchange="onGate0PageSizeChange()">
+                <option value="10" selected>10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="all">Semua</option>
             </select>
         </div>
         <button type="button" onclick="resetGate0Filters()" class="btn btn-outline btn-sm" style="padding:7px 14px;font-size:12.5px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;" title="Reset Filter Gate 0">
@@ -1580,6 +1692,10 @@ require __DIR__ . '/includes/header.php';
                         }
                     }
 
+                    // Requirement 4: jika status menunggu persetujuan, disetujui dan ditolak, tidak ada tombol edit
+                    $isNonEditable = in_array($stApp, ['Menunggu Persetujuan Pimpinan', 'Disetujui Pimpinan', 'Ditolak Pimpinan'], true);
+                    $canShowEdit = $canEdit && !$isNonEditable;
+
                     $uData = [
                         'id' => (int)$u['id'],
                         'nomor_usulan' => $u['nomor_usulan'],
@@ -1605,7 +1721,7 @@ require __DIR__ . '/includes/header.php';
                         'status_persetujuan' => $stApp,
                     ];
                 ?>
-                <tr class="g0-row" data-nomor="<?= strtolower(h($u['nomor_usulan'])) ?>" data-mitra="<?= strtolower(h($u['calon_mitra'])) ?>" data-judul="<?= strtolower(h($u['judul_rencana'])) ?>" data-status-persetujuan="<?= h($stApp) ?>">
+                <tr class="g0-row" data-nomor="<?= strtolower(h($u['nomor_usulan'])) ?>" data-mitra="<?= strtolower(h($u['calon_mitra'])) ?>" data-judul="<?= strtolower(h($u['judul_rencana'])) ?>" data-status-persetujuan="<?= h($stApp) ?>" data-tipe="<?= h($u['tipe_kerjasama']) ?>">
                     <td>
                         <a href="gate0.php?view=detail&id=<?= $u['id'] ?>" title="Lihat detail formulir resmi" style="color:#1d4ed8;text-decoration:none;">
                             <strong><?= h($u['nomor_usulan']) ?></strong>
@@ -1655,7 +1771,9 @@ require __DIR__ . '/includes/header.php';
                     <td>
                         <div style="display:flex;flex-direction:column;gap:4px;min-width:130px;">
                             <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                                <?php if ($canShowEdit): ?>
                                 <button type="button" class="btn btn-outline btn-sm" onclick='openEditGate0Modal(<?= htmlspecialchars(json_encode($uData), ENT_QUOTES, "UTF-8") ?>)' style="font-size:11px;padding:3px 7px;" title="Edit usulan dalam jendela pop-up">✏️ Edit</button>
+                                <?php endif; ?>
                                 <a href="gate0.php?view=print&id=<?= $u['id'] ?>" target="_blank" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 7px;" title="Cetak formulir resmi">🖨️ Cetak</a>
                                 
                                 <?php if ($canDecide && in_array($stApp, ['Menunggu Persetujuan Pimpinan', 'Dikembalikan untuk Revisi'], true)): ?>
@@ -1694,6 +1812,16 @@ require __DIR__ . '/includes/header.php';
                 <?php endforeach; endif; ?>
             </tbody>
         </table>
+    </div>
+
+    <!-- Pagination Footer -->
+    <div id="g0PaginationWrap" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid #e2e8f0;">
+        <div id="g0PageInfo" style="font-size:12.5px;color:#64748b;font-weight:500;">
+            Menampilkan 0 usulan
+        </div>
+        <div id="g0PaginationNav" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+            <!-- Generated dynamically by renderGate0Table() -->
+        </div>
     </div>
 </div>
 
@@ -2040,37 +2168,232 @@ function openDecisionModal(id, no, mitra) {
     openGate0Modal('decisionModal');
 }
 
-function applyGate0Filters() {
-    var q = (document.getElementById('g0Search').value || '').toLowerCase().trim();
-    var s = (document.getElementById('g0StatusFilter').value || '').trim();
-    var rows = document.querySelectorAll('#tblGate0 tbody tr.g0-row');
-    var visible = 0;
+var g0CurrentPage = 1;
+var g0PageSize = 10;
+var g0ActiveStatus = '';
 
-    rows.forEach(function(r) {
-        var no = (r.getAttribute('data-nomor') || '').toLowerCase();
-        var mitra = (r.getAttribute('data-mitra') || '').toLowerCase();
-        var judul = (r.getAttribute('data-judul') || '').toLowerCase();
-        var st = (r.getAttribute('data-status-persetujuan') || '').trim();
+function setGate0StatusTab(statusVal, btnEl) {
+    g0ActiveStatus = statusVal;
+    var statusSelect = document.getElementById('g0StatusFilter');
+    if (statusSelect) statusSelect.value = statusVal;
 
-        var matchQ = !q || no.indexOf(q) !== -1 || mitra.indexOf(q) !== -1 || judul.indexOf(q) !== -1 || r.textContent.toLowerCase().indexOf(q) !== -1;
-        var matchS = !s || st === s;
+    var tabs = document.querySelectorAll('.g0-tab-btn');
+    tabs.forEach(function(t) { t.classList.remove('active'); });
+    if (btnEl) btnEl.classList.add('active');
 
-        var show = matchQ && matchS;
-        r.style.display = show ? '' : 'none';
-        if (show) visible++;
+    g0CurrentPage = 1;
+    renderGate0Table();
+}
+
+function onGate0StatusSelectChange() {
+    var statusSelect = document.getElementById('g0StatusFilter');
+    g0ActiveStatus = statusSelect ? statusSelect.value : '';
+
+    var tabs = document.querySelectorAll('.g0-tab-btn');
+    tabs.forEach(function(t) {
+        var tabVal = t.getAttribute('data-status') || '';
+        if (tabVal === g0ActiveStatus) t.classList.add('active');
+        else t.classList.remove('active');
     });
 
-    var emptyRow = document.getElementById('g0NoMatchRow');
-    if (emptyRow) {
-        emptyRow.style.display = (rows.length > 0 && visible === 0) ? '' : 'none';
-    }
+    g0CurrentPage = 1;
+    renderGate0Table();
+}
+
+function onGate0FilterChange() {
+    g0CurrentPage = 1;
+    renderGate0Table();
+}
+
+function onGate0PageSizeChange() {
+    var psEl = document.getElementById('g0PageSize');
+    var val = psEl ? psEl.value : '10';
+    g0PageSize = (val === 'all') ? 999999 : parseInt(val, 10);
+    g0CurrentPage = 1;
+    renderGate0Table();
 }
 
 function resetGate0Filters() {
     document.getElementById('g0Search').value = '';
     document.getElementById('g0StatusFilter').value = '';
-    applyGate0Filters();
+    var tipeEl = document.getElementById('g0TipeFilter');
+    if (tipeEl) tipeEl.value = '';
+    var psEl = document.getElementById('g0PageSize');
+    if (psEl) psEl.value = '10';
+    g0PageSize = 10;
+    g0ActiveStatus = '';
+
+    var tabs = document.querySelectorAll('.g0-tab-btn');
+    tabs.forEach(function(t, idx) {
+        if (idx === 0) t.classList.add('active');
+        else t.classList.remove('active');
+    });
+
+    g0CurrentPage = 1;
+    renderGate0Table();
 }
+
+function renderGate0Table() {
+    var q = (document.getElementById('g0Search').value || '').toLowerCase().trim();
+    var st = g0ActiveStatus;
+    var tipeSelect = document.getElementById('g0TipeFilter');
+    var tp = tipeSelect ? tipeSelect.value.trim() : '';
+
+    var rows = Array.from(document.querySelectorAll('#tblGate0 tbody tr.g0-row'));
+    var matchedRows = [];
+
+    rows.forEach(function(r) {
+        var no = (r.getAttribute('data-nomor') || '').toLowerCase();
+        var mitra = (r.getAttribute('data-mitra') || '').toLowerCase();
+        var judul = (r.getAttribute('data-judul') || '').toLowerCase();
+        var rStatus = (r.getAttribute('data-status-persetujuan') || '').trim();
+        var rTipe = (r.getAttribute('data-tipe') || '').trim();
+
+        var matchQ = !q || no.indexOf(q) !== -1 || mitra.indexOf(q) !== -1 || judul.indexOf(q) !== -1 || r.textContent.toLowerCase().indexOf(q) !== -1;
+        var matchSt = !st || rStatus === st;
+        var matchTp = !tp || rTipe === tp;
+
+        if (matchQ && matchSt && matchTp) {
+            matchedRows.push(r);
+        }
+    });
+
+    var totalMatched = matchedRows.length;
+    var totalPages = Math.ceil(totalMatched / g0PageSize) || 1;
+    if (g0CurrentPage > totalPages) g0CurrentPage = totalPages;
+    if (g0CurrentPage < 1) g0CurrentPage = 1;
+
+    var startIdx = (g0CurrentPage - 1) * g0PageSize;
+    var endIdx = Math.min(startIdx + g0PageSize, totalMatched);
+
+    // Hide all rows first
+    rows.forEach(function(r) { r.style.display = 'none'; });
+
+    // Show only current page slice
+    for (var i = startIdx; i < endIdx; i++) {
+        matchedRows[i].style.display = '';
+    }
+
+    // No match row
+    var emptyRow = document.getElementById('g0NoMatchRow');
+    if (emptyRow) {
+        emptyRow.style.display = (rows.length > 0 && totalMatched === 0) ? '' : 'none';
+    }
+
+    // Page Info
+    var pageInfo = document.getElementById('g0PageInfo');
+    if (pageInfo) {
+        if (totalMatched === 0) {
+            pageInfo.textContent = 'Tidak ada usulan yang sesuai dengan filter pencarian';
+        } else {
+            pageInfo.textContent = 'Menampilkan ' + (startIdx + 1) + ' – ' + endIdx + ' dari ' + totalMatched + ' usulan';
+        }
+    }
+
+    // Render Navigation
+    renderPaginationButtons(totalMatched, totalPages);
+}
+
+function goToGate0Page(page) {
+    g0CurrentPage = page;
+    renderGate0Table();
+}
+
+function renderPaginationButtons(totalMatched, totalPages) {
+    var nav = document.getElementById('g0PaginationNav');
+    if (!nav) return;
+    nav.innerHTML = '';
+
+    if (totalMatched <= g0PageSize) {
+        return;
+    }
+
+    // First button «
+    var btnFirst = document.createElement('button');
+    btnFirst.type = 'button';
+    btnFirst.className = 'g0-page-btn';
+    btnFirst.innerHTML = '&laquo;';
+    btnFirst.title = 'Halaman Pertama';
+    btnFirst.disabled = (g0CurrentPage === 1);
+    btnFirst.onclick = function() { goToGate0Page(1); };
+    nav.appendChild(btnFirst);
+
+    // Prev button ‹
+    var btnPrev = document.createElement('button');
+    btnPrev.type = 'button';
+    btnPrev.className = 'g0-page-btn';
+    btnPrev.innerHTML = '&lsaquo;';
+    btnPrev.title = 'Halaman Sebelumnya';
+    btnPrev.disabled = (g0CurrentPage === 1);
+    btnPrev.onclick = function() { goToGate0Page(g0CurrentPage - 1); };
+    nav.appendChild(btnPrev);
+
+    // Page numbers
+    var maxVisible = 5;
+    var startP = Math.max(1, g0CurrentPage - Math.floor(maxVisible / 2));
+    var endP = Math.min(totalPages, startP + maxVisible - 1);
+    if (endP - startP + 1 < maxVisible) {
+        startP = Math.max(1, endP - maxVisible + 1);
+    }
+
+    if (startP > 1) {
+        nav.appendChild(createPageBtn(1));
+        if (startP > 2) {
+            var ell = document.createElement('span');
+            ell.textContent = '...';
+            ell.style.padding = '0 4px';
+            ell.style.color = '#94a3b8';
+            nav.appendChild(ell);
+        }
+    }
+
+    for (var p = startP; p <= endP; p++) {
+        nav.appendChild(createPageBtn(p));
+    }
+
+    if (endP < totalPages) {
+        if (endP < totalPages - 1) {
+            var ell2 = document.createElement('span');
+            ell2.textContent = '...';
+            ell2.style.padding = '0 4px';
+            ell2.style.color = '#94a3b8';
+            nav.appendChild(ell2);
+        }
+        nav.appendChild(createPageBtn(totalPages));
+    }
+
+    // Next button ›
+    var btnNext = document.createElement('button');
+    btnNext.type = 'button';
+    btnNext.className = 'g0-page-btn';
+    btnNext.innerHTML = '&rsaquo;';
+    btnNext.title = 'Halaman Berikutnya';
+    btnNext.disabled = (g0CurrentPage === totalPages);
+    btnNext.onclick = function() { goToGate0Page(g0CurrentPage + 1); };
+    nav.appendChild(btnNext);
+
+    // Last button »
+    var btnLast = document.createElement('button');
+    btnLast.type = 'button';
+    btnLast.className = 'g0-page-btn';
+    btnLast.innerHTML = '&raquo;';
+    btnLast.title = 'Halaman Terakhir';
+    btnLast.disabled = (g0CurrentPage === totalPages);
+    btnLast.onclick = function() { goToGate0Page(totalPages); };
+    nav.appendChild(btnLast);
+}
+
+function createPageBtn(p) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'g0-page-btn' + (p === g0CurrentPage ? ' active' : '');
+    b.textContent = p;
+    b.onclick = function() { goToGate0Page(p); };
+    return b;
+}
+
+document.addEventListener('DOMContentLoaded', renderGate0Table);
+window.addEventListener('pageshow', renderGate0Table);
 </script>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>

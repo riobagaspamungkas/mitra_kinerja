@@ -12,6 +12,9 @@ cache/sessions/*
 public/uploads/avatars/*
 !public/uploads/avatars/.gitkeep
 !public/uploads/avatars/.htaccess
+public/uploads/gate0/*
+!public/uploads/gate0/.gitkeep
+!public/uploads/gate0/.htaccess
 *.log
 
 # Backups & Temporary Files
