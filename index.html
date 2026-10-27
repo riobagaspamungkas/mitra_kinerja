@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Intelligence Designed To Evolve</title>
+
+  <!-- Google Fonts: Roboto (300, 400, 500, 700, 900) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+
+  <!-- Font Awesome 6.5.2 (Enterprise Brand Icons) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer">
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Full-viewport cover cinemagraph background: moving clouds + static Kanwil building -->
+  <div class="bg" aria-hidden="true">
+    <div class="bg-sky"></div>
+    <div class="bg-clouds-container">
+      <div class="bg-clouds-track">
+        <div class="bg-cloud-tile"></div>
+        <div class="bg-cloud-tile"></div>
+      </div>
+    </div>
+    <div class="bg-building"></div>
+    <div class="bg-overlay"></div>
+  </div>
+
+  <!-- Page Layout (3 Vertical Regions) -->
+  <div class="page">
+    <!-- 1) Header (Top Center Official Identity) -->
+    <header class="header">
+      <a href="index.html" class="brand-header" aria-label="Kementerian Hukum RI - Kantor Wilayah Kepulauan Riau">
+        <img src="assets/logo.webp" alt="Logo Kementerian Hukum RI" class="brand-logo" width="68" height="68">
+        <div class="brand-text">
+          <span class="brand-title">KEMENTERIAN HUKUM RI</span>
+          <span class="brand-subtitle">KANTOR WILAYAH KEPULAUAN RIAU</span>
+        </div>
+      </a>
+    </header>
+
+    <!-- 2) Hero -->
+    <main class="hero">
+      <!-- Trust row -->
+      <div class="trust-row anim" style="--d: 0.05s;">
+        <div class="trust-avatar">
+          <div class="trust-avatar-inner">
+            <i class="fa-brands fa-microsoft" aria-hidden="true"></i>
+          </div>
+        </div>
+        <div class="trust-avatar">
+          <div class="trust-avatar-inner">
+            <i class="fa-brands fa-amazon" aria-hidden="true"></i>
+          </div>
+        </div>
+        <div class="trust-avatar">
+          <div class="trust-avatar-inner">
+            <i class="fa-brands fa-google" aria-hidden="true"></i>
+          </div>
+        </div>
+        <div class="trust-pill">
+          <span>Trusted by 2000+ Enterprises</span>
+        </div>
+      </div>
+
+      <!-- Headline (Solid White, 2 Lines, per-line reveal) -->
+      <h1 class="headline anim">
+        <span class="headline-line">Intelligence</span>
+        <span class="headline-line">Designed To Evolve</span>
+      </h1>
+
+      <!-- Subhead -->
+      <p class="subhead anim" style="--d: 0.28s;">
+        Build applications that reason, adapt and collaborate using a modular
+        AI platform designed for production.
+      </p>
+
+      <!-- CTA -->
+      <a href="login.php" class="cta-btn anim-pulse" style="--d: 0.4s;">
+        Masuk
+      </a>
+    </main>
+
+    <!-- 3) Stats Footer (4 Metrics) -->
+    <footer class="stats" aria-label="Platform Statistics">
+      <div class="stat-item anim" style="--d: 0.5s;">
+        <div class="stat-icon" aria-hidden="true">&lt;</div>
+        <div class="stat-val-wrap">
+          <span class="stat-val" data-target="120" data-decimals="0">0</span>
+          <span class="stat-suffix">ms</span>
+        </div>
+        <div class="stat-label">Inference Time</div>
+      </div>
+
+      <div class="stat-item anim" style="--d: 0.58s;">
+        <div class="stat-icon" aria-hidden="true">%</div>
+        <div class="stat-val-wrap">
+          <span class="stat-val" data-target="99.99" data-decimals="2">0.00</span>
+          <span class="stat-suffix">%</span>
+        </div>
+        <div class="stat-label">Platform Uptime</div>
+      </div>
+
+      <div class="stat-item anim" style="--d: 0.66s;">
+        <div class="stat-icon" aria-hidden="true">*</div>
+        <div class="stat-val-wrap">
+          <span class="stat-val" data-target="24" data-decimals="0">0</span>
+          <span class="stat-suffix">/7</span>
+        </div>
+        <div class="stat-label">Autonomous Runtime</div>
+      </div>
+
+      <div class="stat-item anim" style="--d: 0.74s;">
+        <div class="stat-icon" aria-hidden="true">#</div>
+        <div class="stat-val-wrap">
+          <span class="stat-val" data-target="2.4" data-decimals="1">0.0</span>
+          <span class="stat-suffix">M</span>
+        </div>
+        <div class="stat-label">Context Windows</div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Mobile Menu Sheet & Backdrop (<= 720px) -->
+  <div class="mobile-overlay" id="mobileOverlay" hidden></div>
+  <nav class="mobile-sheet" id="mobileSheet" aria-label="Mobile Navigation" hidden>
+    <div class="sheet-nav">
+      <a href="#home" class="sheet-link active">Home</a>
+      <a href="#product" class="sheet-link">Product</a>
+      <a href="#case-studies" class="sheet-link">Case Studies</a>
+      <a href="#contact" class="sheet-link">Contact</a>
+    </div>
+    <a href="#signin" class="sheet-sign-in">Sign in</a>
+  </nav>
+
+  <!-- Script -->
+  <script src="main.js"></script>
+</body>
+</html>

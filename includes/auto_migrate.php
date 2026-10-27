@@ -25,6 +25,7 @@ function ensureDatabaseSchema(PDO $pdo): void {
         if (!$roleCol || !str_contains($roleCol['Type'] ?? '', 'pengampu') || !str_contains($roleCol['Type'] ?? '', 'pic')) {
             throw new Exception("Role migration needed");
         }
+        $pdo->query("SELECT foto FROM users LIMIT 1");
         $countUsers = (int)$pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
         $countMitra = (int)$pdo->query("SELECT COUNT(*) FROM mitra_kinerja")->fetchColumn();
         if ($countUsers === 0 || $countMitra === 0) {
@@ -218,6 +219,14 @@ function ensureDatabaseSchema(PDO $pdo): void {
             $roleCol = $pdo->query("SHOW COLUMNS FROM users LIKE 'role'")->fetch();
             if ($roleCol && (!str_contains($roleCol['Type'] ?? '', 'pengampu') || !str_contains($roleCol['Type'] ?? '', 'pic'))) {
                 $pdo->exec("ALTER TABLE users MODIFY COLUMN role ENUM('admin','pemeriksa','validator','pimpinan','pengampu','pic') NOT NULL");
+            }
+        } catch (Throwable $e) {}
+
+        // Users foto column check
+        try {
+            $fotoCol = $pdo->query("SHOW COLUMNS FROM users LIKE 'foto'")->fetch();
+            if (!$fotoCol) {
+                $pdo->exec("ALTER TABLE users ADD COLUMN foto VARCHAR(255) NULL DEFAULT NULL AFTER role");
             }
         } catch (Throwable $e) {}
 

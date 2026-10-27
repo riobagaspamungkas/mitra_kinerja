@@ -9,6 +9,9 @@ cache/*.json
 cache/sessions/*
 !cache/.htaccess
 !cache/sessions/.gitkeep
+public/uploads/avatars/*
+!public/uploads/avatars/.gitkeep
+!public/uploads/avatars/.htaccess
 *.log
 
 # Backups & Temporary Files
