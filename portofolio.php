@@ -76,6 +76,9 @@ require __DIR__ . '/includes/header.php';
             <option value="PERLU PERBAIKAN">Perlu Perbaikan</option>
             <option value="MASA IMPLEMENTASI AWAL">Masa Implementasi Awal</option>
         </select>
+        <button type="button" id="btnResetFilter" onclick="resetFilters()" class="btn btn-outline btn-sm" style="padding:7px 12px;font-size:12.5px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;cursor:pointer;" title="Reset Semua Filter">
+            🔄 Reset Filter
+        </button>
     </div>
     <div class="table-wrap">
     <table id="tblPortofolio">
@@ -182,6 +185,19 @@ if (document.getElementById('fKategori')) {
 document.getElementById('fPosisi').addEventListener('change', applyFilters);
 document.getElementById('fRekomendasi').addEventListener('change', applyFilters);
 document.getElementById('fStatus').addEventListener('change', applyFilters);
+
+function resetFilters() {
+    document.getElementById('fSearch').value = '';
+    document.getElementById('fPortofolio').value = '';
+    document.getElementById('fBidang').value = '';
+    if (document.getElementById('fKategori')) {
+        document.getElementById('fKategori').value = '';
+    }
+    document.getElementById('fPosisi').value = '';
+    document.getElementById('fRekomendasi').value = '';
+    document.getElementById('fStatus').value = '';
+    applyFilters();
+}
 
 document.addEventListener('DOMContentLoaded', applyFilters);
 window.addEventListener('pageshow', applyFilters);

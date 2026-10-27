@@ -1,6 +1,6 @@
 -- MySQL dump 10.13  Distrib 8.4.11, for Linux (x86_64)
 --
--- Host: 127.0.0.1    Database: mitra_kinerja
+-- Host: localhost    Database: mitra_kinerja
 -- ------------------------------------------------------
 -- Server version	8.4.11-0ubuntu0.26.04.1
 
@@ -34,7 +34,7 @@ CREATE TABLE `audit_log` (
   KEY `user_id` (`user_id`),
   CONSTRAINT `audit_log_ibfk_1` FOREIGN KEY (`mitra_id`) REFERENCES `mitra_kinerja` (`id`) ON DELETE SET NULL,
   CONSTRAINT `audit_log_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=1521 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=1705 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -61,7 +61,7 @@ CREATE TABLE `baseline_elemen` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_mitra_elemen` (`mitra_id`,`nomor_elemen`),
   CONSTRAINT `baseline_elemen_ibfk_1` FOREIGN KEY (`mitra_id`) REFERENCES `mitra_kinerja` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=1417 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=1429 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -86,7 +86,7 @@ CREATE TABLE `early_warning` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_mitra_dimensi` (`mitra_id`,`dimensi`),
   CONSTRAINT `early_warning_ibfk_1` FOREIGN KEY (`mitra_id`) REFERENCES `mitra_kinerja` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=165 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=237 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -139,7 +139,7 @@ CREATE TABLE `intervensi_pimpinan` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_mitra_pemicu` (`mitra_id`,`no_pemicu`),
   CONSTRAINT `intervensi_pimpinan_ibfk_1` FOREIGN KEY (`mitra_id`) REFERENCES `mitra_kinerja` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=196 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=286 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -159,7 +159,7 @@ CREATE TABLE `intervensi_usulan` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `mitra_id` (`mitra_id`),
   CONSTRAINT `intervensi_usulan_ibfk_1` FOREIGN KEY (`mitra_id`) REFERENCES `mitra_kinerja` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -231,6 +231,7 @@ CREATE TABLE `pra_pks` (
   `penerima_manfaat` text COLLATE utf8mb4_unicode_ci,
   `perkiraan_mulai` date DEFAULT NULL,
   `perkiraan_selesai` date DEFAULT NULL,
+  `file_usulan` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `k1_kesesuaian_strategis` enum('YA','TIDAK') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'YA',
   `k2_kebutuhan_daya_ungkit` enum('YA','TIDAK') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'YA',
   `k3_kelayakan_mitra` enum('YA','TIDAK') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'YA',
@@ -243,7 +244,7 @@ CREATE TABLE `pra_pks` (
   `unit_review_tambahan` text COLLATE utf8mb4_unicode_ci,
   `batas_waktu_penyempurnaan` date DEFAULT NULL,
   `status_rekomendasi` enum('Layak','Perlu Penyempurnaan','Tidak Prioritas / Tidak Layak') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Layak',
-  `status_persetujuan` enum('Menunggu Persetujuan Pimpinan','Disetujui Pimpinan','Dikembalikan untuk Revisi','Ditolak Pimpinan') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Menunggu Persetujuan Pimpinan',
+  `status_persetujuan` enum('Draft','Menunggu Persetujuan Pimpinan','Disetujui Pimpinan','Dikembalikan untuk Revisi','Ditolak Pimpinan') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Draft',
   `catatan_pimpinan` text COLLATE utf8mb4_unicode_ci,
   `tanggal_persetujuan` date DEFAULT NULL,
   `pimpinan_id` int DEFAULT NULL,
@@ -257,7 +258,7 @@ CREATE TABLE `pra_pks` (
   KEY `created_by` (`created_by`),
   CONSTRAINT `pra_pks_ibfk_1` FOREIGN KEY (`pimpinan_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `pra_pks_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=35 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=50 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -348,6 +349,7 @@ CREATE TABLE `users` (
   `username` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   `password_hash` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `role` enum('admin','pemeriksa','validator','pimpinan','pengampu','pic') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `foto` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `aktif` tinyint(1) NOT NULL DEFAULT '1',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -374,12 +376,8 @@ CREATE TABLE `validasi` (
   KEY `validator_id` (`validator_id`),
   CONSTRAINT `validasi_ibfk_1` FOREIGN KEY (`mitra_id`) REFERENCES `mitra_kinerja` (`id`) ON DELETE CASCADE,
   CONSTRAINT `validasi_ibfk_2` FOREIGN KEY (`validator_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=39 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=59 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping routines for database 'mitra_kinerja'
---
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -390,4 +388,4 @@ CREATE TABLE `validasi` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-10-22 13:35:29
+-- Dump completed on 2026-10-27 14:07:19

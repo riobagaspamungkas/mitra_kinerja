@@ -230,6 +230,18 @@ function ensureDatabaseSchema(PDO $pdo): void {
             }
         } catch (Throwable $e) {}
 
+        // pra_pks status_persetujuan enum & file_usulan column check
+        try {
+            $spCol = $pdo->query("SHOW COLUMNS FROM pra_pks LIKE 'status_persetujuan'")->fetch();
+            if ($spCol && !str_contains($spCol['Type'] ?? '', 'Draft')) {
+                $pdo->exec("ALTER TABLE pra_pks MODIFY COLUMN status_persetujuan ENUM('Draft', 'Menunggu Persetujuan Pimpinan', 'Disetujui Pimpinan', 'Dikembalikan untuk Revisi', 'Ditolak Pimpinan') NOT NULL DEFAULT 'Draft'");
+            }
+            $fuCol = $pdo->query("SHOW COLUMNS FROM pra_pks LIKE 'file_usulan'")->fetch();
+            if (!$fuCol) {
+                $pdo->exec("ALTER TABLE pra_pks ADD COLUMN file_usulan VARCHAR(255) NULL AFTER perkiraan_selesai");
+            }
+        } catch (Throwable $e) {}
+
         // 3. Pastikan row validasi ada untuk tiap naskah
         try {
             $pdo->exec("INSERT IGNORE INTO validasi (mitra_id, status) SELECT id, 'BELUM' FROM mitra_kinerja WHERE id NOT IN (SELECT mitra_id FROM validasi)");
