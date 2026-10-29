@@ -141,19 +141,19 @@ if ($id <= 0) {
                     <td>
                         <div style="display:flex;flex-direction:column;gap:4px;">
                             <?php if ($userRole === 'pemeriksa' || $userRole === 'admin'): ?>
-                                <?php if ($allMilestonesCompleted): ?>
-                                    <a href="mitra_edit.php?id=<?= $m['id'] ?>" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 7px;">
-                                        📊 Lihat Scorecard &rarr;
+                                <?php if ($isCompleted): ?>
+                                    <a href="mitra_edit.php?id=<?= $m['id'] ?>" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 7px;display:inline-flex;align-items:center;gap:4px;">
+                                        <?= uiIcon('eye', 11) ?> Lihat Scorecard &rarr;
                                     </a>
                                 <?php else: ?>
-                                    <a href="mitra_edit.php?id=<?= $m['id'] ?>" class="btn btn-primary btn-sm" style="font-size:11px;padding:3px 7px;">
-                                        📝 Nilai <?= h(explode(':', $msLabel)[0]) ?> &rarr;
+                                    <a href="mitra_edit.php?id=<?= $m['id'] ?>" class="btn btn-primary btn-sm" style="font-size:11px;padding:3px 7px;display:inline-flex;align-items:center;gap:4px;">
+                                        <?= uiIcon('file-edit', 11) ?> Nilai <?= h(explode(':', $msLabel)[0]) ?> &rarr;
                                     </a>
                                 <?php endif; ?>
                             <?php endif; ?>
                             <?php if ($userRole === 'validator' || $userRole === 'admin'): ?>
-                                <a href="mitra_validasi.php?id=<?= $m['id'] ?>" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 7px;">
-                                    🔍 Validasi &rarr;
+                                <a href="mitra_validasi.php?id=<?= $m['id'] ?>" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 7px;display:inline-flex;align-items:center;gap:4px;">
+                                    <?= uiIcon('check-circle', 11) ?> Validasi &rarr;
                                 </a>
                             <?php endif; ?>
                         </div>

@@ -855,11 +855,11 @@ function formatLinkSumberBukti(?string $raw): string {
     if (preg_match('/^https?:\/\//i', $raw)) {
         if (str_contains($raw, 'p2ma.kemenkum.go.id')) {
             if (str_ends_with(strtolower($raw), '.pdf') || str_contains($raw, '/naskah/')) {
-                return '<a href="' . h($raw) . '" target="_blank" rel="noopener noreferrer" class="badge badge-primary" style="font-size:10.5px;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;">📄 Naskah P2MA (PDF) &rarr;</a>';
+                return '<a href="' . h($raw) . '" target="_blank" rel="noopener noreferrer" class="badge badge-primary" style="font-size:10.5px;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;">' . uiIcon('file-text', 11) . ' Naskah P2MA (PDF) &rarr;</a>';
             } elseif (str_contains($raw, '/pencarian')) {
-                return '<a href="' . h($raw) . '" target="_blank" rel="noopener noreferrer" class="badge badge-primary" style="font-size:10.5px;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;">🔍 Verifikasi P2MA &rarr;</a>';
+                return '<a href="' . h($raw) . '" target="_blank" rel="noopener noreferrer" class="badge badge-primary" style="font-size:10.5px;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;">' . uiIcon('search', 11) . ' Verifikasi P2MA &rarr;</a>';
             } else {
-                return '<a href="' . h($raw) . '" target="_blank" rel="noopener noreferrer" class="badge badge-primary" style="font-size:10.5px;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;">🌐 Portal P2MA &rarr;</a>';
+                return '<a href="' . h($raw) . '" target="_blank" rel="noopener noreferrer" class="badge badge-primary" style="font-size:10.5px;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;">' . uiIcon('paperclip', 11) . ' Portal P2MA &rarr;</a>';
             }
         } elseif (str_contains($raw, 'drive.google.com') || str_contains($raw, 'docs.google.com')) {
             return '<a href="' . h($raw) . '" target="_blank" rel="noopener noreferrer" class="badge badge-success" style="font-size:10.5px;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;">📁 Google Drive &rarr;</a>';

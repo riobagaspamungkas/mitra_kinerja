@@ -25,7 +25,12 @@ require __DIR__ . '/includes/header.php';
 
 <div class="card">
     <div class="filters">
-        <input type="text" id="fSearch" placeholder="🔍 Cari kode / mitra / bidang..." style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;min-width:200px;">
+        <div style="position:relative;display:inline-block;min-width:240px;">
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;display:inline-flex;align-items:center;">
+                <?= uiIcon('search', 14) ?>
+            </span>
+            <input type="text" id="fSearch" placeholder="Cari kode / mitra / bidang..." style="padding:7px 10px 7px 32px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%;box-sizing:border-box;">
+        </div>
         <select id="fPortofolio">
             <option value="">Semua Portofolio</option>
             <option value="Pilot Utama">Pilot Utama</option>

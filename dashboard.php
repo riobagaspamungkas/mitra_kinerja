@@ -83,8 +83,8 @@ foreach ($all as $s) {
                 </select>
             </div>
             <div class="tool-item">
-                <label for="overdueSearchInput" style="font-size:12px;font-weight:600;color:#991b1b;display:block;margin-bottom:4px;">
-                    🔍 Cari / Filter Daftar:
+                <label for="overdueSearchInput" style="font-size:12px;font-weight:600;color:#991b1b;display:inline-flex;align-items:center;gap:4px;margin-bottom:4px;">
+                    <?= uiIcon('search', 13, '', 'color:#991b1b;') ?> Cari / Filter Daftar:
                 </label>
                 <input type="text" id="overdueSearchInput" class="form-control" placeholder="Ketik nama mitra, kode, atau siklus..." style="font-size:12.5px;padding:6px 10px;border-radius:6px;border:1px solid #fca5a5;background:#fff;width:100%;color:#1f2937;" oninput="filterOverdueList(this.value)">
             </div>

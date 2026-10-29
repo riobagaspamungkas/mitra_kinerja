@@ -1615,8 +1615,11 @@ require __DIR__ . '/includes/header.php';
 
     <!-- Filter & Search Bar -->
     <div class="filters" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;background:#f8fafc;padding:10px 14px;border-radius:8px;border:1px solid var(--border,#e2e8f0);">
-        <div style="flex:1;min-width:220px;">
-            <input type="text" id="g0Search" placeholder="🔍 Cari Nomor Usulan / Calon Mitra / Judul..." style="width:100%;padding:7px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;background:#fff;" oninput="onGate0FilterChange()">
+        <div style="flex:1;min-width:220px;position:relative;">
+            <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;display:inline-flex;align-items:center;">
+                <?= uiIcon('search', 14) ?>
+            </span>
+            <input type="text" id="g0Search" placeholder="Cari Nomor Usulan / Calon Mitra / Judul..." style="width:100%;padding:7px 12px 7px 32px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;background:#fff;box-sizing:border-box;" oninput="onGate0FilterChange()">
         </div>
         <div style="min-width:180px;">
             <select id="g0StatusFilter" style="width:100%;padding:7px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;background:#fff;font-weight:600;color:#1e293b;" onchange="onGate0StatusSelectChange()">
