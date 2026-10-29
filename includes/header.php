@@ -191,16 +191,18 @@ if ($user) {
                         <div class="notif-dropdown-body">
                             <?php if (empty($headerNotifs)): ?>
                             <div class="notif-empty-state">
-                                <div style="font-size:24px;margin-bottom:6px;">🎉</div>
-                                <strong>Semua Jadwal Terpenuhi</strong>
-                                <div style="font-size:12px;color:#64748b;margin-top:2px;">Tidak ada jadwal evaluasi yang terlewat atau mendekati tenggat.</div>
+                                <div class="table-empty-icon" style="margin: 0 auto 10px auto; color: #16a34a; background: #ecfdf5; border-color: #a7f3d0;">
+                                    <?= uiIcon('check-circle', 22) ?>
+                                </div>
+                                <div class="table-empty-title" style="color: #0f172a;">Semua Jadwal Terpenuhi</div>
+                                <div class="table-empty-desc">Tidak ada jadwal evaluasi yang terlewat atau mendekati tenggat.</div>
                             </div>
                             <?php else: ?>
                             <div class="notif-items-list" id="notifItemsList">
                                 <?php foreach ($headerNotifs as $n): ?>
                                 <a href="<?= h($n['link']) ?>" class="notif-item" data-type="<?= $n['type'] ?>">
                                     <div class="notif-item-icon <?= $n['type'] === 'overdue' ? 'icon-danger' : 'icon-warning' ?>">
-                                        <?= $n['type'] === 'overdue' ? '🚨' : '⚠️' ?>
+                                        <?= $n['type'] === 'overdue' ? uiIcon('clock', 16, '', 'color:#dc2626;') : uiIcon('clock', 16, '', 'color:#d97706;') ?>
                                     </div>
                                     <div class="notif-item-content">
                                         <div class="notif-item-header">
@@ -217,8 +219,12 @@ if ($user) {
                                     </div>
                                 </a>
                                 <?php endforeach; ?>
-                                <div id="notifEmptyFilter" style="display:none;padding:24px;text-align:center;color:#64748b;font-size:12.5px;">
-                                    Tidak ada notifikasi untuk kategori ini.
+                                <div id="notifEmptyFilter" style="display:none;padding:24px 16px;text-align:center;">
+                                    <div class="table-empty-icon" style="margin: 0 auto 8px auto; width: 36px; height: 36px;">
+                                        <?= uiIcon('check-circle', 18) ?>
+                                    </div>
+                                    <div class="table-empty-title" style="font-size: 13px;">Tidak Ada Notifikasi</div>
+                                    <div class="table-empty-desc" style="font-size: 11.5px;">Tidak ada pemberitahuan untuk kategori filter ini.</div>
                                 </div>
                             </div>
                             <?php endif; ?>

@@ -102,10 +102,8 @@ foreach ($all as $s) {
 <?php endif; ?>
 
 <?php if (empty($warningData)): ?>
-<div class="card" style="text-align:center;padding:40px;">
-    <div style="font-size:48px;margin-bottom:12px;">✅</div>
-    <h2 style="color:var(--green);">Semua Naskah Dalam Kondisi Aman</h2>
-    <p class="muted">Tidak ada naskah dengan status warning di atas E0 (Hijau)</p>
+<div class="card" style="padding:24px;">
+    <?= uiEmptyState('Semua Naskah Dalam Kondisi Aman', 'Tidak ada naskah dengan status peringatan dini di atas E0 (Normal).', 'check-circle') ?>
 </div>
 <?php else: ?>
 
@@ -140,8 +138,8 @@ foreach ($all as $s) {
 
 <!-- Detail -->
 <?php if (empty($warningDataFiltered)): ?>
-    <div class="card" style="text-align:center;padding:30px;">
-        <p class="muted" style="margin:0;">Tidak ada naskah yang cocok dengan filter yang dipilih.</p>
+    <div class="card" style="padding:20px;">
+        <?= uiEmptyState('Tidak Ada Naskah Cocok', 'Tidak ditemukan naskah dengan tingkat risiko yang dipilih pada filter.', 'search') ?>
     </div>
 <?php else: ?>
 <?php foreach ($warningDataFiltered as $wd): ?>

@@ -1665,9 +1665,9 @@ require __DIR__ . '/includes/header.php';
             </thead>
             <tbody>
                 <?php if (empty($usulanList)): ?>
-                <tr><td colspan="8" class="muted" style="text-align:center;padding:24px;">Belum ada usulan pra-PKS terdaftar.</td></tr>
+                <tr><td colspan="8"><?= uiEmptyState('Belum Ada Usulan Pra-PKS', 'Klik tombol Usulan Baru atau Import Excel untuk menambahkan data calon kerja sama.', 'file-text') ?></td></tr>
                 <?php else: ?>
-                <tr id="g0NoMatchRow" style="display:none;"><td colspan="8" class="muted" style="text-align:center;padding:24px;">Tidak ada usulan yang sesuai dengan filter pencarian.</td></tr>
+                <tr id="g0NoMatchRow" style="display:none;"><td colspan="8"><?= uiEmptyState('Tidak Ada Usulan yang Sesuai', 'Coba sesuaikan kata kunci atau gunakan tombol Reset Filter untuk menampilkan seluruh data.', 'search') ?></td></tr>
                 <?php foreach ($usulanList as $u): 
                     $rekBadge = match($u['status_rekomendasi']) {
                         'Layak' => 'success',

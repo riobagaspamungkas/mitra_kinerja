@@ -110,8 +110,8 @@ foreach ($all as $s) {
             </div>
             <?php endforeach; ?>
             <?php endforeach; ?>
-            <div id="overdueEmptySearch" style="display:none;text-align:center;padding:16px;color:#991b1b;font-size:13px;font-style:italic;">
-                Tidak ada naskah terlewat yang cocok dengan kata kunci pencarian.
+            <div id="overdueEmptySearch" style="display:none;padding:16px 12px;">
+                <?= uiEmptyState('Tidak Ada Naskah Cocok', 'Tidak ada jadwal terlewat yang cocok dengan kata kunci pencarian.', 'search') ?>
             </div>
         </div>
     </div>

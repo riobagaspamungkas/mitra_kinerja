@@ -462,7 +462,7 @@ if ($id > 0) {
             </thead>
             <tbody>
                 <?php if (empty($listRk)): ?>
-                <tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:16px;">Belum ada rencana kerja tahunan yang tercatat.</td></tr>
+                <tr><td colspan="4"><?= uiEmptyState('Belum Ada Rencana Kerja Tahunan', 'Gunakan formulir di atas untuk menambahkan jadwal kegiatan evaluasi tahunan.', 'file-text') ?></td></tr>
                 <?php else: ?>
                 <?php foreach ($listRk as $rk): ?>
                 <tr>

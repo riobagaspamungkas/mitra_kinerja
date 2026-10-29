@@ -235,7 +235,7 @@ require __DIR__ . '/includes/header.php';
         <thead><tr><th>Naskah</th><th>Tindakan</th><th>Tenggat</th><th>Status</th><th>Bukti Kegiatan</th><th>Aksi</th></tr></thead>
         <tbody>
         <?php if (empty($tindakLanjut)): ?>
-            <tr><td colspan="6" class="muted" style="text-align:center;padding:20px;">Belum ada tindak lanjut</td></tr>
+            <tr><td colspan="6"><?= uiEmptyState('Belum Ada Tindak Lanjut', 'Belum ada agenda atau catatan tindak lanjut yang tercatat pada sistem.', 'file-text') ?></td></tr>
         <?php else: foreach ($tindakLanjut as $tl):
             $dotClass = match($tl['status']) { 'Selesai' => 'dot-green', 'Proses' => 'dot-yellow', default => 'dot-red' };
         ?>

@@ -87,9 +87,9 @@ require __DIR__ . '/includes/header.php';
         </thead>
         <tbody>
         <?php if (empty($all)): ?>
-            <tr id="emptyRow"><td colspan="13" class="muted" style="text-align:center;padding:20px;">Belum ada data kerja sama</td></tr>
+            <tr id="emptyRow"><td colspan="13"><?= uiEmptyState('Belum Ada Data Kerja Sama', 'Naskah kerja sama belum tersedia atau belum ditambahkan.', 'file-text') ?></td></tr>
         <?php else: ?>
-            <tr id="noFilterMatchRow" style="display:none;"><td colspan="13" class="muted" style="text-align:center;padding:20px;">Tidak ada data yang sesuai dengan filter</td></tr>
+            <tr id="noFilterMatchRow" style="display:none;"><td colspan="13"><?= uiEmptyState('Tidak Ada Data yang Sesuai', 'Tidak ditemukan naskah yang cocok dengan filter. Gunakan Reset Filter untuk memuat kembali.', 'search') ?></td></tr>
             <?php foreach ($all as $s): $m = $s['mitra']; ?>
             <tr data-portofolio="<?= h($m['portofolio']) ?>" data-bidang="<?= h($m['bidang'] ?? 'AHU') ?>" data-kategori="<?= h($s['kategori']) ?>" data-status="<?= h($s['status_scorecard']) ?>" data-posisi="<?= h($s['posisi_portofolio']) ?>" data-rekomendasi="<?= h($s['rekomendasi']) ?>" data-rekomendasi-key="<?= h(ekstrakKeywordRekomendasi($s['rekomendasi'])) ?>">
                 <td><strong><?= h($m['kode']) ?></strong></td>

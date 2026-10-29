@@ -1181,7 +1181,22 @@ function uiIcon(string $name, int $size = 14, string $extraClass = '', string $s
         $size,
         htmlspecialchars($st, ENT_QUOTES, 'UTF-8'),
         $inner
-    );
+     );
+}
+
+/**
+ * Tidy Empty State Helper Component
+ * Menampilkan pesan kosong yang rapi dengan ikon outline, judul, dan deskripsi singkat
+ */
+function uiEmptyState(string $title, string $desc = '', string $icon = 'search', string $extraStyle = ''): string {
+    $out = '<div class="table-empty-box"' . ($extraStyle !== '' ? ' style="' . htmlspecialchars($extraStyle, ENT_QUOTES, 'UTF-8') . '"' : '') . '>';
+    $out .= '<div class="table-empty-icon">' . uiIcon($icon, 20) . '</div>';
+    $out .= '<div class="table-empty-title">' . h($title) . '</div>';
+    if ($desc !== '') {
+        $out .= '<div class="table-empty-desc">' . h($desc) . '</div>';
+    }
+    $out .= '</div>';
+    return $out;
 }
 
 
