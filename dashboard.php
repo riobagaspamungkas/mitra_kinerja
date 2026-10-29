@@ -531,7 +531,7 @@ document.addEventListener('DOMContentLoaded', function() {
 })();
 
 <?php if (defined('AI_ENABLED') && AI_ENABLED): ?>
-/* ── AI Insight Floating Toast ─────────────────────────── */
+// AI Insight Floating Toast
 var aiToastEl   = document.getElementById('aiToast');
 var aiLoadingEl = document.getElementById('aiLoading');
 var aiContentEl = document.getElementById('aiContent');

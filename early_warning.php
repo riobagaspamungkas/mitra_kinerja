@@ -28,7 +28,7 @@ foreach ($all as $s) {
 $severityOrder = ['E3' => 4, 'E2' => 3, 'E1' => 2, 'V0' => 1, 'E0' => 0];
 usort($warningData, fn($a, $b) => ($severityOrder[$b['warning_status']] ?? -1) <=> ($severityOrder[$a['warning_status']] ?? -1));
 
-// BUG-EW-04: Filter controls
+// Filter controls
 $filterStatus = trim($_GET['status'] ?? '');
 if ($filterStatus !== '' && in_array($filterStatus, ['E3', 'E2', 'E1', 'V0'], true)) {
     $warningDataFiltered = array_filter($warningData, fn($w) => $w['warning_status'] === $filterStatus);
@@ -49,7 +49,7 @@ require __DIR__ . '/includes/header.php';
 </div>
 
 <?php
-// BUG-EW-01: Include overdue/past-due evaluations in the warning banner
+// Include overdue/past-due evaluations in the warning banner
 $monevAlerts = [];
 foreach ($all as $s) {
     $hari = $s['monev']['hari_menuju_evaluasi'] ?? null;
@@ -123,7 +123,7 @@ foreach ($all as $s) {
     <div class="kpi-card"><div class="kpi-icon" style="background:#f1f5f9;color:#64748b;">⚪</div><div><div class="kpi-number"><?= $v0Count ?></div><div class="kpi-label">V0 — Data Belum Cukup</div></div></div>
 </div>
 
-<!-- BUG-EW-04: Filter Controls -->
+<!-- Filter Controls -->
 <form method="get" class="filters" style="margin-bottom:20px;align-items:center;">
     <label style="font-weight:600;font-size:13px;">Filter Tingkat Risiko:</label>
     <select name="status" onchange="this.form.submit()">
@@ -160,7 +160,7 @@ foreach ($all as $s) {
         <tbody>
         <?php foreach ($wd['rows'] as $r): ?>
             <?php
-            // BUG-EW-05: Display actual expiry date for Masa Berlaku dimension instead of '-'
+            // Display actual expiry date for Masa Berlaku dimension instead of '-'
             $tenggatDisplay = formatTanggal($r['tenggat']);
             if (($tenggatDisplay === '-' || empty($r['tenggat'])) && stripos($r['dimensi'], 'Masa Berlaku') !== false && !empty($wd['tanggal_berakhir'])) {
                 $tenggatDisplay = formatTanggal($wd['tanggal_berakhir']);

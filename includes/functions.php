@@ -358,9 +358,7 @@ function hitungStatusScorecard(bool $skorLengkap, bool $cekLengkapOk, string $st
     return 'SIAP DIVALIDASI';
 }
 
-/* ============================================================
- * EARLY WARNING
- * ============================================================ */
+// Early Warning
 
 /** Pilihan Kondisi tetap (yellow cell) untuk 3 dimensi selain Masa berlaku, dan pemetaannya ke Status. */
 const KONDISI_OPTIONS = [
@@ -592,9 +590,7 @@ function tingkatPenanganan(string $status): string {
     return 'DITANGANI PIC/UNIT';
 }
 
-/* ============================================================
- * UJI KEBUTUHAN INTERVENSI PIMPINAN
- * ============================================================ */
+// Uji Kebutuhan Intervensi Pimpinan
 
 /**
  * Hasil uji (persis rumus B43):
@@ -781,9 +777,7 @@ function isImageValid(string $filePath): bool {
     return ($info !== false && in_array($info[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_WEBP], true));
 }
 
-/* ============================================================
- * DASHBOARD HELPERS
- * ============================================================ */
+// Dashboard Helpers
 
 /** Label display name untuk ketujuh aspek indikator V2.1 (dipakai di chart dashboard). */
 const ASPEK_LABELS = [
@@ -892,9 +886,7 @@ function formatLinkSumberBukti(?string $raw): string {
     return nl2br(h($raw));
 }
 
-/* ============================================================
- * ROBUST ZIP & EXCEL PARSING (FALLBACK UNTUK PHP TANPA EXT-ZIP)
- * ============================================================ */
+// Zip & Excel parsing fallback untuk environment tanpa ext-zip
 
 /**
  * Pembersih XML untuk mencegah warning SimpleXML / XPath namespace prefix.

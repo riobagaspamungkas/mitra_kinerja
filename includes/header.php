@@ -3,7 +3,7 @@
 $user = currentUser();
 $currentPage = basename($_SERVER['PHP_SELF'] ?? '', '.php');
 
-/* ── Ikon SVG line-art (putih, 20×20 viewBox) ─────────────── */
+// Ikon SVG line-art (putih, 20×20 viewBox)
 $icons = [
     'dashboard' => '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h5v7H3zM12 3h5v4H12zM3 13h5v4H3zM12 10h5v7H12z"/></svg>',
     'gate0' => '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="2"/><path d="M7 10h6M10 7v6"/></svg>',

@@ -9,7 +9,7 @@ function ensureDatabaseSchema(PDO $pdo): void {
     static $checked = false;
     if ($checked) return;
 
-    // ── 0. FAST-PATH HEALTH CHECK (Sub-millisecond) ─────────────────────────
+    // FAST-PATH HEALTH CHECK (Sub-millisecond)
     // Pastikan seluruh tabel dan kolom migrasi V2.1 tersedia lengkap
     // sebelum melewati DDL / ALTER TABLE.
     try {
@@ -152,7 +152,7 @@ function ensureDatabaseSchema(PDO $pdo): void {
             ) ENGINE=InnoDB;
         ");
 
-        // ── 3. CEK DAN TAMBAH KOLOM YANG KURANG SECARA EFISIEN ──────────────
+        // Cek dan tambah kolom yang kurang secara efisien
         try {
             $colsMk = $pdo->query("SHOW COLUMNS FROM mitra_kinerja")->fetchAll(PDO::FETCH_COLUMN);
             $colsMkMap = array_flip($colsMk);

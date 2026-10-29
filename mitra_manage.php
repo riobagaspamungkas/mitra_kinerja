@@ -22,14 +22,14 @@ $bidangOptions = [
 
 $mouOptions = $pdo->query("SELECT id, kode, nama_mitra, judul FROM mitra_kinerja WHERE jenis = 'MoU' ORDER BY kode")->fetchAll();
 
-/* ── MODAL QUICK UPLOAD SCAN PDF (dari Listing) ─────────── */
+// MODAL QUICK UPLOAD SCAN PDF (dari Listing)
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'upload_scan_pdf') {
     $csrfToken = isset($_POST['csrf_token']) && is_string($_POST['csrf_token']) ? $_POST['csrf_token'] : null;
     if (!verifyCsrfToken($csrfToken)) {
         $errors[] = 'Token keamanan tidak valid atau telah kedaluwarsa. Silakan muat ulang halaman.';
     } else {
         $targetMitraId = (int)($_POST['target_mitra_id'] ?? 0);
-        // Bug 10.2: Verifikasi target_mitra_id benar-benar ada di database sebelum memproses file
+        // Verifikasi target_mitra_id benar-benar ada di database sebelum memproses file
         $stmtM = $pdo->prepare('SELECT * FROM mitra_kinerja WHERE id = ?');
         $stmtM->execute([$targetMitraId]);
         $targetMitra = $stmtM->fetch();
@@ -38,7 +38,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
         if ($targetMitraId <= 0 || !$targetMitra) {
             $errors[] = 'Naskah kerja sama yang dipilih tidak ditemukan dalam sistem.';
         } else {
-            // Bug 9: Enforce finalized lock and pengampu assignment check
+            // Enforce finalized lock and pengampu assignment check
             $userRole = $user['role'] ?? 'pengampu';
             $stmtVal = $pdo->prepare('SELECT status FROM validasi WHERE mitra_id = ?');
             $stmtVal->execute([$targetMitraId]);
@@ -66,7 +66,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                         $stmtU = $pdo->prepare('UPDATE mitra_kinerja SET file_naskah = ? WHERE id = ?');
                         $stmtU->execute([$savedPath, $targetMitraId]);
 
-                        // Bug 5: Verifikasi baseline_status !== 'TERVERIFIKASI / DIKUNCI' sebelum menimpa elemen 1 (kecuali admin)
+                        // Verifikasi baseline_status !== 'TERVERIFIKASI / DIKUNCI' sebelum menimpa elemen 1 (kecuali admin)
                         $isBaselineLocked = (($targetMitra['baseline_status'] ?? '') === 'TERVERIFIKASI / DIKUNCI');
                         if (!$isBaselineLocked || $userRole === 'admin') {
                             $stmtB = $pdo->prepare("UPDATE baseline_elemen SET link_sumber_bukti = ?, status = 'TERVERIFIKASI' WHERE mitra_id = ? AND nomor_elemen = 1");
@@ -76,7 +76,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                         logAudit($targetMitraId, $user['id'], 'UPLOAD_SCAN', 'Upload scan naskah PDF: ' . $kodeMitra);
                         $success = 'Berkas scan naskah PDF untuk ' . $kodeMitra . ' berhasil diunggah dan disinkronkan ke Identitas Baseline.';
                     } else {
-                        // Bug 5.5: Tambahkan pesan error jika move_uploaded_file gagal
+                        // Tambahkan pesan error jika move_uploaded_file gagal
                         $errors[] = 'Gagal menyimpan berkas scan naskah di server.';
                     }
                 }
@@ -85,14 +85,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
     }
 }
 
-/* ── EDIT (ada ?id=) ──────────────────────────────── */
+// EDIT (ada ?id=)
 if ($id > 0) {
     $stmt = $pdo->prepare('SELECT * FROM mitra_kinerja WHERE id = ?');
     $stmt->execute([$id]);
     $mitra = $stmt->fetch();
     if (!$mitra) { http_response_code(404); die('Naskah tidak ditemukan.'); }
 
-    // Bug 9: Enforce finalized lock and pengampu assignment check
+    // Enforce finalized lock and pengampu assignment check
     $userRole = $user['role'] ?? 'pengampu';
     $stmtVal = $pdo->prepare('SELECT status FROM validasi WHERE mitra_id = ?');
     $stmtVal->execute([$id]);
@@ -107,7 +107,7 @@ if ($id > 0) {
         $canManage = false;
     }
 
-    /* ── TAMBAH RENCANA KERJA DARI EDIT FORM ─────────────────── */
+    // Tambah rencana kerja dari edit form
     if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'add_rencana_kerja') {
         $csrfToken = isset($_POST['csrf_token']) && is_string($_POST['csrf_token']) ? $_POST['csrf_token'] : null;
         if (!verifyCsrfToken($csrfToken)) {
@@ -153,7 +153,7 @@ if ($id > 0) {
             $bidang     = $_POST['bidang'] ?? ($mitra['bidang'] ?? 'AHU');
             $jenis      = $_POST['jenis'] ?? $mitra['jenis'];
             $pksIndukId = !empty($_POST['pks_induk_id']) ? (int)$_POST['pks_induk_id'] : null;
-            // Bug 5.4: Cegah referensi diri sendiri sebagai PKS Induk
+            // Cegah referensi diri sendiri sebagai PKS Induk
             if ($pksIndukId === $id) {
                 $pksIndukId = null;
             }
@@ -198,7 +198,7 @@ if ($id > 0) {
                     $fileNaskah = 'public/uploads/' . $targetName;
                     $newFileUploaded = true;
                 } else {
-                    // Bug 5.5: Cek hasil move_uploaded_file
+                    // Cek hasil move_uploaded_file
                     $errors[] = 'Gagal menyimpan berkas scan naskah di server.';
                 }
             } else {
@@ -216,7 +216,7 @@ if ($id > 0) {
                 if (move_uploaded_file($_FILES['foto_kerjasama']['tmp_name'], $targetPath)) {
                     $fotoKerjasama = 'public/uploads/' . $targetName;
                 } else {
-                    // Bug 5.5: Cek hasil move_uploaded_file
+                    // Cek hasil move_uploaded_file
                     $errors[] = 'Gagal menyimpan berkas foto kerja sama di server.';
                 }
             } else {
@@ -237,7 +237,7 @@ if ($id > 0) {
                 $stmtU = $pdo->prepare('UPDATE mitra_kinerja SET nama_mitra=?, judul=?, portofolio=?, bidang=?, jenis=?, pks_induk_id=?, tanggal_mulai=?, tanggal_berakhir=?, status_tanggal=?, cutoff_date=?, sumber_baseline=?, pic_internal=?, pic_mitra=?, evaluasi_per_tahun=?, file_naskah=?, foto_kerjasama=? WHERE id=?');
                 $stmtU->execute([$namaMitra, $judul, $portofolio, $bidang, $jenis, $pksIndukId, $mulai, $berakhir, $statusTgl, $cutoff, $sumber, $picInternal, $picMitra, $evaluasiPerTahun, $fileNaskah, $fotoKerjasama, $id]);
 
-                // Bug 3: Sinkronkan/hitung ulang siklus_monev agar milestone sesuai durasi/tanggal kontrak baru
+                // Sinkronkan/hitung ulang siklus_monev agar milestone sesuai durasi/tanggal kontrak baru
                 $keb = hitungKebutuhanScorecard($mulai, $berakhir, $evaluasiPerTahun);
                 if (!empty($keb['milestones'])) {
                     $stmtCurSM = $pdo->prepare('SELECT * FROM siklus_monev WHERE mitra_id = ?');
@@ -272,7 +272,7 @@ if ($id > 0) {
                     }
                 }
 
-                // Bug 15: Hanya perbarui status baseline elemen 1 jika tidak dikunci (atau jika user adalah admin)
+                // Hanya perbarui status baseline elemen 1 jika tidak dikunci (atau jika user adalah admin)
                 if ($newFileUploaded && $fileNaskah) {
                     $isBaselineLocked = (($mitra['baseline_status'] ?? '') === 'TERVERIFIKASI / DIKUNCI');
                     if (!$isBaselineLocked || $userRole === 'admin') {
@@ -351,7 +351,7 @@ if ($id > 0) {
         <select name="pks_induk_id">
             <option value="">- Tidak ada (Bukan Turunan) -</option>
             <?php foreach ($mouOptions as $mou): ?>
-            <?php if ((int)$mou['id'] === $id) continue; // Bug 5.4: Hindari memilih diri sendiri sebagai induk ?>
+            <?php if ((int)$mou['id'] === $id) continue; // Hindari memilih diri sendiri sebagai induk ?>
             <option value="<?= $mou['id'] ?>" <?= (int)($mitra['pks_induk_id'] ?? 0) === (int)$mou['id'] ? 'selected' : '' ?>><?= h($mou['kode']) ?> &mdash; <?= h(singkat($mou['nama_mitra'], 35)) ?></option>
             <?php endforeach; ?>
         </select>
@@ -481,7 +481,7 @@ if ($id > 0) {
 <?php require __DIR__ . '/includes/footer.php'; ?>
 <?php exit; }
 
-/* ── LISTING + TAMBAH (tanpa ?id=) ─────────────────── */
+// LISTING + TAMBAH (tanpa ?id=)
 $userRole = $user['role'] ?? 'pemeriksa';
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && empty($_POST['action'])) {
     $csrfToken = isset($_POST['csrf_token']) && is_string($_POST['csrf_token']) ? $_POST['csrf_token'] : null;
@@ -501,7 +501,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && empty($_POST['action'])) {
         $picInternal = trim($_POST['pic_internal'] ?? '');
         $picMitra    = trim($_POST['pic_mitra'] ?? '');
 
-        // Bug 9: Validasi enum values pada pembuatan mitra baru
+        // Validasi enum values pada pembuatan mitra baru
         $validPortofolio = ['Pilot Utama', 'Cadangan'];
         $validJenis = ['PKS', 'MoU'];
         $validBidang = ['AHU', 'KI', 'P3H', 'PPL', 'Keuangan', 'Humas', 'SDM'];
@@ -531,7 +531,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && empty($_POST['action'])) {
             if (move_uploaded_file($_FILES['file_naskah_pdf']['tmp_name'], $targetPath)) {
                 $fileNaskah = 'public/uploads/' . $targetName;
             } else {
-                // Bug 5.5: Cek hasil move_uploaded_file
+                // Cek hasil move_uploaded_file
                 $errors[] = 'Gagal menyimpan berkas scan naskah PDF ke server.';
             }
         } else {
@@ -546,14 +546,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && empty($_POST['action'])) {
         $errors[] = 'Tanggal berakhir tidak boleh lebih awal dari tanggal mulai.';
     }
     if (empty($errors)) {
-        // Bug 5.1: Bungkus pembuatan mitra multi-tabel dalam transaksi database PDO
+        // Bungkus pembuatan mitra multi-tabel dalam transaksi database PDO
         $pdo->beginTransaction();
         try {
             $pksInduk = !empty($_POST['pks_induk_id']) ? (int)$_POST['pks_induk_id'] : null;
-            // Bug 10.4: Set default cutoff_date (tanggal mulai atau hari ini) agar EWS Masa Berlaku berfungsi
+            // Set default cutoff_date (tanggal mulai atau hari ini) agar EWS Masa Berlaku berfungsi
             $cutoff = !empty($_POST['cutoff_date']) ? $_POST['cutoff_date'] : ($mulai ?: date('Y-m-d'));
 
-            // Bug 19: Inisialisasi baseline_status ke 'DALAM PROSES' jika berkas scan naskah diunggah (karena elemen 1 terverifikasi)
+            // Inisialisasi baseline_status ke 'DALAM PROSES' jika berkas scan naskah diunggah (karena elemen 1 terverifikasi)
             $baselineStatusInit = !empty($fileNaskah) ? 'DALAM PROSES' : 'BELUM DIISI';
 
             $stmt = $pdo->prepare('INSERT INTO mitra_kinerja (kode, portofolio, nama_mitra, judul, bidang, jenis, pks_induk_id, tanggal_mulai, tanggal_berakhir, status_tanggal, cutoff_date, evaluasi_per_tahun, pic_internal, pic_mitra, file_naskah, baseline_status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
@@ -571,7 +571,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && empty($_POST['action'])) {
                 $stmtRK->execute([$mid, $rkJudul, $rkRuang, $rkMulai, $rkSelesai, 'Disetujui']);
             }
 
-            // Bug 10.3: Inisialisasi Siklus Monev Berkala saat mitra baru dibuat
+            // Inisialisasi Siklus Monev Berkala saat mitra baru dibuat
             $keb = hitungKebutuhanScorecard($mulai, $berakhir, $evaluasiPerTahun);
             if (!empty($keb['milestones'])) {
                 foreach ($keb['milestones'] as $ms) {
@@ -609,7 +609,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && empty($_POST['action'])) {
                 $pdo->prepare("INSERT INTO early_warning (mitra_id,dimensi,status,progres) VALUES (?,?,'V0','BELUM MULAI')")->execute([$mid,$d]);
             }
 
-            // Bug 10.1: Gunakan teks 5 pemicu standar saat seeding intervensi_pimpinan
+            // Gunakan teks 5 pemicu standar saat seeding intervensi_pimpinan
             $pemicu = [
                 'Perlu keputusan perpanjangan/addendum/evaluasi/pengakhiran',
                 'Hambatan lintas unit di luar kewenangan PIC/unit',
@@ -623,7 +623,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && empty($_POST['action'])) {
 
             $pdo->prepare("INSERT INTO validasi (mitra_id, status) VALUES (?, 'BELUM')")->execute([$mid]);
 
-            // Bug 5.2: Panggil syncStatusScorecard agar status terinisialisasi dengan benar (menjadi 'BELUM DINILAI')
+            // Panggil syncStatusScorecard agar status terinisialisasi dengan benar (menjadi 'BELUM DINILAI')
             syncStatusScorecard($pdo, $mid);
 
             $pdo->commit();
@@ -752,7 +752,7 @@ require __DIR__ . '/includes/header.php';
         <div class="field"><label>PIC Internal</label><input type="text" name="pic_internal" placeholder="Nama & kontak PIC Kanwil"></div>
         <div class="field"><label>PIC Mitra</label><input type="text" name="pic_mitra" placeholder="Nama & kontak PIC Mitra"></div>
 
-        <!-- Bug 5.3: Input Rencana Kerja Tahunan Awal pada form tambah naskah -->
+        <!-- Input Rencana Kerja Tahunan Awal pada form tambah naskah -->
         <div class="field" style="grid-column:1/-1;border-top:1px dashed #cbd5e1;padding-top:12px;margin-top:6px;">
             <label style="font-weight:600;color:#1e40af;">Rencana Kerja Tahunan Awal (Opsional)</label>
             <div class="muted" style="font-size:11px;margin-bottom:6px;">Jika sudah ada rencana kerja tahunan/program aksi awal, dapat langsung didaftarkan di sini.</div>

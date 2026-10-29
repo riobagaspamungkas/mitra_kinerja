@@ -28,7 +28,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 if ($mitraId <= 0 || $tindakan === '') {
                     $errors[] = 'Pilih naskah dan isi tindakan.';
                 } else {
-                    // BUG-TL-02: FK validation
+                    // FK validation
                     $chk = $pdo->prepare('SELECT id FROM mitra_kinerja WHERE id = ?');
                     $chk->execute([$mitraId]);
                     if (!$chk->fetch()) {
@@ -56,7 +56,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                                 } elseif ($_FILES['file_bukti']['size'] > 25 * 1024 * 1024) {
                                     $errors[] = 'Ukuran file bukti melebihi batas maksimum 25MB.';
                                 } else {
-                                    // BUG-TL-01: Validasi keaslian file (magic bytes)
+                                    // Validasi keaslian file (magic bytes)
                                     $tmpPath = $_FILES['file_bukti']['tmp_name'];
                                     $magicOk = false;
                                     if ($ext === 'pdf') {
@@ -90,7 +90,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                         }
 
                         if (empty($errors)) {
-                            // BUG-TL-02: try/catch on insert
+                            // try/catch on insert
                             try {
                                 $stmt = $pdo->prepare('INSERT INTO tindak_lanjut (mitra_id, tindakan, tenggat, file_bukti) VALUES (?, ?, ?, ?)');
                                 $stmt->execute([$mitraId, $tindakan, $tenggat ?: null, $fileBukti]);
@@ -142,7 +142,7 @@ if ($filterMitraId > 0) {
 }
 
 $tindakLanjut = getTindakLanjut($pdo, $filterMitraId);
-// BUG-TL-05: Completed tasks (Selesai) placed at the bottom; valid imminent deadlines before NULL or '0000-00-00'
+// Completed tasks (Selesai) placed at the bottom; valid imminent deadlines before NULL or '0000-00-00'
 usort($tindakLanjut, function($a, $b) {
     $isDoneA = ($a['status'] ?? '') === 'Selesai';
     $isDoneB = ($b['status'] ?? '') === 'Selesai';

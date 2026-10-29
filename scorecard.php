@@ -83,7 +83,7 @@ function formatKeputusanPimpinan(?string $hasilUji): array {
 }
 }
 
-// ── PROSES IMPORT SCORECARD EXCEL (.xlsx) ──────────────────────────────────
+// PROSES IMPORT SCORECARD EXCEL (.xlsx)
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] ?? ''), ['import_scorecard', 'import_naskah'], true)) {
     $csrfToken = isset($_POST['csrf_token']) && is_string($_POST['csrf_token']) ? $_POST['csrf_token'] : null;
     if (!verifyCsrfToken($csrfToken)) {
@@ -96,13 +96,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] 
         $stmtM->execute([$targetId]);
         $targetMitra = $stmtM->fetch();
 
-        // Bug 4: Enforce assignment check for role 'pengampu' matching mitra_edit.php
+        // Enforce assignment check for role 'pengampu' matching mitra_edit.php
         $isAssigned = $targetMitra && ((!empty($targetMitra['pemeriksa_id']) && (int)$targetMitra['pemeriksa_id'] === (int)$user['id'])
             || (!empty($targetMitra['pic_internal']) && stripos($targetMitra['pic_internal'], $user['nama'] ?? $user['username'] ?? '') !== false));
         $canImportThisMitra = in_array($userRole, ['admin', 'pemeriksa'], true)
             || ($userRole === 'pengampu' && ($isAssigned || empty($targetMitra['pemeriksa_id'])));
 
-        // Bug 3: Prevent non-admin users from importing over finalized/validated scorecards
+        // Prevent non-admin users from importing over finalized/validated scorecards
         $targetValStatus = 'BELUM';
         if ($targetId > 0) {
             $stmtVal = $pdo->prepare('SELECT status FROM validasi WHERE mitra_id = ?');
@@ -179,7 +179,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] 
                         $weights = ['I1' => 10, 'I2' => 15, 'I3' => 15, 'I4' => 20, 'I5' => 20, 'I6' => 10, 'I7' => 10];
                         $updatedScorecard = 0;
 
-                        // Bug 1.2: Wrap multi-row Excel import in a PDO database transaction
+                        // Wrap multi-row Excel import in a PDO database transaction
                         $pdo->beginTransaction();
                         try {
                             foreach ($scRows as $rIdx => $row) {
@@ -221,7 +221,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] 
                                     $statusPem = 'BUKTI CUKUP';
                                 }
 
-                                // Bug 1.1: Range-clamp imported scores max(0, min(4, $rawSkor)), and set score to null if status is not DAPAT DINILAI / BUKTI MEMADAI
+                                // Range-clamp imported scores max(0, min(4, $rawSkor)), and set score to null if status is not DAPAT DINILAI / BUKTI MEMADAI
                                 if (in_array($statusPem, ['DAPAT DINILAI', 'BUKTI MEMADAI', 'BUKTI CUKUP'], true) && is_numeric($rawSkor)) {
                                     $skor = max(0, min(4, (int)$rawSkor));
                                     $nilai = round(($skor / 4.0) * $bobot, 2);
@@ -234,8 +234,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] 
                                 $stmtCheck = $pdo->prepare('SELECT id FROM indikator_skor WHERE mitra_id = ? AND kode_indikator = ?');
                                 $stmtCheck->execute([$targetId, $kodeInd]);
                                 if ($stmtCheck->fetch()) {
-                                    // Bug 7.2: Include bobot in UPDATE query
-                                    // Bug 1.4: If sheet name is SCORECARD, don't overwrite temuan_bukti with empty string if not found
+                                    // Include bobot in UPDATE query
+                                    // If sheet name is SCORECARD, don't overwrite temuan_bukti with empty string if not found
                                     if ($isPenilaianLayout || $evidenceLoc !== '') {
                                         $stmtU = $pdo->prepare('UPDATE indikator_skor SET bobot = ?, status_pemeriksaan = ?, kondisi_baseline = ?, kondisi_saat_ini = ?, temuan_bukti = ?, skor = ?, alasan_skor = ?, catatan_tindak_lanjut = ?, nilai = ?, referensi_baseline = ? WHERE mitra_id = ? AND kode_indikator = ?');
                                         $stmtU->execute([$bobot, $statusPem, $kondisiBaseline, $kondisi, $evidenceLoc, $skor, $alasanSkor, $catatanTl, $nilai, $kondisiBaseline, $targetId, $kodeInd]);
@@ -315,7 +315,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] 
                                     $posisiPortofolio = trim($posisiPortofolio);
                                 }
 
-                                // Bug 16: Periksa status validasi untuk pembatasan import status FINAL bagi non-admin
+                                // Periksa status validasi untuk pembatasan import status FINAL bagi non-admin
                                 $stmtValChk = $pdo->prepare('SELECT status FROM validasi WHERE mitra_id = ?');
                                 $stmtValChk->execute([$targetId]);
                                 $isValApproved = ($stmtValChk->fetchColumn() === 'DISETUJUI');
@@ -344,7 +344,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] 
                                     $pdo->prepare('UPDATE mitra_kinerja SET ' . implode(', ', $uSqlParts) . ' WHERE id = ?')->execute($uParams);
                                 }
 
-                                // Bug 7.1: Check for PIC in PENILAIAN or KENDALI sheets where official templates store PIC data
+                                // Check for PIC in PENILAIAN or KENDALI sheets where official templates store PIC data
                                 $picInternalFound = '';
                                 $picMitraFound = '';
                                 $picFocalPoint = '';
@@ -421,7 +421,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] 
                                 // Sinkronkan status scorecard dan nilai final di DB
                                 syncStatusScorecard($pdo, $targetId);
 
-                                // Bug 1.3 & Bug 15: Validasi status_scorecard dari spreadsheet terhadap nilai yang diizinkan
+                                // Validasi status_scorecard dari spreadsheet terhadap nilai yang diizinkan
                                 $allowedScStatuses = [
                                     'SIAP DIVALIDASI',
                                     'FINAL/TERVALIDASI',
@@ -444,7 +444,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] 
                                         $normStatus = 'MASA IMPLEMENTASI AWAL';
                                     }
                                     if (in_array($normStatus, $allowedScStatuses, true)) {
-                                        // Bug 16: Do not allow non-admin users to import 'FINAL/TERVALIDASI' without validator sign-off; clamp to 'SIAP DIVALIDASI'
+                                        // Do not allow non-admin users to import 'FINAL/TERVALIDASI' without validator sign-off; clamp to 'SIAP DIVALIDASI'
                                         if (in_array($normStatus, ['FINAL', 'FINAL/TERVALIDASI'], true) && $importerRole !== 'admin' && !$isValApproved) {
                                             $validScStatus = 'SIAP DIVALIDASI';
                                         } else {

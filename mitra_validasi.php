@@ -18,7 +18,7 @@ if ($id > 0 && $userRole === 'pemeriksa') {
     exit;
 }
 
-/* ── LIST VIEW (Jika tidak ada ?id=) ──────────────────────── */
+// LIST VIEW (Jika tidak ada ?id=)
 if ($id <= 0) {
     $all = getAllMitraSummary($pdo);
     // Urutkan Pilot Utama terlebih dahulu (P01..P13), disusul Cadangan (C01..C05)
@@ -169,7 +169,7 @@ if ($id <= 0) {
     exit;
 }
 
-/* ── DETAIL & FORM VALIDASI (Jika ada ?id=) ───────────────── */
+// DETAIL & FORM VALIDASI (Jika ada ?id=)
 $stmt = $pdo->prepare('SELECT * FROM mitra_kinerja WHERE id = ?');
 $stmt->execute([$id]);
 $mitra = $stmt->fetch();

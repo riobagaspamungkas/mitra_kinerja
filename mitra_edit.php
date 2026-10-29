@@ -21,14 +21,14 @@ $stmtVal = $pdo->prepare('SELECT status FROM validasi WHERE mitra_id = ?');
 $stmtVal->execute([$id]);
 $currentValStatus = $stmtVal->fetchColumn() ?: 'BELUM';
 
-// Bug 8.3: Role pengampu diizinkan mengedit jika ditugaskan
+// Role pengampu diizinkan mengedit jika ditugaskan
 $isAssigned = (!empty($mitra['pemeriksa_id']) && (int)$mitra['pemeriksa_id'] === (int)$user['id'])
     || (!empty($mitra['pic_internal']) && stripos($mitra['pic_internal'], $user['nama'] ?? $user['username'] ?? '') !== false);
 
 $canEdit = in_array($userRole, ['admin', 'pemeriksa'], true)
     || ($userRole === 'pengampu' && ($isAssigned || empty($mitra['pemeriksa_id'])));
 
-// Bug 2.2: Kunci naskah jika FINAL/TERVALIDASI atau validasi DISETUJUI (hanya admin yang dapat mengubah)
+// Kunci naskah jika FINAL/TERVALIDASI atau validasi DISETUJUI (hanya admin yang dapat mengubah)
 $isLockedFinal = (in_array($mitra['status_scorecard'] ?? '', ['FINAL/TERVALIDASI', 'FINAL'], true) || $currentValStatus === 'DISETUJUI');
 if ($isLockedFinal && $userRole !== 'admin') {
     $canEdit = false;
@@ -50,7 +50,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     $pdo->beginTransaction();
     try {
-        // --- A. Identitas, kontrol, posisi & rekomendasi ---
+        // A. Identitas, kontrol, posisi & rekomendasi
         $statusTanggal = in_array($_POST['status_tanggal'] ?? '', ['TERVERIFIKASI','BELUM TERVERIFIKASI'], true)
             ? $_POST['status_tanggal'] : ($mitra['status_tanggal'] ?? 'BELUM TERVERIFIKASI');
         $posisiPortofolio = trim($_POST['posisi_portofolio'] ?? '') ?: 'BELUM DAPAT DITENTUKAN';
@@ -93,8 +93,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $id,
         ]);
 
-        // --- B. Tujuh Indikator V2.1 (I1..I7) ---
-        // Bug 2.3: Gunakan INSERT ... ON DUPLICATE KEY UPDATE agar tidak silently match 0 baris
+        // B. Tujuh Indikator V2.1 (I1..I7)
+        // Gunakan INSERT ... ON DUPLICATE KEY UPDATE agar tidak silently match 0 baris
         foreach (['I1','I2','I3','I4','I5','I6','I7'] as $kode) {
             $status  = $_POST['status_' . $kode] ?? 'BELUM DITELAAH';
             $kondisiSaatIni = trim($_POST['kondisi_saat_ini_' . $kode] ?? '');
@@ -124,8 +124,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $stmtU2->execute([$id, $kode, $deskripsiExist, $bobot, $status, $kondisiSaatIni ?: null, $temuan ?: null, $skor, $alasan ?: null, $catatanTl ?: null, $nilai, $user['id']]);
         }
 
-        // --- D. Early warning (4 dimensi) ---
-        // Bug 2.3: Gunakan INSERT ... ON DUPLICATE KEY UPDATE
+        // D. Early warning (4 dimensi)
+        // Gunakan INSERT ... ON DUPLICATE KEY UPDATE
         foreach (['Masa berlaku','Aktivitas/tenggat','Data/eviden','PIC'] as $dim) {
             $key = preg_replace('/[^a-zA-Z]/', '', $dim);
             $fakta    = trim($_POST['warn_fakta_' . $key] ?? '');
@@ -156,8 +156,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             }
         }
 
-        // --- E. Uji kebutuhan intervensi pimpinan (5 pemicu) ---
-        // Bug 2.3: Gunakan INSERT ... ON DUPLICATE KEY UPDATE
+        // E. Uji kebutuhan intervensi pimpinan (5 pemicu)
+        // Gunakan INSERT ... ON DUPLICATE KEY UPDATE
         $standarPemicu = [
             1 => 'Perlu keputusan perpanjangan/addendum/evaluasi/pengakhiran',
             2 => 'Hambatan lintas unit di luar kewenangan PIC/unit',
@@ -187,10 +187,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         );
         $stmtU3->execute([$id, $kendala ?: null, $upaya ?: null, $keputusan ?: null]);
 
-        // Bug 2: Reset validasi status to 'BELUM' jika sebelumnya berstatus 'PERLU PERBAIKAN' (revisi baru dari pemeriksa)
+        // Reset validasi status to 'BELUM' jika sebelumnya berstatus 'PERLU PERBAIKAN' (revisi baru dari pemeriksa)
         resetValidasiJikaPerluPerbaikan($pdo, $id);
 
-        // Bug 4: Update active siklus_monev record only when corresponding to active review cycle or explicitly targeted
+        // Update active siklus_monev record only when corresponding to active review cycle or explicitly targeted
         // Prevents successive saves from draining future milestones
         $targetSMId = !empty($_POST['target_siklus_id']) ? (int)$_POST['target_siklus_id'] : (!empty($_POST['siklus_monev_id']) ? (int)$_POST['siklus_monev_id'] : (!empty($_POST['siklus_id']) ? (int)$_POST['siklus_id'] : null));
         $activeSMId = null;
@@ -243,7 +243,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             }
         }
 
-        // Bug 2.1: Call syncStatusScorecard inside the try-catch block before or alongside commit
+        // Call syncStatusScorecard inside the try-catch block before or alongside commit
         syncStatusScorecard($pdo, $id, true);
 
         // Allow 'BELUM DAPAT DITENTUKAN' and rich recommendation to be preserved without automatic forced reversion
@@ -314,7 +314,7 @@ require __DIR__ . '/includes/header.php';
     </div>
     <div class="kpi-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:92px;padding:10px 8px;">
         <?php
-        // Bug 8.1: Gunakan primary untuk SIAP DIVALIDASI agar memiliki kelas CSS valid
+        // Gunakan primary untuk SIAP DIVALIDASI agar memiliki kelas CSS valid
         $scBadgeColor = match($summary['status_scorecard']) {
             'FINAL/TERVALIDASI', 'FINAL' => 'success',
             'SIAP DIVALIDASI' => 'primary',
@@ -390,7 +390,7 @@ try {
         <div class="field">
             <label>Reviewer/Pengelola</label>
             <?php
-            // Bug 8.2: Tampilkan nama reviewer aktual dari pemeriksa_id join users
+            // Tampilkan nama reviewer aktual dari pemeriksa_id join users
             $reviewerName = 'Belum Ditugaskan';
             if (!empty($mitra['pemeriksa_id'])) {
                 $stmtRev = $pdo->prepare('SELECT nama FROM users WHERE id = ?');

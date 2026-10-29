@@ -34,7 +34,7 @@ $templateMap = [
     'P13' => ['file' => 'public/templates/template_scorecard_v2_1.xlsx', 'label' => 'Scorecard Template V2.1 (P13)'],
 ];
 
-// ── PROSES IMPORT WORKBOOK EXCEL ──────────────────────────────────────────
+// Proses import workbook excel
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'import_naskah') {
     $csrfToken = isset($_POST['csrf_token']) && is_string($_POST['csrf_token']) ? $_POST['csrf_token'] : null;
     if (!verifyCsrfToken($csrfToken)) {
@@ -83,7 +83,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                     $canImportThisMitra = in_array($userRole, ['admin', 'pemeriksa'], true)
                         || ($userRole === 'pengampu' && ($isAssigned || empty($targetMitra['pemeriksa_id'])));
 
-                    // BUG-IM-01 & Bug 5: Allow admin ($isAdmin) to import baseline data on locked records matching baseline.php
+                    // & Bug 5: Allow admin ($isAdmin) to import baseline data on locked records matching baseline.php
                     $isTargetLocked = str_contains($targetMitra['baseline_status'] ?? '', 'DIKUNCI');
                     if (!$canImportThisMitra) {
                         $errors[] = 'Akses ditolak: Sebagai role pengampu, Anda hanya diizinkan mengimpor data untuk naskah yang ditugaskan kepada Anda.';
@@ -92,7 +92,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                     } elseif ($importType === 'baseline' && $isTargetLocked && !$isAdmin) {
                         $errors[] = "Data Baseline untuk naskah {$targetMitra['kode']} telah dikunci (TERVERIFIKASI / DIKUNCI) dan tidak dapat di-import ulang.";
                     } else {
-                        // BUG-IM-05: Wrap multi-table import in a database transaction
+                        // Wrap multi-table import in a database transaction
                         $pdo->beginTransaction();
                         try {
                             // Temukan Sheet Baseline & Sheet Scorecard
@@ -186,13 +186,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                     // Baca metadata pemeriksa & cut-off jika ada
                     $pemeriksaRaw = trim((string)($baseRows[5][8] ?? $baseRows[5][7] ?? $baseRows[5][3] ?? ''));
                     $pemeriksaVal = '';
-                    // BUG-IM-06: Guard against placeholder text [NAMA PEMERIKSA]
+                    // Guard against placeholder text [NAMA PEMERIKSA]
                     if ($pemeriksaRaw !== '' && !preg_match('/^\[.*\]$/', $pemeriksaRaw) && stripos($pemeriksaRaw, 'nama pemeriksa') === false && $pemeriksaRaw !== '-') {
                         $pemeriksaVal = $pemeriksaRaw;
                     }
 
                     $cutoffVal = $baseRows[8][8] ?? $baseRows[8][7] ?? $baseRows[8][2] ?? '';
-                    // BUG-IM-02 & Bug 10: Convert Excel serial dates & support textual Indonesian date formats
+                    // & Bug 10: Convert Excel serial dates & support textual Indonesian date formats
                     $cutoffDate = null;
                     if (!empty($cutoffVal)) {
                         $cStr = trim((string)$cutoffVal);
@@ -225,7 +225,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                         $linkBukti = trim((string)($row[8] ?? ''));
                         $catatan = trim((string)($row[9] ?? ''));
 
-                        // BUG-BL-01, BUG-BL-02: Normalisasi status secara cerdas
+                        // Normalisasi status secara cerdas
                         $finalStatus = 'BELUM DIISI';
                         if (str_contains($rawStatus, 'BELUM TERVERIFIKASI') || str_contains($rawStatus, 'BELUM SESUAI') || str_contains($rawStatus, 'TIDAK SESUAI')) {
                             $finalStatus = 'BELUM TERVERIFIKASI';
@@ -335,7 +335,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                             $catatanTl = '';
                         }
 
-                        // BUG-IM-03: Normalisasi status pemeriksaan (cegah 'BUKTI BELUM CUKUP' menjadi 'BUKTI CUKUP')
+                        // Normalisasi status pemeriksaan (cegah 'BUKTI BELUM CUKUP' menjadi 'BUKTI CUKUP')
                         $statusPem = 'BELUM DITELAAH';
                         if (str_contains($rawStatus, 'BELUM DAPAT') || str_contains($rawStatus, 'BELUM DINILAI')) {
                             $statusPem = 'BELUM DAPAT DINILAI';
@@ -347,7 +347,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                             $statusPem = 'BUKTI CUKUP';
                         }
 
-                        // Bug 22, BUG-IM-10: In scorecard import, compute $nilai deterministically from $skor and $bobot; do not use raw formula cell value if $skor is null
+                        // In scorecard import, compute $nilai deterministically from $skor and $bobot; do not use raw formula cell value if $skor is null
                         if (!in_array($statusPem, ['BUKTI MEMADAI', 'BUKTI CUKUP'], true)) {
                             $skor = null;
                             $nilai = null;
@@ -446,7 +446,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                             $val = trim((string)($pRow[2] ?? ''));
                         }
 
-                        // BUG-BL-06: Do not let "Nama Mitra" label overwrite pic_mitra with organization name
+                        // Do not let "Nama Mitra" label overwrite pic_mitra with organization name
                         if (str_contains($label, 'pic mitra') || str_contains($label, 'focal point mitra') || (str_contains($label, 'pic') && str_contains($label, 'mitra'))) {
                             if (!empty($val)) $picMitraFound = $val;
                         } elseif (str_contains($label, 'pic internal') || str_contains($label, 'pengampu') || str_contains($label, 'focal point internal')) {
@@ -470,7 +470,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                     }
                 }
 
-                // Commit transaction (BUG-IM-05 & Bug 16)
+                // Commit transaction
                 $totalUpdated = $updatedBaseline + $updatedScorecard;
                 if ($totalUpdated === 0) {
                     if ($pdo->inTransaction()) {
@@ -482,7 +482,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
 
                     if ($importType === 'baseline') {
                         logAudit($targetId, $user['id'], 'IMPORT_BASELINE', "Import Baseline untuk {$targetMitra['kode']}: {$updatedBaseline} elemen diperbarui.");
-                        // Bug 17: Only claim status is locked if $filledCount >= 12 and status was actually locked
+                        // Only claim status is locked if $filledCount >= 12 and status was actually locked
                         $statusClaim = (isset($filledCount) && $filledCount >= 12)
                             ? "&bull; Status Baseline naskah telah dikunci (TERVERIFIKASI / DIKUNCI).<br>"
                             : "&bull; Status Baseline naskah: DALAM PROSES (" . ($filledCount ?? 0) . "/12 elemen terisi).<br>";
@@ -518,7 +518,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
 }
 
 // Ambil daftar seluruh naskah kerja sama
-// BUG-IM-07, BUG-IM-08: Count filled vs verified accurately, and order by Pilot Utama before Cadangan
+// Count filled vs verified accurately, and order by Pilot Utama before Cadangan
 $stmt = $pdo->query('
     SELECT m.*, 
            (SELECT COUNT(*) FROM baseline_elemen WHERE mitra_id = m.id AND status = "TERVERIFIKASI") as total_terverifikasi,

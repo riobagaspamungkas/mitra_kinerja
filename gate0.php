@@ -12,7 +12,7 @@ $canDecide = in_array($role, ['admin', 'pimpinan'], true);
 $errors = [];
 $success = '';
 
-/* ── DEFINISI 18 PERTANYAAN UJI (5 KRITERIA INTI) ────────── */
+// Definisi 18 pertanyaan uji (5 kriteria inti)
 const GATE0_CRITERIA = [
     'K1' => [
         'kode' => 'K1',
@@ -64,7 +64,7 @@ const GATE0_CRITERIA = [
     ]
 ];
 
-/* ── DEFINISI 7 TRIGGER KARAKTERISTIK KHUSUS ─────────────── */
+// Definisi 7 trigger karakteristik khusus
 const GATE0_TRIGGERS = [
     1 => [
         'judul' => 'Pihak Asing / Lembaga Internasional',
@@ -103,7 +103,7 @@ const GATE0_TRIGGERS = [
     ]
 ];
 
-/* ── 1. TAMBAH USULAN PRA-PKS ────────────────────────────── */
+// Tambah usulan pra-pks
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'create') {
     $csrfToken = isset($_POST['csrf_token']) && is_string($_POST['csrf_token']) ? $_POST['csrf_token'] : null;
     if (!verifyCsrfToken($csrfToken)) {
@@ -160,7 +160,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
             }
         }
 
-        // BUG-G0-02: Evaluasi rekomendasi Gate 0:
+        // Evaluasi rekomendasi Gate 0:
         $semuaKriteriaYa = ($kSummary['K1'] === 'YA' && $kSummary['K2'] === 'YA' && $kSummary['K3'] === 'YA' && $kSummary['K4'] === 'YA' && $kSummary['K5'] === 'YA');
         $jumlahKriteriaYa = ($kSummary['K1'] === 'YA' ? 1 : 0) + ($kSummary['K2'] === 'YA' ? 1 : 0) + ($kSummary['K3'] === 'YA' ? 1 : 0) + ($kSummary['K4'] === 'YA' ? 1 : 0) + ($kSummary['K5'] === 'YA' ? 1 : 0);
 
@@ -184,7 +184,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
         if ($nomorUsulan === '' || $calonMitra === '' || $judulRencana === '') {
             $errors[] = 'Nomor Usulan, Calon Mitra, dan Judul Rencana wajib diisi.';
         } elseif ($mulai && $selesai && $selesai < $mulai) {
-            // Bug 9: Validasi perkiraan_selesai >= perkiraan_mulai
+            // Validasi perkiraan_selesai >= perkiraan_mulai
             $errors[] = 'Perkiraan tanggal selesai tidak boleh lebih awal dari perkiraan tanggal mulai.';
         } else {
             // Cek nomor usulan sudah terdaftar
@@ -225,7 +225,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                         $catatanVerif, $gapPenutupan, $unitReviu, $batasWaktu,
                         $statusRekomendasi, $initialStatus, $user['id']
                     ]);
-                    // BUG-G0-13: Audit log on create
+                    // Audit log on create
                     logAudit(0, $user['id'], 'GATE0_CREATE', "Pengajuan usulan Gate 0: {$nomorUsulan} ({$calonMitra}) - Status: {$initialStatus}");
                     $success = 'Usulan Gate 0 <strong>' . htmlspecialchars($nomorUsulan) . '</strong> berhasil ' . ($initialStatus === 'Draft' ? 'disimpan sebagai Draft.' : 'diajukan ke Pimpinan.') . ' Evaluasi 18 pertanyaan uji & 7 trigger khusus terverifikasi.';
                 } catch (PDOException $e) {
@@ -236,7 +236,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
     }
 }
 
-/* ── 1.1 EDIT / UPDATE USULAN PRA-PKS (POPUP MODAL) ──────────────── */
+// Edit / update usulan pra-pks (popup modal)
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'update') {
     $csrfToken = isset($_POST['csrf_token']) && is_string($_POST['csrf_token']) ? $_POST['csrf_token'] : null;
     if (!verifyCsrfToken($csrfToken)) {
@@ -375,7 +375,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
     }
 }
 
-/* ── 1.2 SUBMIT USULAN DARI TABEL ────────────────────────────────── */
+// Submit usulan dari tabel
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'submit_proposal') {
     $csrfToken = isset($_POST['csrf_token']) && is_string($_POST['csrf_token']) ? $_POST['csrf_token'] : null;
     if (!verifyCsrfToken($csrfToken)) {
@@ -398,7 +398,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
     }
 }
 
-/* ── 2. KEPUTUSAN PIMPINAN ────────────────────────────────── */
+// Keputusan pimpinan
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'decision') {
     $csrfToken = isset($_POST['csrf_token']) && is_string($_POST['csrf_token']) ? $_POST['csrf_token'] : null;
     if (!verifyCsrfToken($csrfToken)) {
@@ -413,7 +413,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
         if ($idUsulan <= 0 || !in_array($statusPersetujuan, ['Disetujui Pimpinan', 'Dikembalikan untuk Revisi', 'Ditolak Pimpinan'], true)) {
             $errors[] = 'Data keputusan tidak valid.';
         } else {
-            // BUG-G0-12 & Bug 18: Prevent decision status change if proposal is already promoted to PKS, wrap in try/catch
+            // & Bug 18: Prevent decision status change if proposal is already promoted to PKS, wrap in try/catch
             try {
                 $chkP = $pdo->prepare('SELECT is_promoted_to_pks, nomor_usulan FROM pra_pks WHERE id = ?');
                 $chkP->execute([$idUsulan]);
@@ -425,7 +425,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                 } else {
                     $stmt = $pdo->prepare('UPDATE pra_pks SET status_persetujuan = ?, catatan_pimpinan = ?, tanggal_persetujuan = CURDATE(), pimpinan_id = ? WHERE id = ?');
                     $stmt->execute([$statusPersetujuan, $catatanPimpinan ?: null, $user['id'], $idUsulan]);
-                    // BUG-G0-13: Audit log on decision
+                    // Audit log on decision
                     logAudit(0, $user['id'], 'GATE0_DECISION', "Keputusan Gate 0 untuk usulan {$rowP['nomor_usulan']}: {$statusPersetujuan}");
                     $success = 'Keputusan dan disposisi pimpinan untuk usulan <strong>' . htmlspecialchars($rowP['nomor_usulan']) . '</strong> berhasil disimpan.';
                 }
@@ -436,7 +436,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
     }
 }
 
-/* ── 3. PROMOSI OTOMATIS KE PKS AKTIF ────────────────────── */
+// Promosi otomatis ke pks aktif
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'promote') {
     $csrfToken = isset($_POST['csrf_token']) && is_string($_POST['csrf_token']) ? $_POST['csrf_token'] : null;
     if (!verifyCsrfToken($csrfToken)) {
@@ -456,12 +456,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
         } else {
             $pdo->beginTransaction();
             try {
-                // BUG-G0-05: Tentukan kode baru berikutnya menggunakan MAX(CAST(SUBSTRING(kode, 2) AS UNSIGNED))
+                // Tentukan kode baru berikutnya menggunakan MAX(CAST(SUBSTRING(kode, 2) AS UNSIGNED))
                 $maxNum = (int)$pdo->query("SELECT MAX(CAST(SUBSTRING(kode, 2) AS UNSIGNED)) FROM mitra_kinerja WHERE kode REGEXP '^P[0-9]+$'")->fetchColumn();
                 $nextNum = $maxNum > 0 ? ($maxNum + 1) : 11;
                 $newKode = 'P' . str_pad($nextNum, 2, '0', STR_PAD_LEFT);
 
-                // BUG-G0-06: Tentukan Bidang terkait dengan word boundary regex
+                // Tentukan Bidang terkait dengan word boundary regex
                 $bidangCandidate = 'AHU';
                 $unitLower = strtolower($pra['unit_pemrakarsa'] . ' ' . ($pra['penanggung_jawab_usulan'] ?? ''));
                 if (str_contains($unitLower, 'kekayaan intelektual') || preg_match('/\bki\b/i', $unitLower)) $bidangCandidate = 'KI';
@@ -471,16 +471,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                 elseif (str_contains($unitLower, 'humas')) $bidangCandidate = 'Humas';
                 elseif (str_contains($unitLower, 'sdm') || str_contains($unitLower, 'kepegawaian')) $bidangCandidate = 'SDM';
 
-                // BUG-G0-03: Periksa apakah perkiraan_mulai kosong atau '0000-00-00'
+                // Periksa apakah perkiraan_mulai kosong atau '0000-00-00'
                 $mulaiRaw = trim((string)($pra['perkiraan_mulai'] ?? ''));
                 $mulaiPks = (!empty($mulaiRaw) && $mulaiRaw !== '0000-00-00' && strtotime($mulaiRaw) !== false) ? $mulaiRaw : date('Y-m-d');
                 $selesaiRaw = trim((string)($pra['perkiraan_selesai'] ?? ''));
                 $selesaiPks = (!empty($selesaiRaw) && $selesaiRaw !== '0000-00-00' && strtotime($selesaiRaw) !== false) ? $selesaiRaw : date('Y-m-d', strtotime($mulaiPks . ' +3 years'));
 
-                // BUG-G0-01: Map jenis_naskah 'Lainnya' to 'PKS'
+                // Map jenis_naskah 'Lainnya' to 'PKS'
                 $jenisMitra = in_array($pra['jenis_naskah'], ['PKS', 'MoU'], true) ? $pra['jenis_naskah'] : 'PKS';
 
-                // BUG-G0-07: Inisialisasi posisi_portofolio ke 'BELUM DAPAT DITENTUKAN' dan rekomendasi ke 'BELUM DITENTUKAN'
+                // Inisialisasi posisi_portofolio ke 'BELUM DAPAT DITENTUKAN' dan rekomendasi ke 'BELUM DITENTUKAN'
                 $stmtM = $pdo->prepare('INSERT INTO mitra_kinerja (
                     kode, portofolio, nama_mitra, judul, bidang, jenis, tanggal_mulai, tanggal_berakhir,
                     status_tanggal, evaluasi_per_tahun, baseline_status, cutoff_date, sumber_baseline, status_scorecard, posisi_portofolio, rekomendasi,
@@ -492,14 +492,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                 ]);
                 $newMitraId = (int)$pdo->lastInsertId();
 
-                // BUG-G0-14: Truncate / fit rencana_kerja judul_rencana to 255 chars
+                // Truncate / fit rencana_kerja judul_rencana to 255 chars
                 $rkJudul = 'Rencana Kerja ' . $pra['judul_rencana'];
                 $rkLen = function_exists('mb_strlen') ? mb_strlen($rkJudul) : strlen($rkJudul);
                 if ($rkLen > 255) {
                     $rkJudul = (function_exists('mb_substr') ? mb_substr($rkJudul, 0, 252) : substr($rkJudul, 0, 252)) . '...';
                 }
 
-                // Bug 20: Clamp work plan duration so tanggal_selesai does not exceed $selesaiPks
+                // Clamp work plan duration so tanggal_selesai does not exceed $selesaiPks
                 $rkSelesai = date('Y-m-d', strtotime($mulaiPks . ' +1 year'));
                 if ($rkSelesai > $selesaiPks) {
                     $rkSelesai = $selesaiPks;
@@ -591,7 +591,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                 $pdo->prepare('UPDATE pra_pks SET is_promoted_to_pks = 1 WHERE id = ?')->execute([$idUsulan]);
 
                 $pdo->commit();
-                // BUG-G0-13: Audit log on promote
+                // Audit log on promote
                 logAudit($newMitraId, $user['id'], 'GATE0_PROMOTE', "Promosi usulan Gate 0 {$pra['nomor_usulan']} ke PKS {$newKode}");
                 $success = 'Usulan <strong>' . htmlspecialchars($pra['nomor_usulan']) . '</strong> berhasil dipromosikan menjadi PKS baru dengan kode <strong>' . $newKode . '</strong>!';
             } catch (Throwable $e) {
@@ -602,8 +602,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
     }
 }
 
-/* ── 4. HELPER PARSER EXCEL (.xlsx) & CSV ──────────────────── */
-// BUG-G0-04, Bug 1: Convert Excel serial date numbers to Y-m-d format & parse Indonesian dates
+// HELPER PARSER EXCEL (.xlsx) & CSV
+// Convert Excel serial date numbers to Y-m-d format & parse Indonesian dates
 function parseGate0Date($val): ?string {
     if (empty($val)) return null;
     $str = trim((string)$val);
@@ -675,7 +675,7 @@ function parseGate0Upload(string $tmpPath, string $origName): array {
             }
         }
         $rows = [];
-        // Bug 3: Parse sheet targets dynamically from xl/workbook.xml and relationships rather than hardcoding xl/worksheets/sheet1.xml
+        // Parse sheet targets dynamically from xl/workbook.xml and relationships rather than hardcoding xl/worksheets/sheet1.xml
         $sheetTarget = '';
         $relsContent = $zip->getFromName('xl/_rels/workbook.xml.rels');
         $relMap = [];
@@ -773,7 +773,7 @@ function parseGate0Upload(string $tmpPath, string $origName): array {
         $zip->close();
         return $rows;
     } else {
-        // BUG-G0-09: Use fgetcsv on a stream that respects multiline quotes
+        // Use fgetcsv on a stream that respects multiline quotes
         $content = file_get_contents($tmpPath);
         if (str_starts_with($content, "\xEF\xBB\xBF")) {
             $content = substr($content, 3);
@@ -794,7 +794,7 @@ function parseGate0Upload(string $tmpPath, string $origName): array {
     }
 }
 
-/* ── 5. IMPORT EXCEL (.xlsx) & CSV ────────────────────────── */
+// IMPORT EXCEL (.xlsx) & CSV
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'import_csv') {
     $csrfToken = isset($_POST['csrf_token']) && is_string($_POST['csrf_token']) ? $_POST['csrf_token'] : null;
     if (!verifyCsrfToken($csrfToken)) {
@@ -804,7 +804,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
     } elseif (!isset($_FILES['csv_file']) || $_FILES['csv_file']['error'] !== UPLOAD_ERR_OK) {
         $errors[] = 'Pilih file Excel (.xlsx) atau CSV yang valid.';
     } else {
-        // BUG-G0-16: Enforce allowed extensions (.xlsx, .csv) and 25MB file size cap
+        // Enforce allowed extensions (.xlsx, .csv) and 25MB file size cap
         $ext = strtolower(pathinfo($_FILES['csv_file']['name'], PATHINFO_EXTENSION));
         if (!in_array($ext, ['xlsx', 'csv'], true)) {
             $errors[] = 'Format file tidak didukung. Harap unggah file spreadsheet Excel (.xlsx) atau CSV (.csv).';
@@ -894,7 +894,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                     }
                 }
 
-                // BUG-G0-10: Lengkapi pertanyaan uji jika belum terisi (jangan fabrikasi YA)
+                // Lengkapi pertanyaan uji jika belum terisi (jangan fabrikasi YA)
                 for ($q = 1; $q <= 18; $q++) {
                     if (!isset($pertanyaanUji["q{$q}"])) {
                         $pertanyaanUji["q{$q}"] = ['jawab' => 'BELUM DITELAAH', 'bukti' => 'Belum ada data uji'];
@@ -931,7 +931,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                 $tujuan   = $getV(['Tujuan Singkat', 'tujuan_singkat'], '');
                 $ruang    = $getV(['Ruang Lingkup Utama', 'ruang_lingkup'], '');
                 $manfaat  = $getV(['Penerima Manfaat', 'penerima_manfaat'], '');
-                // BUG-G0-04: Convert Excel serial dates
+                // Convert Excel serial dates
                 $mulai    = parseGate0Date($getV(['Perkiraan Tanggal Mulai', 'perkiraan_mulai']));
                 $selesai  = parseGate0Date($getV(['Perkiraan Tanggal Selesai', 'perkiraan_selesai']));
 
@@ -944,7 +944,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                     if ($t['jawab'] === 'YA') { $adaTrigger = true; break; }
                 }
 
-                // BUG-G0-17: Rekomendasi vertikal import mencakup 'Tidak Prioritas / Tidak Layak'
+                // Rekomendasi vertikal import mencakup 'Tidak Prioritas / Tidak Layak'
                 $rawRek = trim($getV(['status_rekomendasi', 'rekomendasi'], ''));
                 if (in_array($rawRek, ['Layak', 'Perlu Penyempurnaan', 'Tidak Prioritas / Tidak Layak'], true)) {
                     $rekomendasi = $rawRek;
@@ -981,7 +981,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                         $savedFilePath = 'public/uploads/gate0/' . $targetFname;
                     }
 
-                    // BUG-G0-15: Wrap vertical import execution in try ... catch
+                    // Wrap vertical import execution in try ... catch
                     try {
                         $stmt = $pdo->prepare('
                             INSERT INTO pra_pks (
@@ -1031,10 +1031,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                 }
 
                 foreach ($dataRows as $row) {
-                    // Bug 19: In horizontal import, do not skip rows where column A is empty if colMap maps required fields on other columns
+                    // In horizontal import, do not skip rows where column A is empty if colMap maps required fields on other columns
                     if (empty(array_filter($row, fn($v) => trim((string)$v) !== ''))) continue;
 
-                    // BUG-G0-08: Fix $getVal fallback in horizontal import for column indices
+                    // Fix $getVal fallback in horizontal import for column indices
                     $getVal = function($keys, $def = '') use ($row, $colMap) {
                         foreach ((array)$keys as $k) {
                             if (is_int($k)) {
@@ -1065,7 +1065,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                     $tujuan   = $getVal(['tujuan_singkat', 7], '');
                     $ruang    = $getVal(['ruang_lingkup', 8], '');
                     $manfaat  = $getVal(['penerima_manfaat', 9], '');
-                    // BUG-G0-04: Convert Excel serial dates
+                    // Convert Excel serial dates
                     $mulai    = parseGate0Date($getVal(['perkiraan_mulai', 10]));
                     $selesai  = parseGate0Date($getVal(['perkiraan_selesai', 11]));
 
@@ -1076,7 +1076,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                     $hasQCols = isset($colMap['q1_tusi_kewenangan']) || isset($colMap['q1_jawab']);
                     if ($hasQCols) {
                         for ($q = 1; $q <= 18; $q++) {
-                            // BUG-G0-10, BUG-G0-19: Do not fabricate 'YA' answers or 'Dokumen terverifikasi' for unreviewed/unanswered questions; default to 'Belum ada data uji' matching vertical import
+                            // Do not fabricate 'YA' answers or 'Dokumen terverifikasi' for unreviewed/unanswered questions; default to 'Belum ada data uji' matching vertical import
                             $valRaw = $getVal(["q{$q}_jawab", "q{$q}_tusi_kewenangan", "q{$q}_sasaran_kinerja", "q{$q}_batas_kewenangan", "q{$q}_kebutuhan_nyata", "q{$q}_kejelasan_manfaat", "q{$q}_output_outcome", "q{$q}_daya_ungkit", "q{$q}_legalitas_mitra", "q{$q}_kapasitas_mitra", "q{$q}_integritas_reputasi", "q{$q}_peran_kontribusi", "q{$q}_focal_point", "q{$q}_kesiapan_sdm_anggaran", "q{$q}_indikator_awal", "q{$q}_manajemen_risiko", "q{$q}_tindak_lanjut_pascattd", "q{$q}_keberlanjutan_manfaat", "q{$q}_mitigasi_hambatan"], '');
                             if ($valRaw === '') {
                                 $qAns = 'BELUM DITELAAH';
@@ -1121,7 +1121,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                     $gap = $getVal(['gap_penyempurnaan'], 'Tidak ada gap material.');
                     $unitRev = $getVal(['unit_review_tambahan'], 'Subbagian Humas, RB, dan TI');
 
-                    // BUG-G0-17: Rekomendasi horizontal import mencakup 'Tidak Prioritas / Tidak Layak'
+                    // Rekomendasi horizontal import mencakup 'Tidak Prioritas / Tidak Layak'
                     $rawRek = trim($getVal(['status_rekomendasi', 'rekomendasi'], ''));
                     if (in_array($rawRek, ['Layak', 'Perlu Penyempurnaan', 'Tidak Prioritas / Tidak Layak'], true)) {
                         $rek = $rawRek;
@@ -1149,7 +1149,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                         continue;
                     }
 
-                    // BUG-G0-11 & BUG-G0-18: Try/catch SQL exceptions
+                    // Try/catch SQL exceptions
                     try {
                         $stmt = $pdo->prepare('INSERT INTO pra_pks (
                             nomor_usulan, tipe_kerjasama, jenis_naskah, unit_pemrakarsa, penanggung_jawab_usulan,
@@ -1182,7 +1182,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
 }
 }
 
-/* ── VIEW ROUTER: DETAIL / PRINT FORM RESMI ───────────────── */
+// View router: detail / print form resmi
 $view = $_GET['view'] ?? 'list';
 $detailId = (int)($_GET['id'] ?? 0);
 
@@ -1437,7 +1437,7 @@ if (($view === 'detail' || $view === 'print') && $detailId > 0) {
     exit;
 }
 
-/* ── DATA QUERY ───────────────────────────────────────────── */
+// Data query
 $usulanList = $pdo->query('SELECT * FROM pra_pks ORDER BY id DESC')->fetchAll();
 
 $totalUsulan = count($usulanList);
@@ -1825,7 +1825,7 @@ require __DIR__ . '/includes/header.php';
     </div>
 </div>
 
-<!-- BUG-FA-09: Modal Backdrop Overlay -->
+<!-- Modal Backdrop Overlay -->
 <div id="modalBackdrop" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.65);z-index:9990;backdrop-filter:blur(2px);" onclick="closeAllGate0Modals()"></div>
 
 <!-- Modal Tambah Usulan Lengkap (Formulir Gate 0) -->
@@ -2160,7 +2160,7 @@ function openDecisionModal(id, no, mitra) {
     document.getElementById('decUsulanId').value = id;
     document.getElementById('decUsulanNo').textContent = no;
     document.getElementById('decCalonMitra').textContent = mitra;
-    // Bug 26: In openDecisionModal(), clear/reset catatan_pimpinan textarea and status_persetujuan select on open
+    // In openDecisionModal(), clear/reset catatan_pimpinan textarea and status_persetujuan select on open
     var statusSelect = document.querySelector('#decisionModal select[name="status_persetujuan"]');
     if (statusSelect) statusSelect.selectedIndex = 0;
     var catatanText = document.querySelector('#decisionModal textarea[name="catatan_pimpinan"]');

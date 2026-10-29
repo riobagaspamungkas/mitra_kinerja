@@ -68,7 +68,7 @@ function getMitraSummary(PDO $pdo, array $mitra, bool $forceRecalculate = false)
     $stmt->execute([$mitra['id']]);
     $usulan = $stmt->fetch() ?: ['upaya_dilakukan' => null, 'keputusan_diminta' => null, 'uraian_kendala' => null];
 
-    // --- Baseline FIX 12 Elemen ---
+    // Baseline FIX 12 Elemen
     $baselineRows = [];
     try {
         $stmtB = $pdo->prepare('SELECT * FROM baseline_elemen WHERE mitra_id = ? ORDER BY nomor_elemen ASC');
@@ -93,7 +93,7 @@ function getMitraSummary(PDO $pdo, array $mitra, bool $forceRecalculate = false)
         'status' => $mitra['baseline_status'] ?? 'BELUM DIISI',
     ];
 
-    // --- Early warning: Masa berlaku 100% otomatis; 3 dimensi lain: status diturunkan dari kondisi ---
+    // Early warning: Masa berlaku 100% otomatis; 3 dimensi lain: status diturunkan dari kondisi
     $statusList = [];
     foreach ($warningRows as &$w) {
         if ($w['dimensi'] === 'Masa berlaku') {
@@ -299,9 +299,7 @@ function resetValidasiJikaPerluPerbaikan(PDO $pdo, int $mitraId): bool {
     return false;
 }
 
-/* ============================================================
- * TINDAK LANJUT
- * ============================================================ */
+// Tindak Lanjut
 
 /** Ambil data tindak lanjut, opsional difilter per mitra atau mengecualikan item yang telah selesai. */
 function getTindakLanjut(PDO $pdo, ?int $mitraId = null, int $limit = 0, bool $excludeSelesai = false): array {
@@ -329,9 +327,7 @@ function getTindakLanjut(PDO $pdo, ?int $mitraId = null, int $limit = 0, bool $e
     return $stmt->fetchAll();
 }
 
-/* ============================================================
- * DASHBOARD STATISTICS
- * ============================================================ */
+// Dashboard Statistics
 
 /** Statistik lengkap untuk dashboard. */
 function getDashboardStats(array $all): array {

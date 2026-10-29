@@ -49,7 +49,7 @@ function currentUser(bool $forceRefresh = false): ?array {
     }
     $_SESSION['last_activity'] = time();
 
-    // BUG-08: Re-check user status from DB to ensure session is still valid/active.
+    // Re-check user status from DB to ensure session is still valid/active.
     // If user is inactive or deleted, log them out immediately.
     try {
         $pdo = getDB();
