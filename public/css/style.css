@@ -58,7 +58,7 @@ a:hover { text-decoration: underline; }
         rgba(15, 43, 70, .55) 62%,   /* mulai transisi */
         rgba(15, 43, 70, .30) 78%,   /* foto makin kelihatan */
         rgba(15, 43, 70, .25) 100%), /* foto + tagline emas paling jelas di bawah */
-        url('../img/sidebar-coast.jpeg?v=999') center bottom / cover no-repeat,
+        url('../img/sidebar-coast.jpeg') center bottom / cover no-repeat,
         linear-gradient(180deg, var(--navy) 0%, var(--navy-dark) 100%);
 }
 .sidebar-nav { padding: 16px 0; flex: 1; overflow-y: auto; }
@@ -117,7 +117,7 @@ a:hover { text-decoration: underline; }
         #0f2b46 88%,
         #0f2b46 100%
     ),
-    url('../img/header-bridge.jpg?v=999') 55% center / 65% auto no-repeat,
+    url('../img/header-bridge.jpg') 55% center / 65% auto no-repeat,
     linear-gradient(90deg, var(--navy) 0%, #14456e 100%);
     box-shadow: 0 2px 12px rgba(10,31,51,.25);
 }
