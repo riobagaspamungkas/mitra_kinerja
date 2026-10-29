@@ -1123,19 +1123,28 @@ window.PORT_PARTNERS_DATA = <?= json_encode($partnersData, JSON_HEX_TAG | JSON_H
 function openTambahNaskahModal() {
     var m = document.getElementById('modalTambahNaskah');
     if (!m) return;
+    if (m.parentNode !== document.body) {
+        document.body.appendChild(m);
+    }
     document.getElementById('formTambahNaskah').reset();
     selectAllFormBidang('tambah', false);
     m.style.display = 'flex';
+    document.body.classList.add('modal-open');
 }
 
 function closeTambahNaskahModal() {
     var m = document.getElementById('modalTambahNaskah');
     if (m) m.style.display = 'none';
+    document.body.classList.remove('modal-open');
 }
 
 function openEditNaskahModal(id, initialTab) {
     var data = window.PORT_PARTNERS_DATA[id];
     if (!data) return;
+    var m = document.getElementById('modalEditNaskah');
+    if (m && m.parentNode !== document.body) {
+        document.body.appendChild(m);
+    }
 
     // Set header
     document.getElementById('editModalPartnerKode').textContent = data.kode || '-';
@@ -1189,12 +1198,14 @@ function openEditNaskahModal(id, initialTab) {
     // Show modal
     var m = document.getElementById('modalEditNaskah');
     if (m) m.style.display = 'flex';
+    document.body.classList.add('modal-open');
 }
 
 function closeEditNaskahModal() {
     var m = document.getElementById('modalEditNaskah');
     if (m) m.style.display = 'none';
     toggleAddRkBox(false);
+    document.body.classList.remove('modal-open');
 }
 
 function switchEditModalTab(tab) {
@@ -1263,6 +1274,11 @@ function openNestedEditRk(rkId, mitraId) {
     var rk = (data.rencana_kerja || []).find(function(item){ return item.id == rkId; });
     if (!rk) return;
 
+    var m = document.getElementById('modalNestedEditRk');
+    if (m && m.parentNode !== document.body) {
+        document.body.appendChild(m);
+    }
+
     document.getElementById('nested_rk_mitra_id').value = mitraId;
     document.getElementById('nested_rk_id').value = rk.id;
     document.getElementById('nested_rk_judul').value = rk.judul_rencana || '';
@@ -1270,7 +1286,6 @@ function openNestedEditRk(rkId, mitraId) {
     document.getElementById('nested_rk_mulai').value = rk.tanggal_mulai || '';
     document.getElementById('nested_rk_selesai').value = rk.tanggal_selesai || '';
 
-    var m = document.getElementById('modalNestedEditRk');
     if (m) m.style.display = 'flex';
 }
 
@@ -1286,7 +1301,7 @@ function confirmDeleteRk(rkId, mitraId) {
     document.getElementById('formDeleteRk').submit();
 }
 
-// Close modals when clicking outside
+// Close modals when clicking outside or pressing Escape
 window.addEventListener('click', function(e) {
     var mAdd = document.getElementById('modalTambahNaskah');
     var mEdit = document.getElementById('modalEditNaskah');
@@ -1294,6 +1309,14 @@ window.addEventListener('click', function(e) {
     if (e.target === mAdd) closeTambahNaskahModal();
     if (e.target === mEdit) closeEditNaskahModal();
     if (e.target === mNested) closeNestedEditRk();
+});
+
+window.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeTambahNaskahModal();
+        closeEditNaskahModal();
+        closeNestedEditRk();
+    }
 });
 
 // Dropdown multi-select helpers

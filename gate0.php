@@ -2088,9 +2088,13 @@ require __DIR__ . '/includes/header.php';
 function openGate0Modal(modalId) {
     closeAllGate0Modals();
     var bg = document.getElementById('modalBackdrop');
+    if (bg && bg.parentNode !== document.body) {
+        document.body.appendChild(bg);
+    }
     if (bg) bg.style.display = 'flex';
     var m = document.getElementById(modalId);
     if (m) m.style.display = 'flex';
+    document.body.classList.add('modal-open');
 }
 
 function closeAllGate0Modals() {
@@ -2100,7 +2104,14 @@ function closeAllGate0Modals() {
     });
     var bg = document.getElementById('modalBackdrop');
     if (bg) bg.style.display = 'none';
+    document.body.classList.remove('modal-open');
 }
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeAllGate0Modals();
+    }
+});
 
 function handleGate0BackdropClick(e) {
     if (e.target && e.target.id === 'modalBackdrop') {
