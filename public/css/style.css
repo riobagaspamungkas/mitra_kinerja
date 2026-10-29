@@ -177,6 +177,18 @@ a:hover { text-decoration: underline; }
 }
 .header-user .btn-logout:hover { background: rgba(255,255,255,.15); color: #fff; text-decoration: none; }
 
+/* ---------- Fluid Page Transition Keyframes & Styles ---------- */
+@keyframes pageFadeSlideIn {
+    0% {
+        opacity: 0.2;
+        transform: translateY(6px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /* Page Body — offset from sidebar */
 .page-body {
     padding: 24px 28px 40px;
@@ -185,7 +197,50 @@ a:hover { text-decoration: underline; }
     overflow-x: hidden;
     min-width: 0;
     margin-left: var(--sidebar-w);
+    animation: pageFadeSlideIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+    will-change: opacity, transform;
 }
+
+.page-body.is-leaving {
+    opacity: 0.7;
+    transform: translateY(-4px);
+    transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Hairline Top Progress Indicator for Fluid Page Transitions */
+.page-progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 2.5px;
+    width: 0%;
+    background: linear-gradient(90deg, #2563eb 0%, #3b82f6 50%, #60a5fa 100%);
+    box-shadow: 0 1px 4px rgba(37, 99, 235, 0.3);
+    z-index: 999999;
+    pointer-events: none;
+    opacity: 0;
+    transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.16s ease;
+}
+.page-progress-bar.is-active {
+    opacity: 1;
+    width: 78%;
+}
+.page-progress-bar.is-finishing {
+    width: 100%;
+    opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .page-body {
+        animation: none !important;
+        transform: none !important;
+        transition: none !important;
+    }
+    .page-progress-bar {
+        display: none !important;
+    }
+}
+
 /* Footer — diposisikan di akhir konten secara wajar */
 .app-footer {
     position: relative;
@@ -255,6 +310,7 @@ a:hover { text-decoration: underline; }
         0 0 0 1px rgba(255, 255, 255, 0.3),
         inset 0 1.5px 2px rgba(255, 255, 255, 0.75),
         inset 0 -1.5px 2px rgba(0, 0, 0, 0.05);
+    animation: pageFadeSlideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .login-brand {
     text-align: center;
@@ -1113,7 +1169,7 @@ tr:hover td { background: #fafbfc; }
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
     }
-    .sidebar, .app-hero, .app-footer, .no-print, .btn, .btn-sm, .actions-row, .filters, #aiToast, #aiTriggerBtn {
+    .sidebar, .app-hero, .app-footer, .no-print, .btn, .btn-sm, .actions-row, .filters, #aiToast, #aiTriggerBtn, .page-progress-bar {
         display: none !important;
     }
     .print-header, .signature-block {
@@ -1124,6 +1180,8 @@ tr:hover td { background: #fafbfc; }
         width: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
+        animation: none !important;
+        transform: none !important;
     }
     .table-wrap {
         overflow: visible !important;

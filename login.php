@@ -146,6 +146,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 <link rel="stylesheet" href="public/css/style.css?v=<?= filemtime(__DIR__ . '/public/css/style.css') ?>">
 </head>
 <body>
+<div id="pageProgressBar" class="page-progress-bar" aria-hidden="true"></div>
 <div class="login-wrap">
     <div class="login-card">
         <div class="login-brand">

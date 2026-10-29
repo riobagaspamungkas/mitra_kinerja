@@ -109,6 +109,7 @@ if ($user) {
 <link rel="stylesheet" href="public/css/style.css?v=<?= filemtime(__DIR__ . '/../public/css/style.css') ?>">
 </head>
 <body>
+<div id="pageProgressBar" class="page-progress-bar" aria-hidden="true"></div>
 <?php if ($user): ?>
 <div class="app-layout">
 <div class="app-layout-main">
@@ -724,6 +725,54 @@ if ($user) {
                 if (userWrap) userWrap.classList.remove('active');
                 closeUserConfirmModal();
                 closeProfileEditModal();
+            }
+        });
+
+        // Fluid Page Change Transition Handler
+        document.addEventListener('click', function(e) {
+            if (e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+            var link = e.target.closest('a');
+            if (!link || !link.href) return;
+            if (link.target && link.target !== '_self') return;
+            if (link.hasAttribute('download')) return;
+
+            var rawHref = link.getAttribute('href');
+            if (!rawHref || rawHref.startsWith('#') || rawHref.startsWith('javascript:') || rawHref.startsWith('mailto:') || rawHref.startsWith('tel:')) return;
+
+            // Jangan animasikan untuk unduhan berkas fisik atau dokumen
+            if (/\.(pdf|xlsx|xls|csv|zip|rar|tar\.gz|png|jpg|jpeg|webp)$/i.test(link.pathname || '')) return;
+
+            // Abaikan jika menuju ke halaman dan parameter yang sama persis
+            if (link.origin === window.location.origin && link.pathname === window.location.pathname && link.search === window.location.search) return;
+
+            // Aktifkan transisi keluar halus dan hairline progress bar untuk navigasi halaman internal
+            if (link.origin === window.location.origin || !link.origin) {
+                var pageBody = document.querySelector('.page-body');
+                if (pageBody) {
+                    pageBody.classList.add('is-leaving');
+                }
+                var bar = document.getElementById('pageProgressBar');
+                if (bar) {
+                    bar.classList.remove('is-finishing');
+                    bar.classList.add('is-active');
+                }
+            }
+        }, { passive: true });
+
+        // Pulihkan tampilan ketika pengguna kembali melalui cache browser (bfcache)
+        window.addEventListener('pageshow', function() {
+            var pageBody = document.querySelector('.page-body');
+            if (pageBody) {
+                pageBody.classList.remove('is-leaving');
+            }
+            var bar = document.getElementById('pageProgressBar');
+            if (bar) {
+                bar.classList.remove('is-active');
+                bar.classList.add('is-finishing');
+                setTimeout(function() {
+                    bar.classList.remove('is-finishing');
+                    bar.style.width = '0%';
+                }, 250);
             }
         });
         </script>
