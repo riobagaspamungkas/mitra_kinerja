@@ -651,7 +651,7 @@ require __DIR__ . '/includes/header.php';
         <div class="muted" style="font-size:13px;">Kelola identitas naskah, bidang kerja sama, scan dokumen fisik, dan rencana kerja</div>
     </div>
     <div style="display:flex;gap:8px;">
-        <button type="button" onclick="document.getElementById('uploadScanModal').style.display='block'" class="btn btn-outline btn-sm">📤 Upload Scan Naskah (.pdf)</button>
+        <button type="button" onclick="document.getElementById('uploadScanModal').style.display='block'" class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:5px;"><?= uiIcon('upload', 13) ?> Upload Scan Naskah (.pdf)</button>
         <a href="dashboard.php" class="btn btn-outline btn-sm">&larr; Dashboard</a>
     </div>
 </div>
@@ -694,7 +694,7 @@ require __DIR__ . '/includes/header.php';
             </div>
             <div style="display:flex;justify-content:flex-end;gap:8px;">
                 <button type="button" onclick="document.getElementById('uploadScanModal').style.display='none'" class="btn btn-outline btn-sm">Batal</button>
-                <button type="submit" class="btn btn-primary btn-sm">📤 Unggah Berkas Scan</button>
+                <button type="submit" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:5px;"><?= uiIcon('upload', 13) ?> Unggah Berkas Scan</button>
             </div>
         </form>
     </div>
@@ -813,8 +813,8 @@ require __DIR__ . '/includes/header.php';
                 </td>
                 <td>
                     <?php if (!empty($m['file_naskah'])): ?>
-                    <a href="<?= h($m['file_naskah']) ?>" target="_blank" class="btn btn-outline btn-sm" style="font-size:11px;display:inline-flex;align-items:center;gap:3px;">
-                        📄 Scan PDF
+                    <a href="<?= h($m['file_naskah']) ?>" target="_blank" class="btn btn-outline btn-sm" style="font-size:11px;display:inline-flex;align-items:center;gap:4px;">
+                        <?= uiIcon('file-text', 12) ?> Scan PDF
                     </a>
                     <?php else: ?>
                     <span class="muted" style="font-size:11px;">Belum diunggah</span>

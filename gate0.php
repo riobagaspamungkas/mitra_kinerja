@@ -1247,7 +1247,7 @@ if (($view === 'detail' || $view === 'print') && $detailId > 0) {
         <div class="flex-between no-print" style="margin-bottom:16px;">
             <a href="gate0.php" class="btn btn-outline btn-sm">&larr; Kembali ke Daftar Usulan</a>
             <div style="display:flex;gap:8px;">
-                <button onclick="window.print()" class="btn btn-primary btn-sm">🖨️ Cetak / Simpan PDF</button>
+                <button onclick="window.print()" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:5px;"><?= uiIcon('printer', 14) ?> Cetak / Simpan PDF</button>
             </div>
         </div>
 
@@ -1533,8 +1533,8 @@ require __DIR__ . '/includes/header.php';
             <option value="public/templates/template_gate0_dalam_negeri.xlsx">Dalam Negeri (.xlsx)</option>
             <option value="public/templates/template_gate0_luar_negeri.xlsx">Luar Negeri (.xlsx)</option>
         </select>
-        <button type="button" onclick="downloadSelectedTemplate()" class="btn btn-primary btn-sm" style="font-size:12px;display:inline-flex;align-items:center;gap:4px;">
-            📥 Unduh Template Excel
+        <button type="button" onclick="downloadSelectedTemplate()" class="btn btn-primary btn-sm" style="font-size:12px;display:inline-flex;align-items:center;gap:5px;">
+            <?= uiIcon('download', 14) ?> Unduh Template Excel
         </button>
     </div>
     <script>
@@ -1585,8 +1585,8 @@ require __DIR__ . '/includes/header.php';
         <h2 style="margin:0;">Daftar Usulan Pra-PKS</h2>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <?php if ($canEdit): ?>
-            <button onclick="openGate0Modal('importModal')" class="btn btn-outline btn-sm">📤 Import Excel / CSV</button>
-            <button onclick="openGate0Modal('addModal')" class="btn btn-primary btn-sm">+ Usulan Baru</button>
+            <button onclick="openGate0Modal('importModal')" class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:5px;"><?= uiIcon('upload', 13) ?> Import Excel / CSV</button>
+            <button onclick="openGate0Modal('addModal')" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:5px;"><?= uiIcon('plus', 13) ?> Usulan Baru</button>
             <?php endif; ?>
         </div>
     </div>
@@ -1597,19 +1597,19 @@ require __DIR__ . '/includes/header.php';
             Semua <span class="badge-tab" style="background:#e2e8f0;color:#334155;"><?= $totalUsulan ?></span>
         </button>
         <button type="button" class="g0-tab-btn" data-status="Draft" onclick="setGate0StatusTab('Draft', this)">
-            📝 Draft <span class="badge-tab" style="background:#f1f5f9;color:#475569;"><?= $draftCount ?></span>
+            <?= uiIcon('file-edit', 12) ?> Draft <span class="badge-tab" style="background:#f1f5f9;color:#475569;"><?= $draftCount ?></span>
         </button>
         <button type="button" class="g0-tab-btn" data-status="Menunggu Persetujuan Pimpinan" onclick="setGate0StatusTab('Menunggu Persetujuan Pimpinan', this)">
-            ⏳ Menunggu <span class="badge-tab" style="background:#fef3c7;color:#92400e;"><?= $menungguCount ?></span>
+            <?= uiIcon('clock', 12) ?> Menunggu <span class="badge-tab" style="background:#fef3c7;color:#92400e;"><?= $menungguCount ?></span>
         </button>
         <button type="button" class="g0-tab-btn" data-status="Disetujui Pimpinan" onclick="setGate0StatusTab('Disetujui Pimpinan', this)">
-            ✅ Disetujui <span class="badge-tab" style="background:#dcfce7;color:#166534;"><?= $disetujuiCount ?></span>
+            <?= uiIcon('check-circle', 12) ?> Disetujui <span class="badge-tab" style="background:#dcfce7;color:#166534;"><?= $disetujuiCount ?></span>
         </button>
         <button type="button" class="g0-tab-btn" data-status="Dikembalikan untuk Revisi" onclick="setGate0StatusTab('Dikembalikan untuk Revisi', this)">
-            ↩️ Revisi <span class="badge-tab" style="background:#ffedd5;color:#9a3412;"><?= $revisiCount ?></span>
+            <?= uiIcon('rotate-ccw', 12) ?> Revisi <span class="badge-tab" style="background:#ffedd5;color:#9a3412;"><?= $revisiCount ?></span>
         </button>
         <button type="button" class="g0-tab-btn" data-status="Ditolak Pimpinan" onclick="setGate0StatusTab('Ditolak Pimpinan', this)">
-            ❌ Ditolak <span class="badge-tab" style="background:#fee2e2;color:#991b1b;"><?= $ditolakCount ?></span>
+            <?= uiIcon('x-circle', 12) ?> Ditolak <span class="badge-tab" style="background:#fee2e2;color:#991b1b;"><?= $ditolakCount ?></span>
         </button>
     </div>
 
@@ -1644,8 +1644,8 @@ require __DIR__ . '/includes/header.php';
                 <option value="all">Semua</option>
             </select>
         </div>
-        <button type="button" onclick="resetGate0Filters()" class="btn btn-outline btn-sm" style="padding:7px 14px;font-size:12.5px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;" title="Reset Filter Gate 0">
-            🔄 Reset Filter
+        <button type="button" onclick="resetGate0Filters()" class="btn btn-outline btn-sm" style="padding:7px 14px;font-size:12.5px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;" title="Reset Filter Gate 0">
+            <?= uiIcon('refresh', 13) ?> Reset Filter
         </button>
     </div>
 
@@ -1739,7 +1739,7 @@ require __DIR__ . '/includes/header.php';
                         <?php if (!empty($u['file_usulan'])): ?>
                         <div style="margin-top:3px;">
                             <a href="<?= h($u['file_usulan']) ?>" target="_blank" style="font-size:10.5px;color:#059669;text-decoration:none;display:inline-flex;align-items:center;gap:3px;font-weight:600;">
-                                📎 File Lampiran
+                                <?= uiIcon('paperclip', 11) ?> File Lampiran
                             </a>
                         </div>
                         <?php endif; ?>
@@ -1772,12 +1772,12 @@ require __DIR__ . '/includes/header.php';
                         <div style="display:flex;flex-direction:column;gap:4px;min-width:130px;">
                             <div style="display:flex;gap:4px;flex-wrap:wrap;">
                                 <?php if ($canShowEdit): ?>
-                                <button type="button" class="btn btn-outline btn-sm" onclick='openEditGate0Modal(<?= htmlspecialchars(json_encode($uData), ENT_QUOTES, "UTF-8") ?>)' style="font-size:11px;padding:3px 7px;" title="Edit usulan dalam jendela pop-up">✏️ Edit</button>
+                                <button type="button" class="btn btn-outline btn-sm" onclick='openEditGate0Modal(<?= htmlspecialchars(json_encode($uData), ENT_QUOTES, "UTF-8") ?>)' style="font-size:11px;padding:3px 7px;display:inline-flex;align-items:center;gap:3px;" title="Edit usulan dalam jendela pop-up"><?= uiIcon('edit', 11) ?> Edit</button>
                                 <?php endif; ?>
-                                <a href="gate0.php?view=print&id=<?= $u['id'] ?>" target="_blank" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 7px;" title="Cetak formulir resmi">🖨️ Cetak</a>
+                                <a href="gate0.php?view=print&id=<?= $u['id'] ?>" target="_blank" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 7px;display:inline-flex;align-items:center;gap:3px;" title="Cetak formulir resmi"><?= uiIcon('printer', 11) ?> Cetak</a>
                                 
                                 <?php if ($canDecide && in_array($stApp, ['Menunggu Persetujuan Pimpinan', 'Dikembalikan untuk Revisi'], true)): ?>
-                                <button onclick="openDecisionModal(<?= (int)$u['id'] ?>, <?= htmlspecialchars(json_encode((string)$u['nomor_usulan']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$u['calon_mitra']), ENT_QUOTES, 'UTF-8') ?>)" class="btn btn-warning btn-sm" style="font-size:11px;padding:3px 7px;">⚖️ Putusan</button>
+                                <button onclick="openDecisionModal(<?= (int)$u['id'] ?>, <?= htmlspecialchars(json_encode((string)$u['nomor_usulan']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$u['calon_mitra']), ENT_QUOTES, 'UTF-8') ?>)" class="btn btn-warning btn-sm" style="font-size:11px;padding:3px 7px;display:inline-flex;align-items:center;gap:3px;"><?= uiIcon('scales', 11) ?> Putusan</button>
                                 <?php endif; ?>
 
                                 <?php if ($stApp === 'Disetujui Pimpinan'): ?>
@@ -1787,7 +1787,7 @@ require __DIR__ . '/includes/header.php';
                                             <?= csrfField() ?>
                                             <input type="hidden" name="action" value="promote">
                                             <input type="hidden" name="usulan_id" value="<?= $u['id'] ?>">
-                                            <button type="submit" class="btn btn-success btn-sm" style="font-size:11px;padding:3px 7px;">🚀 Jadi PKS</button>
+                                            <button type="submit" class="btn btn-success btn-sm" style="font-size:11px;padding:3px 7px;display:inline-flex;align-items:center;gap:3px;"><?= uiIcon('arrow-up-right', 11) ?> Jadi PKS</button>
                                         </form>
                                         <?php endif; ?>
                                     <?php else: ?>
@@ -1801,8 +1801,8 @@ require __DIR__ . '/includes/header.php';
                                 <?= csrfField() ?>
                                 <input type="hidden" name="action" value="submit_proposal">
                                 <input type="hidden" name="usulan_id" value="<?= $u['id'] ?>">
-                                <button type="submit" class="btn btn-sm btn-gate0-submit" style="background:#16a34a;color:#ffffff;border:1px solid #15803d;border-radius:4px;font-size:11px;font-weight:700;padding:4px 8px;width:100%;display:flex;align-items:center;justify-content:center;gap:4px;cursor:pointer;margin-top:2px;box-shadow:0 1px 2px rgba(0,0,0,0.06);" title="Submit usulan ke Pimpinan">
-                                    <span>✓</span> Submit
+                                <button type="submit" class="btn btn-sm btn-gate0-submit" style="background:#16a34a;color:#ffffff;border:1px solid #15803d;border-radius:4px;font-size:11px;font-weight:700;padding:4px 8px;width:100%;display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer;margin-top:2px;box-shadow:0 1px 2px rgba(0,0,0,0.06);" title="Submit usulan ke Pimpinan">
+                                    <?= uiIcon('send', 11) ?> Submit
                                 </button>
                             </form>
                             <?php endif; ?>
@@ -2009,7 +2009,7 @@ require __DIR__ . '/includes/header.php';
             <div class="field"><label>Perkiraan Mulai</label><input type="date" name="perkiraan_mulai" id="editPerkiraanMulai"></div>
             <div class="field"><label>Perkiraan Selesai</label><input type="date" name="perkiraan_selesai" id="editPerkiraanSelesai"></div>
             <div class="field" style="grid-column:1/-1;background:#f8fafc;padding:10px 12px;border:1px dashed #cbd5e1;border-radius:6px;">
-                <label style="font-weight:700;color:#1e293b;margin-bottom:4px;">📎 File Lampiran / Dokumen Usulan Baru</label>
+                <label style="font-weight:700;color:#1e293b;margin-bottom:4px;display:flex;align-items:center;gap:5px;"><?= uiIcon('paperclip', 13) ?> File Lampiran / Dokumen Usulan Baru</label>
                 <div id="editCurrentFileBox" style="margin-bottom:6px;font-size:12px;"></div>
                 <input type="file" name="file_naskah_baru" accept=".pdf,.docx,.xlsx,.csv">
                 <div class="muted" style="font-size:11px;margin-top:2px;">Format didukung: PDF, DOCX, XLSX, CSV (maksimal 25MB). Unggah file baru untuk mengganti file lama.</div>
@@ -2081,8 +2081,8 @@ require __DIR__ . '/includes/header.php';
         </div>
 
         <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;border-top:1px solid #e2e8f0;padding-top:14px;">
-            <button type="submit" name="submit_mode" value="save_draft" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:4px;">💾 Simpan Usulan</button>
-            <button type="submit" name="submit_mode" value="submit_final" class="btn btn-success" style="background:#16a34a;border-color:#15803d;color:#ffffff;display:inline-flex;align-items:center;gap:4px;">🚀 Simpan &amp; Ajukan ke Pimpinan</button>
+            <button type="submit" name="submit_mode" value="save_draft" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:5px;"><?= uiIcon('save', 13) ?> Simpan Usulan</button>
+            <button type="submit" name="submit_mode" value="submit_final" class="btn btn-success" style="background:#16a34a;border-color:#15803d;color:#ffffff;display:inline-flex;align-items:center;gap:5px;"><?= uiIcon('send', 13) ?> Simpan &amp; Ajukan ke Pimpinan</button>
             <button type="button" onclick="closeAllGate0Modals()" class="btn btn-outline">Batal</button>
         </div>
     </form>

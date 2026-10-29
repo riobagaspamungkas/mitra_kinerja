@@ -18,7 +18,7 @@ require __DIR__ . '/includes/header.php';
     <div style="display:flex;gap:8px;">
         <a href="dashboard.php" class="btn btn-outline btn-sm">&larr; Dashboard</a>
         <?php if (in_array(currentUser()['role'] ?? '', ['admin','pemeriksa','pengampu','pic'], true)): ?>
-        <a href="mitra_manage.php" class="btn btn-primary btn-sm">+ Tambah Naskah</a>
+        <a href="mitra_manage.php" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:5px;"><?= uiIcon('plus', 13) ?> Tambah Naskah</a>
         <?php endif; ?>
     </div>
 </div>
@@ -76,8 +76,8 @@ require __DIR__ . '/includes/header.php';
             <option value="PERLU PERBAIKAN">Perlu Perbaikan</option>
             <option value="MASA IMPLEMENTASI AWAL">Masa Implementasi Awal</option>
         </select>
-        <button type="button" id="btnResetFilter" onclick="resetFilters()" class="btn btn-outline btn-sm" style="padding:7px 12px;font-size:12.5px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;cursor:pointer;" title="Reset Semua Filter">
-            🔄 Reset Filter
+        <button type="button" id="btnResetFilter" onclick="resetFilters()" class="btn btn-outline btn-sm" style="padding:7px 12px;font-size:12.5px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;cursor:pointer;" title="Reset Semua Filter">
+            <?= uiIcon('refresh', 13) ?> Reset Filter
         </button>
     </div>
     <div class="table-wrap">

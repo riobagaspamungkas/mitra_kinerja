@@ -157,7 +157,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         </div>
         <?php if (!empty($_GET['switch'])): ?>
             <div style="background:rgba(239,246,255,0.85);backdrop-filter:blur(6px);border:1px solid #bfdbfe;color:#1e40af;padding:10px 14px;border-radius:8px;font-size:12.5px;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
-                <span style="font-size:16px;">🔄</span>
+                <?= uiIcon('refresh', 16, '', 'color:#2563eb;') ?>
                 <span>Sesi sebelumnya telah diakhiri. Silakan masuk dengan akun yang ingin Anda gunakan.</span>
             </div>
         <?php endif; ?>

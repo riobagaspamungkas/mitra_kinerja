@@ -789,7 +789,7 @@ if ($id > 0) {
         <div class="print-container">
             <div class="no-print" style="margin-bottom:14px;display:flex;justify-content:space-between;">
                 <a href="baseline.php?id=<?= $id ?>" class="btn btn-outline btn-sm">&larr; Kembali ke Form</a>
-                <button onclick="window.print()" class="btn btn-primary btn-sm">🖨️ Cetak / Simpan PDF</button>
+                <button onclick="window.print()" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:5px;"><?= uiIcon('printer', 14) ?> Cetak / Simpan PDF</button>
             </div>
             
             <div class="kop-surat">
@@ -885,16 +885,16 @@ if ($id > 0) {
         </div>
         <div style="display:flex;gap:8px;align-items:center;">
             <a href="baseline.php" class="btn btn-outline btn-sm">&larr; Daftar Baseline</a>
-            <a href="public/templates/template_baseline_12_elemen.xlsx" download="Template_Baseline_<?= h($mitra['kode']) ?>.xlsx" class="btn btn-outline btn-sm" style="font-size:11px;display:inline-flex;align-items:center;gap:4px;color:#4338ca;border-color:#c7d2fe;background:#eef2ff;" title="Unduh Formulir Template Baseline (.xlsx)">
-                <span>📥</span> Unduh Template (.xlsx)
+            <a href="public/templates/template_baseline_12_elemen.xlsx" download="Template_Baseline_<?= h($mitra['kode']) ?>.xlsx" class="btn btn-outline btn-sm" style="font-size:11px;display:inline-flex;align-items:center;gap:5px;color:#4338ca;border-color:#c7d2fe;background:#eef2ff;" title="Unduh Formulir Template Baseline (.xlsx)">
+                <?= uiIcon('download', 13) ?> Unduh Template (.xlsx)
             </a>
             <?php if ($canEdit && (!$isLocked || $isAdmin)): ?>
-            <button type="button" onclick="openImportModal(<?= $id ?>, <?= htmlspecialchars(json_encode((string)$mitra['kode']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$mitra['nama_mitra']), ENT_QUOTES, 'UTF-8') ?>)" class="btn btn-sm" style="font-size:11px;display:inline-flex;align-items:center;gap:4px;background:#4f46e5;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="Import Data Baseline">
-                <span>📤</span> Import Baseline (.xlsx)
+            <button type="button" onclick="openImportModal(<?= $id ?>, <?= htmlspecialchars(json_encode((string)$mitra['kode']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$mitra['nama_mitra']), ENT_QUOTES, 'UTF-8') ?>)" class="btn btn-sm" style="font-size:11px;display:inline-flex;align-items:center;gap:5px;background:#4f46e5;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="Import Data Baseline">
+                <?= uiIcon('upload', 13) ?> Import Baseline (.xlsx)
             </button>
             <?php endif; ?>
             <a href="mitra_edit.php?id=<?= $id ?>" class="btn btn-outline btn-sm">Buka Scorecard &rarr;</a>
-            <a href="baseline.php?view=print&id=<?= $id ?>" target="_blank" class="btn btn-primary btn-sm">🖨️ Cetak / PDF</a>
+            <a href="baseline.php?view=print&id=<?= $id ?>" target="_blank" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:5px;"><?= uiIcon('printer', 13) ?> Cetak / PDF</a>
         </div>
     </div>
 
@@ -1544,8 +1544,8 @@ require __DIR__ . '/includes/header.php';
                 </td>
                 <td>
                     <div style="display:flex;gap:4px;">
-                        <a href="baseline.php?id=<?= $m['id'] ?>" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 7px;">🔍 Periksa</a>
-                        <a href="baseline.php?view=print&id=<?= $m['id'] ?>" target="_blank" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 7px;">🖨️ PDF</a>
+                        <a href="baseline.php?id=<?= $m['id'] ?>" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 7px;display:inline-flex;align-items:center;gap:3px;"><?= uiIcon('search', 11) ?> Periksa</a>
+                        <a href="baseline.php?view=print&id=<?= $m['id'] ?>" target="_blank" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 7px;display:inline-flex;align-items:center;gap:3px;"><?= uiIcon('printer', 11) ?> PDF</a>
                     </div>
                 </td>
             </tr>

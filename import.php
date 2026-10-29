@@ -537,7 +537,7 @@ require __DIR__ . '/includes/header.php';
     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
         <div>
             <h1 style="margin:0 0 4px 0;font-size:22px;color:#0f172a;display:flex;align-items:center;gap:8px;">
-                <span>📥</span> Menu Import Data Naskah
+                <?= uiIcon('upload', 20) ?> Menu Import Data Naskah
             </h1>
             <p style="margin:0;font-size:13px;color:#64748b;">
                 Perbarui data <strong>Baseline FIX (12 Elemen)</strong> dan <strong>Scorecard</strong> kerja sama secara langsung melalui file spreadsheet Excel (.xlsx).
@@ -704,8 +704,8 @@ require __DIR__ . '/includes/header.php';
                                 <span>🔒</span> Terkunci
                             </button>
                         <?php else: ?>
-                            <button type="button" class="btn btn-sm" onclick="openImportModal(<?= (int)$m['id'] ?>, <?= htmlspecialchars(json_encode((string)$m['kode']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$m['nama_mitra']), ENT_QUOTES, 'UTF-8') ?>, 'baseline')" style="font-size:11px;display:inline-flex;align-items:center;gap:4px;padding:5px 12px;background:#4f46e5;color:#ffffff;border:none;border-radius:4px;font-weight:600;cursor:pointer;" title="Import Data Baseline">
-                                <span>📥</span> Import
+                            <button type="button" class="btn btn-sm" onclick="openImportModal(<?= (int)$m['id'] ?>, <?= htmlspecialchars(json_encode((string)$m['kode']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$m['nama_mitra']), ENT_QUOTES, 'UTF-8') ?>, 'baseline')" style="font-size:11px;display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:#4f46e5;color:#ffffff;border:none;border-radius:4px;font-weight:600;cursor:pointer;" title="Import Data Baseline">
+                                <?= uiIcon('upload', 12) ?> Import
                             </button>
                         <?php endif; ?>
                     </td>
@@ -743,8 +743,8 @@ require __DIR__ . '/includes/header.php';
 
                     <!-- 6. SCORECARD: AKSI IMPORT -->
                     <td style="padding:12px 14px;text-align:center;vertical-align:middle;">
-                        <button type="button" class="btn btn-primary btn-sm" onclick="openImportModal(<?= (int)$m['id'] ?>, <?= htmlspecialchars(json_encode((string)$m['kode']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$m['nama_mitra']), ENT_QUOTES, 'UTF-8') ?>, 'scorecard')" style="font-size:11.5px;display:inline-flex;align-items:center;gap:4px;padding:5px 12px;font-weight:600;" title="Import Data Scorecard">
-                            <span>📥</span> Import
+                        <button type="button" class="btn btn-primary btn-sm" onclick="openImportModal(<?= (int)$m['id'] ?>, <?= htmlspecialchars(json_encode((string)$m['kode']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$m['nama_mitra']), ENT_QUOTES, 'UTF-8') ?>, 'scorecard')" style="font-size:11.5px;display:inline-flex;align-items:center;gap:5px;padding:5px 12px;font-weight:600;" title="Import Data Scorecard">
+                            <?= uiIcon('upload', 12) ?> Import
                         </button>
                     </td>
                 </tr>

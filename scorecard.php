@@ -761,16 +761,16 @@ require __DIR__ . '/includes/header.php';
                 ?>
                 <td style="text-align:center;vertical-align:middle;white-space:nowrap;">
                     <div style="display:inline-flex;gap:6px;align-items:center;justify-content:center;">
-                        <a href="<?= h($tmpl['file']) ?>" download="Template_Scorecard_<?= h($m['kode']) ?>.xlsx" class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 8px;display:inline-flex;align-items:center;gap:3px;color:#047857;border-color:#a7f3d0;background:#ecfdf5;font-weight:600;" title="Unduh <?= h($tmpl['label']) ?>">
-                            <span>⬇️</span> Template
+                        <a href="<?= h($tmpl['file']) ?>" download="Template_Scorecard_<?= h($m['kode']) ?>.xlsx" class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 8px;display:inline-flex;align-items:center;gap:4px;color:#047857;border-color:#a7f3d0;background:#ecfdf5;font-weight:600;" title="Unduh <?= h($tmpl['label']) ?>">
+                            <?= uiIcon('download', 11) ?> Template
                         </a>
                         <?php if ($canImportRow): ?>
-                        <button type="button" class="btn btn-primary btn-sm" onclick="openImportModal(<?= (int)$m['id'] ?>, <?= htmlspecialchars(json_encode((string)$m['kode']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$m['nama_mitra']), ENT_QUOTES, 'UTF-8') ?>)" style="font-size:11px;padding:4px 9px;display:inline-flex;align-items:center;gap:3px;font-weight:600;" title="Import Data Scorecard (.xlsx)">
-                            <span>📥</span> Import
+                        <button type="button" class="btn btn-primary btn-sm" onclick="openImportModal(<?= (int)$m['id'] ?>, <?= htmlspecialchars(json_encode((string)$m['kode']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$m['nama_mitra']), ENT_QUOTES, 'UTF-8') ?>)" style="font-size:11px;padding:4px 9px;display:inline-flex;align-items:center;gap:4px;font-weight:600;" title="Import Data Scorecard (.xlsx)">
+                            <?= uiIcon('upload', 11) ?> Import
                         </button>
                         <?php else: ?>
-                        <button type="button" class="btn btn-sm" disabled style="font-size:11px;padding:4px 9px;display:inline-flex;align-items:center;gap:3px;opacity:0.5;cursor:not-allowed;" title="<?= $isRowLocked ? 'Terkunci (FINAL/TERVALIDASI)' : 'Tidak memiliki akses import' ?>">
-                            <span>🔒</span> Terkunci
+                        <button type="button" class="btn btn-sm" disabled style="font-size:11px;padding:4px 9px;display:inline-flex;align-items:center;gap:4px;opacity:0.5;cursor:not-allowed;" title="<?= $isRowLocked ? 'Terkunci (FINAL/TERVALIDASI)' : 'Tidak memiliki akses import' ?>">
+                            <?= uiIcon('lock', 11) ?> Terkunci
                         </button>
                         <?php endif; ?>
                     </div>

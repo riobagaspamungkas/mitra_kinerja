@@ -385,11 +385,11 @@ if ($user) {
 
                             <div class="pem-avatar-controls">
                                 <div class="pem-avatar-actions">
-                                    <button type="button" class="btn-pem-secondary" onclick="document.getElementById('pemPhotoInput').click()">
-                                        📁 Unggah Foto
+                                    <button type="button" class="btn-pem-secondary" onclick="document.getElementById('pemPhotoInput').click()" style="display:inline-flex;align-items:center;gap:5px;">
+                                        <?= uiIcon('upload', 13) ?> Unggah Foto
                                     </button>
-                                    <button type="button" class="btn-pem-danger" id="pemRemovePhotoBtn" onclick="handleRemovePhotoClick()" style="<?= !empty($userPhotoUrl) ? '' : 'display:none;' ?>">
-                                        🗑️ Hapus Foto
+                                    <button type="button" class="btn-pem-danger" id="pemRemovePhotoBtn" onclick="handleRemovePhotoClick()" style="display:inline-flex;align-items:center;gap:5px;<?= !empty($userPhotoUrl) ? '' : 'display:none;' ?>">
+                                        <?= uiIcon('trash', 13) ?> Hapus Foto
                                     </button>
                                 </div>
                                 <div class="pem-avatar-hint">
