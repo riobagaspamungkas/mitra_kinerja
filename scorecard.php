@@ -675,8 +675,60 @@ require __DIR__ . '/includes/header.php';
 <?php endif; ?>
 
 <div class="card">
+    <div class="filters">
+        <!-- Search Input -->
+        <div style="position:relative;display:inline-block;min-width:240px;">
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;display:inline-flex;align-items:center;">
+                <?= uiIcon('search', 14) ?>
+            </span>
+            <input type="text" id="scSearch" placeholder="Cari kode / nama mitra / naskah..." style="padding:7px 10px 7px 32px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%;box-sizing:border-box;">
+        </div>
+
+        <!-- Filter Portofolio -->
+        <select id="scFilterPortofolio">
+            <option value="">Semua Portofolio</option>
+            <option value="Pilot Utama">Pilot Utama</option>
+            <option value="Cadangan">Cadangan</option>
+        </select>
+
+        <!-- Filter Kategori Kinerja -->
+        <select id="scFilterKategori">
+            <option value="">Semua Kategori Kinerja</option>
+            <option value="KUAT">Kuat</option>
+            <option value="CUKUP/PERLU PENGUATAN">Cukup / Perlu Penguatan</option>
+            <option value="PERLU PERBAIKAN">Perlu Perbaikan</option>
+            <option value="KRITIS">Kritis</option>
+            <option value="DALAM PROSES">Dalam Proses</option>
+        </select>
+
+        <!-- Filter Status Scorecard -->
+        <select id="scFilterStatus">
+            <option value="">Semua Status Scorecard</option>
+            <option value="FINAL/TERVALIDASI">Final/Tervalidasi</option>
+            <option value="SIAP DIVALIDASI">Siap Divalidasi</option>
+            <option value="DALAM PENILAIAN">Dalam Penilaian</option>
+            <option value="BELUM DINILAI">Belum Dinilai</option>
+            <option value="BUKTI BELUM MEMADAI">Bukti Belum Memadai</option>
+            <option value="PERLU PERBAIKAN">Perlu Perbaikan</option>
+            <option value="MASA IMPLEMENTASI AWAL">Masa Implementasi Awal</option>
+        </select>
+
+        <!-- Filter Validasi -->
+        <select id="scFilterValidasi">
+            <option value="">Semua Status Validasi</option>
+            <option value="DISETUJUI">Disetujui</option>
+            <option value="SIAP">Siap Divalidasi</option>
+            <option value="PERLU PERBAIKAN">Perlu Perbaikan</option>
+            <option value="BELUM">Belum</option>
+        </select>
+
+        <button type="button" id="scBtnReset" onclick="resetScFilters()" class="btn btn-outline btn-sm" style="padding:7px 12px;font-size:12.5px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;cursor:pointer;" title="Reset Semua Filter">
+            <?= uiIcon('refresh', 13) ?> Reset Filter
+        </button>
+    </div>
+
     <div class="table-wrap">
-    <table>
+    <table id="tblScorecard">
         <thead>
             <tr>
                 <th style="width:55px;text-align:center;">Kode</th>
@@ -694,6 +746,7 @@ require __DIR__ . '/includes/header.php';
             </tr>
         </thead>
         <tbody>
+        <tr id="scNoMatchRow" style="display:none;"><td colspan="<?= $canImport ? 10 : 9 ?>"><?= uiEmptyState('Tidak Ada Data yang Sesuai', 'Tidak ditemukan data scorecard yang cocok dengan filter pencarian.', 'search') ?></td></tr>
         <?php foreach ($all as $s): 
             $m = $s['mitra'];
             $vStatus = strtoupper(trim((string)($s['validasi']['status'] ?? 'BELUM')));
@@ -707,7 +760,7 @@ require __DIR__ . '/includes/header.php';
             $rekomText = trim((string)($s['rekomendasi'] ?? ''));
             $posisiText = trim((string)($s['posisi_portofolio'] ?? '-'));
         ?>
-            <tr>
+            <tr data-kode="<?= h(strtoupper($m['kode'])) ?>" data-mitra="<?= h(strtolower($m['nama_mitra'])) ?>" data-judul="<?= h(strtolower($m['judul'] ?? '')) ?>" data-portofolio="<?= h($m['portofolio'] ?? '') ?>" data-kategori="<?= h($s['kategori'] ?? '') ?>" data-status="<?= h($s['status_scorecard'] ?? '') ?>" data-validasi="<?= h($vStatus) ?>">
                 <td style="text-align:center;font-weight:700;color:#1e40af;vertical-align:middle;">
                     <?= h($m['kode']) ?>
                 </td>
@@ -805,6 +858,25 @@ require __DIR__ . '/includes/header.php';
         <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
+
+    <!-- Scorecard Table Pagination -->
+    <div id="scPaginationWrap" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid #e2e8f0;">
+        <div id="scPageInfo" style="font-size:12.5px;color:#64748b;font-weight:500;">
+            Menampilkan 1 – <?= min(10, count($all)) ?> dari <?= count($all) ?> naskah
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+            <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#64748b;">
+                <span>Tampilkan:</span>
+                <select id="scPageSize" onchange="changeScPageSize(this.value)" style="padding:4px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;cursor:pointer;">
+                    <option value="10" selected>10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="all">Semua</option>
+                </select>
+            </div>
+            <div id="scPaginationNav" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;"></div>
+        </div>
     </div>
 </div>
 
@@ -962,6 +1034,164 @@ window.addEventListener('keydown', function(e) {
         closeRekomModal();
     }
 });
+
+// ============================================================================
+// SCORECARD FILTER & PAGINATION ENGINE
+// ============================================================================
+var scCurrentPage = 1;
+var scPageSize = 10;
+var scMatchedRows = [];
+
+function applyScorecardFilters() {
+    var q = (document.getElementById('scSearch').value || '').toLowerCase().trim();
+    var p = document.getElementById('scFilterPortofolio').value;
+    var k = document.getElementById('scFilterKategori').value;
+    var s = document.getElementById('scFilterStatus').value;
+    var v = document.getElementById('scFilterValidasi').value;
+
+    scMatchedRows = [];
+    var rows = document.querySelectorAll('#tblScorecard tbody tr:not(#scNoMatchRow)');
+    rows.forEach(function(tr) {
+        var kode = (tr.dataset.kode || '').toLowerCase();
+        var mitra = (tr.dataset.mitra || '').toLowerCase();
+        var judul = (tr.dataset.judul || '').toLowerCase();
+        var matchQ = !q || (kode.indexOf(q) !== -1 || mitra.indexOf(q) !== -1 || judul.indexOf(q) !== -1);
+        
+        var matchP = !p || tr.dataset.portofolio === p;
+        var matchK = !k || tr.dataset.kategori === k;
+        var matchS = !s || tr.dataset.status === s;
+        var matchV = !v || tr.dataset.validasi === v;
+
+        var isVisible = (matchQ && matchP && matchK && matchS && matchV);
+        if (isVisible) {
+            scMatchedRows.push(tr);
+        } else {
+            tr.style.display = 'none';
+        }
+    });
+
+    var noMatch = document.getElementById('scNoMatchRow');
+    if (noMatch) {
+        noMatch.style.display = (rows.length > 0 && scMatchedRows.length === 0) ? '' : 'none';
+    }
+
+    scCurrentPage = 1;
+    renderScorecardPagination();
+}
+
+function changeScPageSize(sz) {
+    scPageSize = (sz === 'all') ? 999999 : parseInt(sz, 10);
+    scCurrentPage = 1;
+    renderScorecardPagination();
+}
+
+function goToScPage(p) {
+    scCurrentPage = p;
+    renderScorecardPagination();
+}
+
+function renderScorecardPagination() {
+    var total = scMatchedRows.length;
+    var wrap = document.getElementById('scPaginationWrap');
+    var nav = document.getElementById('scPaginationNav');
+    var info = document.getElementById('scPageInfo');
+    if (!wrap || !nav || !info) return;
+
+    if (total === 0) {
+        wrap.style.display = 'none';
+        return;
+    }
+    wrap.style.display = 'flex';
+
+    var totalPages = Math.ceil(total / scPageSize) || 1;
+    if (scCurrentPage > totalPages) scCurrentPage = totalPages;
+    if (scCurrentPage < 1) scCurrentPage = 1;
+
+    var start = (scCurrentPage - 1) * scPageSize;
+    var end = Math.min(start + scPageSize, total);
+
+    scMatchedRows.forEach(function(tr, idx) {
+        tr.style.display = (idx >= start && idx < end) ? '' : 'none';
+    });
+
+    info.textContent = 'Menampilkan ' + (start + 1) + ' – ' + end + ' dari ' + total + ' naskah';
+
+    nav.innerHTML = '';
+    if (totalPages <= 1) return;
+
+    var btnFirst = document.createElement('button');
+    btnFirst.type = 'button';
+    btnFirst.className = 'sc-page-btn';
+    btnFirst.innerHTML = '&laquo;';
+    btnFirst.title = 'Halaman Pertama';
+    btnFirst.disabled = (scCurrentPage === 1);
+    btnFirst.onclick = function(){ goToScPage(1); };
+    nav.appendChild(btnFirst);
+
+    var btnPrev = document.createElement('button');
+    btnPrev.type = 'button';
+    btnPrev.className = 'sc-page-btn';
+    btnPrev.innerHTML = '&lsaquo;';
+    btnPrev.title = 'Sebelumnya';
+    btnPrev.disabled = (scCurrentPage === 1);
+    btnPrev.onclick = function(){ goToScPage(scCurrentPage - 1); };
+    nav.appendChild(btnPrev);
+
+    var maxButtons = 5;
+    var startP = Math.max(1, scCurrentPage - 2);
+    var endP = Math.min(totalPages, startP + maxButtons - 1);
+    if (endP - startP < maxButtons - 1) {
+        startP = Math.max(1, endP - maxButtons + 1);
+    }
+
+    for (var p = startP; p <= endP; p++) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'sc-page-btn' + (p === scCurrentPage ? ' active' : '');
+        btn.textContent = p;
+        (function(page){
+            btn.onclick = function(){ goToScPage(page); };
+        })(p);
+        nav.appendChild(btn);
+    }
+
+    var btnNext = document.createElement('button');
+    btnNext.type = 'button';
+    btnNext.className = 'sc-page-btn';
+    btnNext.innerHTML = '&rsaquo;';
+    btnNext.title = 'Berikutnya';
+    btnNext.disabled = (scCurrentPage === totalPages);
+    btnNext.onclick = function(){ goToScPage(scCurrentPage + 1); };
+    nav.appendChild(btnNext);
+
+    var btnLast = document.createElement('button');
+    btnLast.type = 'button';
+    btnLast.className = 'sc-page-btn';
+    btnLast.innerHTML = '&raquo;';
+    btnLast.title = 'Halaman Terakhir';
+    btnLast.disabled = (scCurrentPage === totalPages);
+    btnLast.onclick = function(){ goToScPage(totalPages); };
+    nav.appendChild(btnLast);
+}
+
+function resetScFilters() {
+    document.getElementById('scSearch').value = '';
+    document.getElementById('scFilterPortofolio').value = '';
+    document.getElementById('scFilterKategori').value = '';
+    document.getElementById('scFilterStatus').value = '';
+    document.getElementById('scFilterValidasi').value = '';
+    applyScorecardFilters();
+}
+
+document.getElementById('scSearch').addEventListener('input', applyScorecardFilters);
+document.getElementById('scFilterPortofolio').addEventListener('change', applyScorecardFilters);
+document.getElementById('scFilterKategori').addEventListener('change', applyScorecardFilters);
+document.getElementById('scFilterStatus').addEventListener('change', applyScorecardFilters);
+document.getElementById('scFilterValidasi').addEventListener('change', applyScorecardFilters);
+
+document.addEventListener('DOMContentLoaded', applyScorecardFilters);
+window.addEventListener('pageshow', applyScorecardFilters);
+
 </script>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>

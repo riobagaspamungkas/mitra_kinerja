@@ -1805,275 +1805,292 @@ require __DIR__ . '/includes/header.php';
     </div>
 </div>
 
-<!-- Modal Backdrop Overlay -->
-<div id="modalBackdrop" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.65);z-index:9990;backdrop-filter:blur(2px);" onclick="closeAllGate0Modals()"></div>
+<!-- Modal Backdrop & Universal Centered Overlay -->
+<div id="modalBackdrop" class="app-modal-overlay" onclick="handleGate0BackdropClick(event)">
 
-<!-- Modal Tambah Usulan Lengkap (Formulir Gate 0) -->
-<div id="addModal" class="card" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;width:92%;max-width:850px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 40px rgba(0,0,0,0.3);background:#fff;">
-    <div class="flex-between" style="border-bottom:1px solid #e2e8f0;padding-bottom:10px;margin-bottom:14px;">
-        <h2 style="margin:0;font-size:18px;">Input Usulan Baru Gate 0 (Formulir Resmi)</h2>
-        <button type="button" onclick="closeAllGate0Modals()" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
+<!-- Modal 1: Tambah Usulan Lengkap (Formulir Gate 0) -->
+<div id="addModal" class="app-modal-box" style="display:none;max-width:850px;" onclick="event.stopPropagation()">
+    <div class="app-modal-header">
+        <h2 style="margin:0;font-size:18px;color:#0f172a;">Input Usulan Baru Gate 0 (Formulir Resmi)</h2>
+        <button type="button" onclick="closeAllGate0Modals()" style="background:none;border:none;font-size:22px;color:#64748b;cursor:pointer;line-height:1;padding:2px 8px;">&times;</button>
     </div>
-    <form method="post">
+    <form method="post" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;margin:0;">
         <?= csrfField() ?>
         <input type="hidden" name="action" value="create">
 
-        <h3 style="font-size:14px;color:#1e40af;margin:10px 0 8px;">A. Identitas Usulan Kerja Sama</h3>
-        <div class="form-grid">
-            <div class="field"><label>Nomor Usulan *</label><input type="text" name="nomor_usulan" required placeholder="PRA-2026-003"></div>
-            <div class="field"><label>Tipe Kerja Sama</label><select name="tipe_kerjasama"><option>Dalam Negeri</option><option>Luar Negeri</option></select></div>
-            <div class="field"><label>Jenis Naskah</label><select name="jenis_naskah"><option>PKS</option><option>MoU</option><option>Lainnya</option></select></div>
-            <div class="field"><label>Unit Pemrakarsa *</label><input type="text" name="unit_pemrakarsa" required placeholder="Contoh: Divisi Pelayanan Hukum"></div>
-            <div class="field"><label>Penanggung Jawab Usulan (PIC)</label><input type="text" name="penanggung_jawab_usulan" placeholder="Nama pejabat/penyusun"></div>
-            <div class="field"><label>Calon Mitra *</label><input type="text" name="calon_mitra" required placeholder="Nama instansi/lembaga mitra"></div>
-            <div class="field" style="grid-column:1/-1;"><label>Judul Rencana Kerja Sama *</label><input type="text" name="judul_rencana" required placeholder="Judul kerja sama yang direncanakan"></div>
-            <div class="field" style="grid-column:1/-1;"><label>Tujuan Singkat</label><textarea name="tujuan_singkat" rows="2" placeholder="Tujuan kerja sama..."></textarea></div>
-            <div class="field" style="grid-column:1/-1;"><label>Ruang Lingkup Utama</label><textarea name="ruang_lingkup" rows="2" placeholder="Bidang/kegiatan yang disepakati..."></textarea></div>
-            <div class="field" style="grid-column:1/-1;"><label>Penerima Manfaat</label><input type="text" name="penerima_manfaat" placeholder="Kelompok masyarakat / instansi penerima manfaat"></div>
-            <div class="field"><label>Perkiraan Mulai</label><input type="date" name="perkiraan_mulai"></div>
-            <div class="field"><label>Perkiraan Selesai</label><input type="date" name="perkiraan_selesai"></div>
-        </div>
-
-        <h3 style="font-size:14px;color:#1e40af;margin:18px 0 8px;border-top:1px solid #e2e8f0;padding-top:14px;">B. 18 Pertanyaan Uji (5 Kriteria Inti Gate 0)</h3>
-        <p class="muted" style="font-size:12px;margin-bottom:12px;">Satu kriteria dinyatakan YA apabila seluruh sub-pertanyaan wajib di dalamnya dijawab YA berdasarkan bukti/keterangan yang memadai.</p>
-
-        <?php foreach (GATE0_CRITERIA as $kCode => $crit): ?>
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px;margin-bottom:12px;">
-            <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:8px;">
-                <?= $kCode ?>. <?= $crit['nama'] ?>
+        <div class="app-modal-body">
+            <h3 style="font-size:14px;color:#1e40af;margin:0 0 10px;">A. Identitas Usulan Kerja Sama</h3>
+            <div class="form-grid">
+                <div class="field"><label>Nomor Usulan *</label><input type="text" name="nomor_usulan" required placeholder="PRA-2026-003"></div>
+                <div class="field"><label>Tipe Kerja Sama</label><select name="tipe_kerjasama"><option>Dalam Negeri</option><option>Luar Negeri</option></select></div>
+                <div class="field"><label>Jenis Naskah</label><select name="jenis_naskah"><option>PKS</option><option>MoU</option><option>Lainnya</option></select></div>
+                <div class="field"><label>Unit Pemrakarsa *</label><input type="text" name="unit_pemrakarsa" required placeholder="Contoh: Divisi Pelayanan Hukum"></div>
+                <div class="field"><label>Penanggung Jawab Usulan (PIC)</label><input type="text" name="penanggung_jawab_usulan" placeholder="Nama pejabat/penyusun"></div>
+                <div class="field"><label>Calon Mitra *</label><input type="text" name="calon_mitra" required placeholder="Nama instansi/lembaga mitra"></div>
+                <div class="field" style="grid-column:1/-1;"><label>Judul Rencana Kerja Sama *</label><input type="text" name="judul_rencana" required placeholder="Judul kerja sama yang direncanakan"></div>
+                <div class="field" style="grid-column:1/-1;"><label>Tujuan Singkat</label><textarea name="tujuan_singkat" rows="2" placeholder="Tujuan kerja sama..."></textarea></div>
+                <div class="field" style="grid-column:1/-1;"><label>Ruang Lingkup Utama</label><textarea name="ruang_lingkup" rows="2" placeholder="Bidang/kegiatan yang disepakati..."></textarea></div>
+                <div class="field" style="grid-column:1/-1;"><label>Penerima Manfaat</label><input type="text" name="penerima_manfaat" placeholder="Kelompok masyarakat / instansi penerima manfaat"></div>
+                <div class="field"><label>Perkiraan Mulai</label><input type="date" name="perkiraan_mulai"></div>
+                <div class="field"><label>Perkiraan Selesai</label><input type="date" name="perkiraan_selesai"></div>
             </div>
-            <?php foreach ($crit['questions'] as $qNum => $qText): ?>
-            <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed #cbd5e1;">
-                <div style="font-size:12px;color:#334155;margin-bottom:4px;">
-                    <strong><?= $qNum ?>.</strong> <?= h($qText) ?>
+
+            <h3 style="font-size:14px;color:#1e40af;margin:18px 0 8px;border-top:1px solid #e2e8f0;padding-top:14px;">B. 18 Pertanyaan Uji (5 Kriteria Inti Gate 0)</h3>
+            <p class="muted" style="font-size:12px;margin-bottom:12px;">Satu kriteria dinyatakan YA apabila seluruh sub-pertanyaan wajib di dalamnya dijawab YA berdasarkan bukti/keterangan yang memadai.</p>
+
+            <?php foreach (GATE0_CRITERIA as $kCode => $crit): ?>
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px;margin-bottom:12px;">
+                <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:8px;">
+                    <?= $kCode ?>. <?= $crit['nama'] ?>
                 </div>
-                <div style="display:flex;gap:10px;align-items:center;">
-                    <select name="q<?= $qNum ?>_jawab" style="width:100px;">
-                        <option value="YA">YA</option>
-                        <option value="TIDAK">TIDAK</option>
-                    </select>
-                    <input type="text" name="q<?= $qNum ?>_bukti" placeholder="Bukti / keterangan pendukung..." style="flex:1;">
+                <?php foreach ($crit['questions'] as $qNum => $qText): ?>
+                <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed #cbd5e1;">
+                    <div style="font-size:12px;color:#334155;margin-bottom:4px;">
+                        <strong><?= $qNum ?>.</strong> <?= h($qText) ?>
+                    </div>
+                    <div style="display:flex;gap:10px;align-items:center;">
+                        <select name="q<?= $qNum ?>_jawab" style="width:100px;">
+                            <option value="YA">YA</option>
+                            <option value="TIDAK">TIDAK</option>
+                        </select>
+                        <input type="text" name="q<?= $qNum ?>_catatan" placeholder="Catatan bukti / dasar pertimbangan" style="flex:1;">
+                    </div>
                 </div>
+                <?php endforeach; ?>
             </div>
             <?php endforeach; ?>
-        </div>
-        <?php endforeach; ?>
 
-        <h3 style="font-size:14px;color:#1e40af;margin:18px 0 8px;border-top:1px solid #e2e8f0;padding-top:14px;">C. Trigger Karakteristik Khusus (7 Item)</h3>
-        <p class="muted" style="font-size:12px;margin-bottom:12px;">Jika dijawab YA, kerja sama memerlukan reviu tambahan dari fungsi terkait sebelum putusan pimpinan.</p>
-        
-        <div style="background:#fffbeb;border:1px solid #fef3c7;border-radius:6px;padding:12px;margin-bottom:14px;">
-            <?php foreach (GATE0_TRIGGERS as $tNum => $trig): ?>
-            <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed #fde68a;">
-                <div style="font-size:12px;font-weight:700;color:#92400e;"><?= $tNum ?>. <?= h($trig['judul']) ?></div>
-                <div style="font-size:11px;color:#78350f;margin-bottom:4px;"><?= h($trig['teks']) ?></div>
-                <div style="display:flex;gap:10px;align-items:center;">
-                    <select name="trigger<?= $tNum ?>_jawab" style="width:100px;">
-                        <option value="TIDAK">TIDAK</option>
-                        <option value="YA">YA</option>
-                    </select>
-                    <input type="text" name="trigger<?= $tNum ?>_catatan" placeholder="Catatan / SOP reviu: <?= h($trig['reviu']) ?>" style="flex:1;">
+            <h3 style="font-size:14px;color:#1e40af;margin:18px 0 8px;border-top:1px solid #e2e8f0;padding-top:14px;">C. 5 Pemicu Eskalasi ke Pimpinan</h3>
+            <div style="background:#fffbeb;border:1px solid #fef3c7;border-radius:6px;padding:12px;margin-bottom:12px;">
+                <?php foreach (GATE0_TRIGGERS as $tNum => $trig): ?>
+                <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed #fde68a;">
+                    <div style="font-size:12px;color:#78350f;margin-bottom:4px;">
+                        <strong>Pemicu <?= $tNum ?>:</strong> <?= h($trig['teks']) ?>
+                    </div>
+                    <div style="display:flex;gap:10px;align-items:center;">
+                        <select name="trigger<?= $tNum ?>_jawab" style="width:100px;">
+                            <option value="TIDAK">TIDAK</option>
+                            <option value="YA">YA</option>
+                        </select>
+                        <input type="text" name="trigger<?= $tNum ?>_catatan" placeholder="Catatan / SOP reviu: <?= h($trig['reviu']) ?>" style="flex:1;">
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+
+            <h3 style="font-size:14px;color:#1e40af;margin:18px 0 8px;border-top:1px solid #e2e8f0;padding-top:14px;">D. Catatan &amp; Gap Verifikasi</h3>
+            <div class="form-grid">
+                <div class="field" style="grid-column:1/-1;">
+                    <label>Catatan Verifikasi Ringkas</label>
+                    <textarea name="catatan_verifikasi" placeholder="Catatan kelayakan umum..."></textarea>
+                </div>
+                <div class="field" style="grid-column:1/-1;">
+                    <label>Gap yang Harus Ditutup (Bila Perlu Penyempurnaan)</label>
+                    <textarea name="gap_penyempurnaan" placeholder="Daftar kekurangan yang wajib dilengkapi unit pemrakarsa..."></textarea>
+                </div>
+                <div class="field">
+                    <label>Unit / Fungsi Reviu Tambahan</label>
+                    <input type="text" name="unit_review_tambahan" placeholder="Contoh: Biro Hukerma / Tim TI / Bagian Keuangan">
+                </div>
+                <div class="field">
+                    <label>Batas Waktu Penyempurnaan</label>
+                    <input type="date" name="batas_waktu_penyempurnaan">
                 </div>
             </div>
-            <?php endforeach; ?>
         </div>
 
-        <h3 style="font-size:14px;color:#1e40af;margin:18px 0 8px;border-top:1px solid #e2e8f0;padding-top:14px;">D. Catatan &amp; Gap Verifikasi</h3>
-        <div class="form-grid">
-            <div class="field" style="grid-column:1/-1;">
-                <label>Catatan Verifikasi Ringkas</label>
-                <textarea name="catatan_verifikasi" placeholder="Catatan kelayakan umum..."></textarea>
-            </div>
-            <div class="field" style="grid-column:1/-1;">
-                <label>Gap yang Harus Ditutup (Bila Perlu Penyempurnaan)</label>
-                <textarea name="gap_penyempurnaan" placeholder="Daftar kekurangan yang wajib dilengkapi unit pemrakarsa..."></textarea>
-            </div>
-            <div class="field">
-                <label>Unit / Fungsi Reviu Tambahan</label>
-                <input type="text" name="unit_review_tambahan" placeholder="Contoh: Biro Hukerma / Tim TI / Bagian Keuangan">
-            </div>
-            <div class="field">
-                <label>Batas Waktu Penyempurnaan</label>
-                <input type="date" name="batas_waktu_penyempurnaan">
-            </div>
-        </div>
-
-        <div style="margin-top:18px;display:flex;gap:10px;border-top:1px solid #e2e8f0;padding-top:14px;">
-            <button type="submit" class="btn btn-primary">Simpan &amp; Ajukan Usulan</button>
+        <div class="app-modal-footer">
             <button type="button" onclick="closeAllGate0Modals()" class="btn btn-outline">Batal</button>
+            <button type="submit" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;">
+                <?= uiIcon('check-circle', 14) ?> Simpan &amp; Ajukan Usulan
+            </button>
         </div>
     </form>
 </div>
 
-<!-- Modal Keputusan Pimpinan -->
-<div id="decisionModal" class="card" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;width:90%;max-width:500px;box-shadow:0 20px 40px rgba(0,0,0,0.3);background:#fff;">
-    <div class="flex-between" style="border-bottom:1px solid #e2e8f0;padding-bottom:10px;margin-bottom:14px;">
-        <h2 style="margin:0;font-size:18px;">Keputusan Pimpinan (Gate 0)</h2>
-        <button type="button" onclick="closeAllGate0Modals()" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
+<!-- Modal 2: Keputusan Pimpinan -->
+<div id="decisionModal" class="app-modal-box" style="display:none;max-width:520px;" onclick="event.stopPropagation()">
+    <div class="app-modal-header">
+        <h2 style="margin:0;font-size:18px;color:#0f172a;">Keputusan Pimpinan (Gate 0)</h2>
+        <button type="button" onclick="closeAllGate0Modals()" style="background:none;border:none;font-size:22px;color:#64748b;cursor:pointer;line-height:1;padding:2px 8px;">&times;</button>
     </div>
-    <form method="post">
+    <form method="post" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;margin:0;">
         <?= csrfField() ?>
         <input type="hidden" name="action" value="decision">
         <input type="hidden" name="usulan_id" id="decUsulanId">
-        <div style="margin-bottom:12px;font-size:13px;">
-            Usulan: <strong id="decUsulanNo"></strong> &mdash; <span id="decCalonMitra"></span>
+        
+        <div class="app-modal-body">
+            <div style="margin-bottom:12px;font-size:13px;background:#f8fafc;padding:10px;border-radius:6px;border:1px solid #e2e8f0;">
+                Usulan: <strong id="decUsulanNo" style="color:#1e40af;"></strong> &mdash; <span id="decCalonMitra"></span>
+            </div>
+            <div class="field">
+                <label style="font-weight:600;">Keputusan Pimpinan *</label>
+                <select name="status_persetujuan" required>
+                    <option value="Disetujui Pimpinan">Disetujui Pimpinan (Layak Diproses ke PKS)</option>
+                    <option value="Dikembalikan untuk Revisi">Dikembalikan untuk Revisi (Tutup Gap)</option>
+                    <option value="Ditolak Pimpinan">Ditolak Pimpinan (Tidak Prioritas / Tidak Layak)</option>
+                </select>
+            </div>
+            <div class="field" style="margin-top:12px;">
+                <label style="font-weight:600;">Arahan / Disposisi Pimpinan</label>
+                <textarea name="catatan_pimpinan" rows="3" placeholder="Instruksi, disposisi, atau alasan keputusan..."></textarea>
+            </div>
         </div>
-        <div class="field">
-            <label>Keputusan</label>
-            <select name="status_persetujuan" required>
-                <option value="Disetujui Pimpinan">Disetujui Pimpinan (Layak Diproses ke PKS)</option>
-                <option value="Dikembalikan untuk Revisi">Dikembalikan untuk Revisi (Tutup Gap)</option>
-                <option value="Ditolak Pimpinan">Ditolak Pimpinan (Tidak Prioritas / Tidak Layak)</option>
-            </select>
-        </div>
-        <div class="field" style="margin-top:10px;">
-            <label>Arahan / Disposisi Pimpinan</label>
-            <textarea name="catatan_pimpinan" rows="3" placeholder="Instruksi, disposisi, atau alasan keputusan..."></textarea>
-        </div>
-        <div style="margin-top:16px;display:flex;gap:10px;">
-            <button type="submit" class="btn btn-primary">Simpan Keputusan</button>
+
+        <div class="app-modal-footer">
             <button type="button" onclick="closeAllGate0Modals()" class="btn btn-outline">Batal</button>
+            <button type="submit" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;">
+                <?= uiIcon('check-circle', 14) ?> Simpan Keputusan
+            </button>
         </div>
     </form>
 </div>
 
-<!-- Modal Import Excel (.xlsx) / CSV -->
-<div id="importModal" class="card" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;width:90%;max-width:500px;box-shadow:0 20px 40px rgba(0,0,0,0.3);background:#fff;">
-    <div class="flex-between" style="border-bottom:1px solid #e2e8f0;padding-bottom:10px;margin-bottom:14px;">
-        <h2 style="margin:0;font-size:18px;">Import Usulan Pra-PKS (Excel / CSV)</h2>
-        <button type="button" onclick="closeAllGate0Modals()" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
+<!-- Modal 3: Import Excel (.xlsx) / CSV -->
+<div id="importModal" class="app-modal-box" style="display:none;max-width:520px;" onclick="event.stopPropagation()">
+    <div class="app-modal-header">
+        <h2 style="margin:0;font-size:18px;color:#0f172a;">Import Usulan Pra-PKS (Excel / CSV)</h2>
+        <button type="button" onclick="closeAllGate0Modals()" style="background:none;border:none;font-size:22px;color:#64748b;cursor:pointer;line-height:1;padding:2px 8px;">&times;</button>
     </div>
-    <form method="post" enctype="multipart/form-data">
+    <form method="post" enctype="multipart/form-data" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;margin:0;">
         <?= csrfField() ?>
         <input type="hidden" name="action" value="import_csv">
-        <p style="font-size:13px;" class="muted">
-            Gunakan format Excel (.xlsx) atau CSV sesuai template yang disediakan pada tombol di kanan atas.
-        </p>
-        <div class="field" style="margin:14px 0;">
-            <label>Pilih File Excel (.xlsx) atau CSV</label>
-            <input type="file" name="csv_file" accept=".xlsx,.csv" required>
+        <div class="app-modal-body">
+            <p style="font-size:13px;" class="muted">
+                Gunakan format Excel (.xlsx) atau CSV sesuai template yang disediakan pada tombol di kanan atas.
+            </p>
+            <div class="field" style="margin:14px 0;">
+                <label style="font-weight:600;">Pilih File Excel (.xlsx) atau CSV</label>
+                <input type="file" name="csv_file" accept=".xlsx,.csv" required>
+            </div>
         </div>
-        <div style="display:flex;gap:10px;">
-            <button type="submit" class="btn btn-primary">Upload &amp; Import</button>
+        <div class="app-modal-footer">
             <button type="button" onclick="closeAllGate0Modals()" class="btn btn-outline">Batal</button>
+            <button type="submit" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;">
+                <?= uiIcon('upload', 14) ?> Upload &amp; Import
+            </button>
         </div>
     </form>
 </div>
 
-<!-- Modal Edit Usulan (Jendela Pop-up Form & Upload File Baru) -->
-<div id="editModal" class="card" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;width:92%;max-width:860px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 40px rgba(0,0,0,0.35);background:#fff;border-radius:10px;">
-    <div class="flex-between" style="border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:16px;">
+<!-- Modal 4: Edit Usulan (Jendela Pop-up Form & Upload File Baru) -->
+<div id="editModal" class="app-modal-box" style="display:none;max-width:860px;" onclick="event.stopPropagation()">
+    <div class="app-modal-header">
         <div>
             <h2 style="margin:0;font-size:18px;color:#1e293b;">Edit Usulan Pra-PKS: <span id="editModalNomorTitle" style="color:#2563eb;"></span></h2>
             <div class="muted" style="font-size:12px;margin-top:2px;">Perbarui data formulir usulan kerja sama atau unggah file baru</div>
         </div>
-        <button type="button" onclick="closeAllGate0Modals()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#64748b;">&times;</button>
+        <button type="button" onclick="closeAllGate0Modals()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#64748b;line-height:1;padding:2px 8px;">&times;</button>
     </div>
-    <form method="post" enctype="multipart/form-data">
+    <form method="post" enctype="multipart/form-data" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;margin:0;">
         <?= csrfField() ?>
         <input type="hidden" name="action" value="update">
         <input type="hidden" name="usulan_id" id="editUsulanId">
 
-        <h3 style="font-size:14px;color:#1e40af;margin:10px 0 8px;">A. Identitas Usulan Kerja Sama</h3>
-        <div class="form-grid">
-            <div class="field"><label>Nomor Usulan *</label><input type="text" name="nomor_usulan" id="editNomorUsulan" required></div>
-            <div class="field"><label>Tipe Kerja Sama</label><select name="tipe_kerjasama" id="editTipeKerjasama"><option>Dalam Negeri</option><option>Luar Negeri</option></select></div>
-            <div class="field"><label>Jenis Naskah</label><select name="jenis_naskah" id="editJenisNaskah"><option>PKS</option><option>MoU</option><option>Lainnya</option></select></div>
-            <div class="field"><label>Unit Pemrakarsa *</label><input type="text" name="unit_pemrakarsa" id="editUnitPemrakarsa" required></div>
-            <div class="field"><label>Penanggung Jawab Usulan (PIC)</label><input type="text" name="penanggung_jawab_usulan" id="editPenanggungJawab"></div>
-            <div class="field"><label>Calon Mitra *</label><input type="text" name="calon_mitra" id="editCalonMitra" required></div>
-            <div class="field" style="grid-column:1/-1;"><label>Judul Rencana Kerja Sama *</label><input type="text" name="judul_rencana" id="editJudulRencana" required></div>
-            <div class="field" style="grid-column:1/-1;"><label>Tujuan Singkat</label><textarea name="tujuan_singkat" id="editTujuanSingkat" rows="2"></textarea></div>
-            <div class="field" style="grid-column:1/-1;"><label>Ruang Lingkup Utama</label><textarea name="ruang_lingkup" id="editRuangLingkup" rows="2"></textarea></div>
-            <div class="field" style="grid-column:1/-1;"><label>Penerima Manfaat</label><input type="text" name="penerima_manfaat" id="editPenerimaManfaat"></div>
-            <div class="field"><label>Perkiraan Mulai</label><input type="date" name="perkiraan_mulai" id="editPerkiraanMulai"></div>
-            <div class="field"><label>Perkiraan Selesai</label><input type="date" name="perkiraan_selesai" id="editPerkiraanSelesai"></div>
-            <div class="field" style="grid-column:1/-1;background:#f8fafc;padding:10px 12px;border:1px dashed #cbd5e1;border-radius:6px;">
-                <label style="font-weight:700;color:#1e293b;margin-bottom:4px;display:flex;align-items:center;gap:5px;"><?= uiIcon('paperclip', 13) ?> File Lampiran / Dokumen Usulan Baru</label>
-                <div id="editCurrentFileBox" style="margin-bottom:6px;font-size:12px;"></div>
-                <input type="file" name="file_naskah_baru" accept=".pdf,.docx,.xlsx,.csv">
-                <div class="muted" style="font-size:11px;margin-top:2px;">Format didukung: PDF, DOCX, XLSX, CSV (maksimal 25MB). Unggah file baru untuk mengganti file lama.</div>
-            </div>
-        </div>
-
-        <h3 style="font-size:14px;color:#1e40af;margin:18px 0 8px;border-top:1px solid #e2e8f0;padding-top:14px;">B. 18 Pertanyaan Uji (5 Kriteria Inti Gate 0)</h3>
-        <p class="muted" style="font-size:12px;margin-bottom:12px;">Satu kriteria dinyatakan YA apabila seluruh sub-pertanyaan wajib di dalamnya dijawab YA berdasarkan bukti/keterangan yang memadai.</p>
-
-        <?php foreach (GATE0_CRITERIA as $kCode => $crit): ?>
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px;margin-bottom:12px;">
-            <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:8px;">
-                <?= $kCode ?>. <?= $crit['nama'] ?>
-            </div>
-            <?php foreach ($crit['questions'] as $qNum => $qText): ?>
-            <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed #cbd5e1;">
-                <div style="font-size:12px;color:#334155;margin-bottom:4px;">
-                    <strong><?= $qNum ?>.</strong> <?= h($qText) ?>
+        <div class="app-modal-body">
+            <h3 style="font-size:14px;color:#1e40af;margin:0 0 10px;">A. Identitas Usulan Kerja Sama</h3>
+            <div class="form-grid">
+                <div class="field"><label>Nomor Usulan *</label><input type="text" name="nomor_usulan" id="editNomorUsulan" required></div>
+                <div class="field"><label>Tipe Kerja Sama</label><select name="tipe_kerjasama" id="editTipeKerjasama"><option>Dalam Negeri</option><option>Luar Negeri</option></select></div>
+                <div class="field"><label>Jenis Naskah</label><select name="jenis_naskah" id="editJenisNaskah"><option>PKS</option><option>MoU</option><option>Lainnya</option></select></div>
+                <div class="field"><label>Unit Pemrakarsa *</label><input type="text" name="unit_pemrakarsa" id="editUnitPemrakarsa" required></div>
+                <div class="field"><label>Penanggung Jawab Usulan (PIC)</label><input type="text" name="penanggung_jawab_usulan" id="editPenanggungJawab"></div>
+                <div class="field"><label>Calon Mitra *</label><input type="text" name="calon_mitra" id="editCalonMitra" required></div>
+                <div class="field" style="grid-column:1/-1;"><label>Judul Rencana Kerja Sama *</label><input type="text" name="judul_rencana" id="editJudulRencana" required></div>
+                <div class="field" style="grid-column:1/-1;"><label>Tujuan Singkat</label><textarea name="tujuan_singkat" id="editTujuanSingkat" rows="2"></textarea></div>
+                <div class="field" style="grid-column:1/-1;"><label>Ruang Lingkup Utama</label><textarea name="ruang_lingkup" id="editRuangLingkup" rows="2"></textarea></div>
+                <div class="field" style="grid-column:1/-1;"><label>Penerima Manfaat</label><input type="text" name="penerima_manfaat" id="editPenerimaManfaat"></div>
+                <div class="field"><label>Perkiraan Mulai</label><input type="date" name="perkiraan_mulai" id="editPerkiraanMulai"></div>
+                <div class="field"><label>Perkiraan Selesai</label><input type="date" name="perkiraan_selesai" id="editPerkiraanSelesai"></div>
+                <div class="field" style="grid-column:1/-1;background:#f8fafc;padding:10px 12px;border:1px dashed #cbd5e1;border-radius:6px;">
+                    <label style="font-weight:700;color:#1e293b;margin-bottom:4px;display:flex;align-items:center;gap:5px;"><?= uiIcon('paperclip', 13) ?> File Lampiran / Dokumen Usulan Baru</label>
+                    <div id="editCurrentFileBox" style="margin-bottom:6px;font-size:12px;"></div>
+                    <input type="file" name="file_naskah_baru" accept=".pdf,.docx,.xlsx,.csv">
+                    <div class="muted" style="font-size:11px;margin-top:2px;">Format didukung: PDF, DOCX, XLSX, CSV (maksimal 25MB). Unggah file baru untuk mengganti file lama.</div>
                 </div>
-                <div style="display:flex;gap:10px;align-items:center;">
-                    <select name="q<?= $qNum ?>_jawab" id="edit_q<?= $qNum ?>_jawab" style="width:100px;">
-                        <option value="YA">YA</option>
-                        <option value="TIDAK">TIDAK</option>
-                    </select>
-                    <input type="text" name="q<?= $qNum ?>_bukti" id="edit_q<?= $qNum ?>_bukti" placeholder="Bukti / keterangan pendukung..." style="flex:1;">
+            </div>
+
+            <h3 style="font-size:14px;color:#1e40af;margin:18px 0 8px;border-top:1px solid #e2e8f0;padding-top:14px;">B. 18 Pertanyaan Uji (5 Kriteria Inti Gate 0)</h3>
+            <p class="muted" style="font-size:12px;margin-bottom:12px;">Satu kriteria dinyatakan YA apabila seluruh sub-pertanyaan wajib di dalamnya dijawab YA berdasarkan bukti/keterangan yang memadai.</p>
+
+            <?php foreach (GATE0_CRITERIA as $kCode => $crit): ?>
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px;margin-bottom:12px;">
+                <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:8px;">
+                    <?= $kCode ?>. <?= $crit['nama'] ?>
                 </div>
+                <?php foreach ($crit['questions'] as $qNum => $qText): ?>
+                <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed #cbd5e1;">
+                    <div style="font-size:12px;color:#334155;margin-bottom:4px;">
+                        <strong><?= $qNum ?>.</strong> <?= h($qText) ?>
+                    </div>
+                    <div style="display:flex;gap:10px;align-items:center;">
+                        <select name="edit_q<?= $qNum ?>_jawab" id="edit_q<?= $qNum ?>_jawab" style="width:100px;">
+                            <option value="YA">YA</option>
+                            <option value="TIDAK">TIDAK</option>
+                        </select>
+                        <input type="text" name="edit_q<?= $qNum ?>_catatan" id="edit_q<?= $qNum ?>_catatan" placeholder="Catatan bukti / dasar pertimbangan" style="flex:1;">
+                    </div>
+                </div>
+                <?php endforeach; ?>
             </div>
             <?php endforeach; ?>
-        </div>
-        <?php endforeach; ?>
 
-        <h3 style="font-size:14px;color:#1e40af;margin:18px 0 8px;border-top:1px solid #e2e8f0;padding-top:14px;">C. Trigger Karakteristik Khusus (7 Item)</h3>
-        <p class="muted" style="font-size:12px;margin-bottom:12px;">Jika dijawab YA, kerja sama memerlukan reviu tambahan dari fungsi terkait sebelum putusan pimpinan.</p>
-        
-        <div style="background:#fffbeb;border:1px solid #fef3c7;border-radius:6px;padding:12px;margin-bottom:14px;">
-            <?php foreach (GATE0_TRIGGERS as $tNum => $trig): ?>
-            <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed #fde68a;">
-                <div style="font-size:12px;font-weight:700;color:#92400e;"><?= $tNum ?>. <?= h($trig['judul']) ?></div>
-                <div style="font-size:11px;color:#78350f;margin-bottom:4px;"><?= h($trig['teks']) ?></div>
-                <div style="display:flex;gap:10px;align-items:center;">
-                    <select name="trigger<?= $tNum ?>_jawab" id="edit_trigger<?= $tNum ?>_jawab" style="width:100px;">
-                        <option value="TIDAK">TIDAK</option>
-                        <option value="YA">YA</option>
-                    </select>
-                    <input type="text" name="trigger<?= $tNum ?>_catatan" id="edit_trigger<?= $tNum ?>_catatan" placeholder="Catatan / SOP reviu: <?= h($trig['reviu']) ?>" style="flex:1;">
+            <h3 style="font-size:14px;color:#1e40af;margin:18px 0 8px;border-top:1px solid #e2e8f0;padding-top:14px;">C. 5 Pemicu Eskalasi ke Pimpinan</h3>
+            <div style="background:#fffbeb;border:1px solid #fef3c7;border-radius:6px;padding:12px;margin-bottom:12px;">
+                <?php foreach (GATE0_TRIGGERS as $tNum => $trig): ?>
+                <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed #fde68a;">
+                    <div style="font-size:12px;color:#78350f;margin-bottom:4px;">
+                        <strong>Pemicu <?= $tNum ?>:</strong> <?= h($trig['teks']) ?>
+                    </div>
+                    <div style="display:flex;gap:10px;align-items:center;">
+                        <select name="edit_trigger<?= $tNum ?>_jawab" id="edit_trigger<?= $tNum ?>_jawab" style="width:100px;">
+                            <option value="TIDAK">TIDAK</option>
+                            <option value="YA">YA</option>
+                        </select>
+                        <input type="text" name="edit_trigger<?= $tNum ?>_catatan" id="edit_trigger<?= $tNum ?>_catatan" placeholder="Catatan / SOP reviu: <?= h($trig['reviu']) ?>" style="flex:1;">
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+
+            <h3 style="font-size:14px;color:#1e40af;margin:18px 0 8px;border-top:1px solid #e2e8f0;padding-top:14px;">D. Catatan &amp; Gap Verifikasi</h3>
+            <div class="form-grid">
+                <div class="field" style="grid-column:1/-1;">
+                    <label>Catatan Verifikasi Ringkas</label>
+                    <textarea name="catatan_verifikasi" id="editCatatanVerifikasi" placeholder="Catatan kelayakan umum..."></textarea>
+                </div>
+                <div class="field" style="grid-column:1/-1;">
+                    <label>Gap yang Harus Ditutup (Bila Perlu Penyempurnaan)</label>
+                    <textarea name="gap_penyempurnaan" id="editGapPenyempurnaan" placeholder="Daftar kekurangan yang wajib dilengkapi unit pemrakarsa..."></textarea>
+                </div>
+                <div class="field">
+                    <label>Unit / Fungsi Reviu Tambahan</label>
+                    <input type="text" name="unit_review_tambahan" id="editUnitReviewTambahan" placeholder="Contoh: Biro Hukerma / Tim TI / Bagian Keuangan">
+                </div>
+                <div class="field">
+                    <label>Batas Waktu Penyempurnaan</label>
+                    <input type="date" name="batas_waktu_penyempurnaan" id="editBatasWaktuPenyempurnaan">
                 </div>
             </div>
-            <?php endforeach; ?>
         </div>
 
-        <h3 style="font-size:14px;color:#1e40af;margin:18px 0 8px;border-top:1px solid #e2e8f0;padding-top:14px;">D. Catatan &amp; Gap Verifikasi</h3>
-        <div class="form-grid">
-            <div class="field" style="grid-column:1/-1;">
-                <label>Catatan Verifikasi Ringkas</label>
-                <textarea name="catatan_verifikasi" id="editCatatanVerifikasi" placeholder="Catatan kelayakan umum..."></textarea>
-            </div>
-            <div class="field" style="grid-column:1/-1;">
-                <label>Gap yang Harus Ditutup (Bila Perlu Penyempurnaan)</label>
-                <textarea name="gap_penyempurnaan" id="editGapPenyempurnaan" placeholder="Daftar kekurangan yang wajib dilengkapi unit pemrakarsa..."></textarea>
-            </div>
-            <div class="field">
-                <label>Unit / Fungsi Reviu Tambahan</label>
-                <input type="text" name="unit_review_tambahan" id="editUnitReviewTambahan" placeholder="Contoh: Biro Hukerma / Tim TI / Bagian Keuangan">
-            </div>
-            <div class="field">
-                <label>Batas Waktu Penyempurnaan</label>
-                <input type="date" name="batas_waktu_penyempurnaan" id="editBatasWaktu">
-            </div>
-        </div>
-
-        <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;border-top:1px solid #e2e8f0;padding-top:14px;">
-            <button type="submit" name="submit_mode" value="save_draft" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:5px;"><?= uiIcon('save', 13) ?> Simpan Usulan</button>
-            <button type="submit" name="submit_mode" value="submit_final" class="btn btn-success" style="background:#16a34a;border-color:#15803d;color:#ffffff;display:inline-flex;align-items:center;gap:5px;"><?= uiIcon('send', 13) ?> Simpan &amp; Ajukan ke Pimpinan</button>
+        <div class="app-modal-footer">
             <button type="button" onclick="closeAllGate0Modals()" class="btn btn-outline">Batal</button>
+            <button type="submit" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;">
+                <?= uiIcon('check-circle', 14) ?> Simpan Perubahan Usulan
+            </button>
         </div>
     </form>
 </div>
 
+</div><!-- /#modalBackdrop -->
 <script>
 function openGate0Modal(modalId) {
-    var m = document.getElementById(modalId);
-    if (m) m.style.display = 'block';
+    closeAllGate0Modals();
     var bg = document.getElementById('modalBackdrop');
-    if (bg) bg.style.display = 'block';
+    if (bg) bg.style.display = 'flex';
+    var m = document.getElementById(modalId);
+    if (m) m.style.display = 'flex';
 }
 
 function closeAllGate0Modals() {
@@ -2083,6 +2100,12 @@ function closeAllGate0Modals() {
     });
     var bg = document.getElementById('modalBackdrop');
     if (bg) bg.style.display = 'none';
+}
+
+function handleGate0BackdropClick(e) {
+    if (e.target && e.target.id === 'modalBackdrop') {
+        closeAllGate0Modals();
+    }
 }
 
 function openEditGate0Modal(data) {

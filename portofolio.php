@@ -594,10 +594,12 @@ require __DIR__ . '/includes/header.php';
                 </td>
                 <td><?= h($m['portofolio']) ?></td>
                 <td><strong><?= h($m['nama_mitra']) ?></strong></td>
-                <td>
-                    <div style="font-size:12px;color:#1e293b;line-height:1.35;max-width:220px;font-weight:500;"><?= h($m['judul'] ?: '-') ?></div>
+                <td class="port-naskah-cell">
+                    <span class="port-naskah-title" title="<?= h($m['judul'] ?: '-') ?>">
+                        <?= h($m['judul'] ?: '-') ?>
+                    </span>
                     <?php if (!empty($m['file_naskah'])): ?>
-                    <div style="margin-top:3px;">
+                    <div style="margin-top:4px;">
                         <a href="<?= h($m['file_naskah']) ?>" target="_blank" class="badge badge-primary" style="font-size:9.5px;text-decoration:none;display:inline-flex;align-items:center;gap:3px;padding:2px 6px;">
                             <?= uiIcon('file-text', 10) ?> Scan PDF
                         </a>
@@ -673,7 +675,7 @@ require __DIR__ . '/includes/header.php';
 <!-- ========================================================================= -->
 <div id="modalTambahNaskah" class="app-modal-overlay">
     <div class="app-modal-box" style="max-width: 820px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;border-bottom:1px solid #e2e8f0;padding-bottom:12px;">
+        <div class="app-modal-header">
             <div>
                 <h2 style="margin:0;font-size:18px;color:#0f172a;display:inline-flex;align-items:center;gap:8px;">
                     <?= uiIcon('plus', 16) ?> Tambah Naskah Kerja Sama Baru
@@ -683,11 +685,12 @@ require __DIR__ . '/includes/header.php';
             <button type="button" onclick="closeTambahNaskahModal()" style="background:none;border:none;font-size:24px;color:#64748b;cursor:pointer;padding:2px 8px;line-height:1;">&times;</button>
         </div>
 
-        <form method="post" enctype="multipart/form-data" id="formTambahNaskah">
+        <form method="post" enctype="multipart/form-data" id="formTambahNaskah" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;margin:0;">
             <?= csrfField() ?>
             <input type="hidden" name="action" value="add">
             
-            <div class="form-grid">
+            <div class="app-modal-body">
+                <div class="form-grid">
                 <div class="field">
                     <label style="font-weight:600;">Kode Naskah (P11, C06, dst) *</label>
                     <input type="text" name="kode" maxlength="5" required placeholder="Contoh: P11" value="">
@@ -810,7 +813,10 @@ require __DIR__ . '/includes/header.php';
                 </div>
             </div>
 
-            <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:22px;padding-top:16px;border-top:1px solid #e2e8f0;">
+                </div>
+            </div>
+
+            <div class="app-modal-footer">
                 <button type="button" onclick="closeTambahNaskahModal()" class="btn btn-outline">Batal</button>
                 <button type="submit" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;">
                     <?= uiIcon('check-circle', 14) ?> Simpan Naskah Baru
@@ -825,7 +831,7 @@ require __DIR__ . '/includes/header.php';
 <!-- ========================================================================= -->
 <div id="modalEditNaskah" class="app-modal-overlay">
     <div class="app-modal-box" style="max-width: 880px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid #e2e8f0;padding-bottom:10px;">
+        <div class="app-modal-header">
             <div>
                 <h2 style="margin:0;font-size:18px;color:#0f172a;display:inline-flex;align-items:center;gap:8px;">
                     <span id="editModalPartnerKode" class="badge badge-primary" style="font-size:13px;padding:3px 8px;">-</span>
@@ -836,8 +842,8 @@ require __DIR__ . '/includes/header.php';
             <button type="button" onclick="closeEditNaskahModal()" style="background:none;border:none;font-size:24px;color:#64748b;cursor:pointer;padding:2px 8px;line-height:1;">&times;</button>
         </div>
 
-        <!-- Modal Tabs -->
-        <div class="modal-tab-nav">
+        <!-- Modal Tabs (Pinned) -->
+        <div class="modal-tab-nav" style="padding:0 22px;margin-bottom:0;background:#fff;border-bottom:1px solid #e2e8f0;flex-shrink:0;">
             <button type="button" class="modal-tab-btn active" id="tabBtnEditInfo" onclick="switchEditModalTab('info')">
                 <?= uiIcon('file-text', 14) ?> Identitas & Berkas Naskah
             </button>
@@ -847,13 +853,14 @@ require __DIR__ . '/includes/header.php';
         </div>
 
         <!-- TAB 1: IDENTITAS & BERKAS NASKAH -->
-        <div id="tabContentEditInfo">
-            <form method="post" enctype="multipart/form-data" id="formEditNaskah">
+        <div id="tabContentEditInfo" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;">
+            <form method="post" enctype="multipart/form-data" id="formEditNaskah" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;margin:0;">
                 <?= csrfField() ?>
                 <input type="hidden" name="action" value="edit">
                 <input type="hidden" name="id" id="edit_id" value="">
 
-                <div class="form-grid">
+                <div class="app-modal-body">
+                    <div class="form-grid">
                     <div class="field">
                         <label style="font-weight:600;">Kode Naskah</label>
                         <input type="text" id="edit_kode_display" disabled style="background:#f8fafc;color:#64748b;font-weight:700;">
@@ -984,7 +991,10 @@ require __DIR__ . '/includes/header.php';
                     </div>
                 </div>
 
-                <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:22px;padding-top:16px;border-top:1px solid #e2e8f0;">
+                    </div>
+                </div>
+
+                <div class="app-modal-footer">
                     <button type="button" onclick="closeEditNaskahModal()" class="btn btn-outline">Batal</button>
                     <button type="submit" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;">
                         <?= uiIcon('check-circle', 14) ?> Simpan Perubahan Naskah
@@ -994,8 +1004,9 @@ require __DIR__ . '/includes/header.php';
         </div>
 
         <!-- TAB 2: RENCANA KERJA TAHUNAN -->
-        <div id="tabContentEditRk" style="display:none;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div id="tabContentEditRk" style="display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden;">
+            <div class="app-modal-body">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
                 <div>
                     <h3 style="margin:0;font-size:15px;color:#0f172a;">Rencana Kerja Tahunan</h3>
                     <div class="muted" style="font-size:12px;">Target operasional tahunan dan kegiatan riil turunan naskah kerja sama</div>
@@ -1055,6 +1066,10 @@ require __DIR__ . '/includes/header.php';
                     </tbody>
                 </table>
             </div>
+            </div>
+            <div class="app-modal-footer">
+                <button type="button" onclick="closeEditNaskahModal()" class="btn btn-outline">Tutup</button>
+            </div>
         </div>
     </div>
 </div>
@@ -1064,18 +1079,19 @@ require __DIR__ . '/includes/header.php';
 <!-- ========================================================================= -->
 <div id="modalNestedEditRk" class="app-modal-overlay">
     <div class="app-modal-box" style="max-width: 600px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid #e2e8f0;padding-bottom:10px;">
+        <div class="app-modal-header">
             <h3 style="margin:0;font-size:16px;color:#0f172a;">Edit Rencana Kerja Tahunan</h3>
             <button type="button" onclick="closeNestedEditRk()" style="background:none;border:none;font-size:22px;color:#64748b;cursor:pointer;padding:2px 8px;line-height:1;">&times;</button>
         </div>
-        <form method="post" id="formNestedEditRk">
+        <form method="post" id="formNestedEditRk" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;margin:0;">
             <?= csrfField() ?>
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="sub_action" value="edit_rencana_kerja">
             <input type="hidden" name="id" id="nested_rk_mitra_id" value="">
             <input type="hidden" name="rk_id" id="nested_rk_id" value="">
 
-            <div class="form-grid">
+            <div class="app-modal-body">
+                <div class="form-grid">
                 <div class="field" style="grid-column:1/-1;">
                     <label style="font-weight:600;">Judul Rencana Kerja *</label>
                     <input type="text" name="judul_rencana" id="nested_rk_judul" required>
@@ -1093,7 +1109,9 @@ require __DIR__ . '/includes/header.php';
                     <input type="date" name="tanggal_selesai" id="nested_rk_selesai">
                 </div>
             </div>
-            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:12px;border-top:1px solid #e2e8f0;">
+                </div>
+            </div>
+            <div class="app-modal-footer">
                 <button type="button" onclick="closeNestedEditRk()" class="btn btn-outline btn-sm">Batal</button>
                 <button type="submit" class="btn btn-primary btn-sm"><?= uiIcon('check-circle', 13) ?> Simpan Perubahan</button>
             </div>
@@ -1204,12 +1222,12 @@ function switchEditModalTab(tab) {
         btnInfo.classList.remove('active');
         btnRk.classList.add('active');
         cInfo.style.display = 'none';
-        cRk.style.display = 'block';
+        cRk.style.display = 'flex';
     } else {
         btnRk.classList.remove('active');
         btnInfo.classList.add('active');
         cRk.style.display = 'none';
-        cInfo.style.display = 'block';
+        cInfo.style.display = 'flex';
     }
 }
 
