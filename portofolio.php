@@ -7,8 +7,8 @@ $pdo = getDB();
 $user = currentUser();
 $userRole = $user['role'] ?? 'pemeriksa';
 
-$action = $_GET['action'] ?? '';
-$id = (int)($_GET['id'] ?? 0);
+$action = $_POST['action'] ?? $_GET['action'] ?? '';
+$id = (int)($_POST['id'] ?? $_GET['id'] ?? 0);
 $errors = [];
 $success = '';
 
@@ -184,7 +184,7 @@ if ($action === 'add' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 logAudit($mid, $user['id'], 'TAMBAH_MITRA', "Mendaftarkan naskah baru: $kode - $namaMitra");
                 $pdo->commit();
 
-                header("Location: portofolio.php?action=edit&id=$mid&msg=created");
+                header("Location: portofolio.php?msg=created&edit_id=$mid");
                 exit;
             } catch (Throwable $e) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
@@ -221,7 +221,7 @@ if ($action === 'edit' && $id > 0 && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POS
                     $stmtR = $pdo->prepare('INSERT INTO rencana_kerja (mitra_id, judul_rencana, ruang_lingkup, tanggal_mulai, tanggal_selesai, status) VALUES (?, ?, ?, ?, ?, ?)');
                     $stmtR->execute([$id, $judulRk, $ruangRk, $mulaiRk, $selesaiRk, 'Disetujui']);
                     logAudit($id, $user['id'], 'ADD_RENCANA_KERJA', 'Tambah Rencana Kerja: ' . $judulRk);
-                    $success = 'Rencana Kerja tahunan berhasil ditambahkan.';
+                    header('Location: portofolio.php?msg=rk_added&edit_id=' . $id . '&tab=rk'); exit;
                 } catch (Throwable $e) {
                     $errors[] = 'Gagal menambahkan rencana kerja: ' . $e->getMessage();
                 }
@@ -244,7 +244,7 @@ if ($action === 'edit' && $id > 0 && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POS
                     $stmtUpdRk = $pdo->prepare('UPDATE rencana_kerja SET judul_rencana = ?, ruang_lingkup = ?, tanggal_mulai = ?, tanggal_selesai = ? WHERE id = ? AND mitra_id = ?');
                     $stmtUpdRk->execute([$judulRk, $ruangRk, $mulaiRk, $selesaiRk, $rkId, $id]);
                     logAudit($id, $user['id'], 'EDIT_RENCANA_KERJA', 'Edit Rencana Kerja #' . $rkId . ': ' . $judulRk);
-                    $success = 'Rencana Kerja tahunan berhasil diperbarui.';
+                    header('Location: portofolio.php?msg=rk_updated&edit_id=' . $id . '&tab=rk'); exit;
                 } catch (Throwable $e) {
                     $errors[] = 'Gagal memperbarui rencana kerja: ' . $e->getMessage();
                 }
@@ -258,7 +258,7 @@ if ($action === 'edit' && $id > 0 && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POS
                     $stmtDelRk = $pdo->prepare('DELETE FROM rencana_kerja WHERE id = ? AND mitra_id = ?');
                     $stmtDelRk->execute([$rkId, $id]);
                     logAudit($id, $user['id'], 'DELETE_RENCANA_KERJA', 'Hapus Rencana Kerja #' . $rkId);
-                    $success = 'Rencana Kerja tahunan berhasil dihapus.';
+                    header('Location: portofolio.php?msg=rk_deleted&edit_id=' . $id . '&tab=rk'); exit;
                 } catch (Throwable $e) {
                     $errors[] = 'Gagal menghapus rencana kerja: ' . $e->getMessage();
                 }
@@ -399,7 +399,7 @@ if ($action === 'edit' && $id > 0 && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POS
                     logAudit($id, $user['id'], 'UPDATE_MITRA', 'Data naskah ' . $curMitra['kode'] . ' diperbarui via Portofolio');
 
                     $pdo->commit();
-                    $success = 'Data naskah kerja sama berhasil diperbarui.';
+                    header('Location: portofolio.php?msg=updated&edit_id=' . $id . '&tab=info'); exit;
                 } catch (Throwable $e) {
                     if ($pdo->inTransaction()) $pdo->rollBack();
                     $errors[] = 'Gagal memperbarui naskah: ' . $e->getMessage();
@@ -410,532 +410,45 @@ if ($action === 'edit' && $id > 0 && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POS
 }
 
 // ============================================================================
-// 3. RENDER VIEW: TAMBAH NASKAH (?action=add)
-// ============================================================================
-if ($action === 'add') {
-    requireRole(['admin', 'pemeriksa', 'pengampu', 'pic']);
-    $pageTitle = 'Tambah Naskah Baru — Portofolio';
-    require __DIR__ . '/includes/header.php';
-?>
-<div class="flex-between" style="margin-bottom:14px;">
-    <div>
-        <h1 style="margin:0;font-size:20px;">Tambah Naskah Baru</h1>
-        <div class="muted" style="font-size:13px;">Registrasi dokumen PKS/MoU dan rincian stakeholder ke dalam sistem</div>
-    </div>
-    <a href="portofolio.php" class="btn btn-outline btn-sm">&larr; Kembali ke Portofolio</a>
-</div>
 
-<?php if ($success): ?><div class="alert alert-info"><?= h($success) ?></div><?php endif; ?>
-<?php foreach ($errors as $e): ?><div class="alert alert-warning"><?= h($e) ?></div><?php endforeach; ?>
-
-<div class="card" style="margin-bottom:20px;">
-    <form method="post" enctype="multipart/form-data">
-        <?= csrfField() ?>
-        <div class="form-grid">
-            <div class="field">
-                <label>Kode Naskah (P11, C06, dst) *</label>
-                <input type="text" name="kode" maxlength="5" required placeholder="Contoh: P11" value="<?= h($_POST['kode'] ?? '') ?>">
-            </div>
-            <div class="field">
-                <label>Nomor Naskah Resmi (Form Number)</label>
-                <input type="text" name="nomor_naskah" placeholder="Contoh: W.31.HH.01.02-45/2026" value="<?= h($_POST['nomor_naskah'] ?? '') ?>">
-                <div class="muted" style="font-size:11px;margin-top:2px;">Nomor registrasi surat naskah fisik yang ditandatangani.</div>
-            </div>
-            <div class="field">
-                <label>Portofolio</label>
-                <select name="portofolio">
-                    <option <?= ($_POST['portofolio'] ?? '') === 'Pilot Utama' ? 'selected' : '' ?>>Pilot Utama</option>
-                    <option <?= ($_POST['portofolio'] ?? '') === 'Cadangan' ? 'selected' : '' ?>>Cadangan</option>
-                </select>
-            </div>
-            <div class="field">
-                <label>Bentuk Naskah</label>
-                <select name="jenis">
-                    <option <?= ($_POST['jenis'] ?? '') === 'PKS' ? 'selected' : '' ?>>PKS</option>
-                    <option <?= ($_POST['jenis'] ?? '') === 'MoU' ? 'selected' : '' ?>>MoU</option>
-                </select>
-            </div>
-
-            <!-- Multi-Selection Bidang -->
-            <div class="field" style="grid-column:1/-1;">
-                <label style="font-weight:600;">Bidang Kerja Sama (Dapat Memilih Lebih Dari Satu) *</label>
-                <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">
-                    <?php
-                    $curPostBidang = is_array($_POST['bidang'] ?? null) ? $_POST['bidang'] : ['AHU'];
-                    foreach ($bidangOptions as $bKey => $bLabel):
-                        $checked = in_array($bKey, $curPostBidang, true) ? 'checked' : '';
-                    ?>
-                    <label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;padding:6px 12px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer;">
-                        <input type="checkbox" name="bidang[]" value="<?= $bKey ?>" <?= $checked ?>>
-                        <span><?= $bLabel ?></span>
-                    </label>
-                    <?php endforeach; ?>
-                </div>
-                <div class="muted" style="font-size:11px;margin-top:4px;">Centang satu atau beberapa bidang pengampu terkait di lingkungan Kanwil Kepri.</div>
-            </div>
-
-            <div class="field" style="grid-column:1/-1;">
-                <label>Nama Mitra *</label>
-                <input type="text" name="nama_mitra" required placeholder="Contoh: Universitas Maritim Raja Ali Haji (UMRAH)" value="<?= h($_POST['nama_mitra'] ?? '') ?>">
-            </div>
-
-            <div class="field" style="grid-column:1/-1;">
-                <label>Judul Kerja Sama</label>
-                <input type="text" name="judul" placeholder="Judul lengkap naskah kerja sama" value="<?= h($_POST['judul'] ?? '') ?>">
-            </div>
-
-            <div class="field">
-                <label>Kerja Sama Utama (Payung MoU)</label>
-                <select name="pks_induk_id">
-                    <option value="">- Tidak ada (Bukan Turunan) -</option>
-                    <?php foreach ($mouOptions as $mou): ?>
-                    <option value="<?= $mou['id'] ?>"><?= h($mou['kode']) ?> &mdash; <?= h(singkat($mou['nama_mitra'], 35)) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
-            <div class="field">
-                <label>Status Verifikasi Tanggal</label>
-                <select name="status_tanggal">
-                    <option>BELUM TERVERIFIKASI</option>
-                    <option>TERVERIFIKASI</option>
-                </select>
-            </div>
-
-            <div class="field">
-                <label>Tanggal Mulai</label>
-                <input type="date" name="tanggal_mulai" value="<?= h($_POST['tanggal_mulai'] ?? '') ?>">
-            </div>
-            <div class="field">
-                <label>Tanggal Berakhir</label>
-                <input type="date" name="tanggal_berakhir" value="<?= h($_POST['tanggal_berakhir'] ?? '') ?>">
-            </div>
-
-            <div class="field">
-                <label>Frekuensi Evaluasi (Per Tahun) *</label>
-                <input type="number" name="evaluasi_per_tahun" value="<?= h($_POST['evaluasi_per_tahun'] ?? 4) ?>" min="1" max="12" required>
-                <div class="muted" style="font-size:11px;margin-top:2px;">Berapa kali kegiatan evaluasi monev dilakukan dalam periode 1 tahun (default: 4).</div>
-            </div>
-
-            <!-- PIC Mitra & PIC Internal -->
-            <div class="field">
-                <label>Nama PIC Internal (Kanwil)</label>
-                <input type="text" name="pic_internal" placeholder="Nama pejabat / pengampu Kanwil" value="<?= h($_POST['pic_internal'] ?? '') ?>">
-            </div>
-            <div class="field">
-                <label>Nomor HP/Kontak PIC Internal (Form Number)</label>
-                <input type="text" name="pic_internal_no" placeholder="Contoh: 0812-3456-7890" value="<?= h($_POST['pic_internal_no'] ?? '') ?>">
-            </div>
-            <div class="field">
-                <label>Nama PIC Mitra</label>
-                <input type="text" name="pic_mitra" placeholder="Nama narahubung / PIC dari mitra" value="<?= h($_POST['pic_mitra'] ?? '') ?>">
-            </div>
-            <div class="field">
-                <label>Nomor HP/Kontak PIC Mitra (Form Number)</label>
-                <input type="text" name="pic_mitra_no" placeholder="Contoh: 0813-9876-5432" value="<?= h($_POST['pic_mitra_no'] ?? '') ?>">
-            </div>
-
-            <div class="field">
-                <label>Upload Scan Berkas Naskah Fisik (.PDF)</label>
-                <input type="file" name="file_naskah" accept=".pdf">
-                <div class="muted" style="font-size:11px;margin-top:2px;">Dokumen PDF resmi bertanda tangan basah / digital.</div>
-            </div>
-            <div class="field">
-                <label>Foto Dokumentasi (JPG/PNG/WebP)</label>
-                <input type="file" name="foto_kerjasama" accept=".jpg,.jpeg,.png,.webp">
-            </div>
-        </div>
-
-        <div style="margin-top:16px;">
-            <button type="submit" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;">
-                <?= uiIcon('save', 14) ?> Simpan Naskah Baru
-            </button>
-            <a href="portofolio.php" class="btn btn-outline" style="margin-left:8px;">Batal</a>
-        </div>
-    </form>
-</div>
-<?php
-    require __DIR__ . '/includes/footer.php';
-    exit;
-}
 
 // ============================================================================
-// 4. RENDER VIEW: EDIT NASKAH & RENCANA KERJA (?action=edit&id=...)
-// ============================================================================
-if ($action === 'edit' && $id > 0) {
-    requireRole(['admin', 'pemeriksa', 'pengampu', 'pic']);
-    $stmt = $pdo->prepare('SELECT * FROM mitra_kinerja WHERE id = ?');
-    $stmt->execute([$id]);
-    $mitra = $stmt->fetch();
-    if (!$mitra) {
-        http_response_code(404);
-        die('Naskah kerja sama tidak ditemukan.');
-    }
-
-    $stmtVal = $pdo->prepare('SELECT status FROM validasi WHERE mitra_id = ?');
-    $stmtVal->execute([$id]);
-    $valStatus = $stmtVal->fetchColumn() ?: 'BELUM';
-    $isLockedFinal = (in_array($mitra['status_scorecard'] ?? '', ['FINAL/TERVALIDASI', 'FINAL'], true) || $valStatus === 'DISETUJUI');
-
-    $isAssigned = (!empty($mitra['pemeriksa_id']) && (int)$mitra['pemeriksa_id'] === (int)$user['id'])
-        || (!empty($mitra['pic_internal']) && stripos($mitra['pic_internal'], $user['nama'] ?? $user['username'] ?? '') !== false);
-
-    $canManage = in_array($userRole, ['admin', 'pemeriksa', 'pic'], true)
-        || ($userRole === 'pengampu' && ($isAssigned || empty($mitra['pemeriksa_id'])));
-    if ($isLockedFinal && $userRole !== 'admin') {
-        $canManage = false;
-    }
-
-    // Ambil daftar rencana kerja untuk naskah ini
-    $stmtRK = $pdo->prepare('SELECT * FROM rencana_kerja WHERE mitra_id = ? ORDER BY tanggal_mulai ASC');
-    $stmtRK->execute([$id]);
-    $listRk = $stmtRK->fetchAll();
-
-    $pageTitle = 'Edit Naskah ' . $mitra['kode'] . ' — Portofolio';
-    require __DIR__ . '/includes/header.php';
-?>
-<div class="flex-between" style="margin-bottom:14px;">
-    <div>
-        <h1 style="margin:0;font-size:20px;"><?= h($mitra['kode']) ?> &mdash; Edit Naskah</h1>
-        <div class="muted" style="font-size:13px;"><?= h($mitra['nama_mitra']) ?></div>
-    </div>
-    <a href="portofolio.php" class="btn btn-outline btn-sm">&larr; Kembali ke Portofolio</a>
-</div>
-
-<?php if ($success): ?><div class="alert alert-info"><?= h($success) ?></div><?php endif; ?>
-<?php foreach ($errors as $e): ?><div class="alert alert-warning"><?= h($e) ?></div><?php endforeach; ?>
-
-<?php if (!$canManage): ?>
-<div class="alert alert-warning" style="margin-bottom:14px;">
-    <?= uiIcon('lock', 14) ?> <strong>Naskah Terkunci:</strong> Naskah ini telah berstatus <strong>FINAL/TERVALIDASI</strong> atau akun Anda tidak memiliki izin penugasan untuk mengubah naskah ini. Perubahan dinonaktifkan.
-</div>
-<?php endif; ?>
-
-<!-- Formulir Edit Naskah -->
-<div class="card" style="margin-bottom:20px;">
-    <form method="post" enctype="multipart/form-data">
-        <?= csrfField() ?>
-        <fieldset <?= $canManage ? '' : 'disabled' ?> style="border:none;padding:0;margin:0;">
-        <div class="form-grid">
-            <div class="field">
-                <label>Kode</label>
-                <input value="<?= h($mitra['kode']) ?>" disabled style="background:#f1f5f9;font-weight:700;">
-            </div>
-            <div class="field">
-                <label>Nomor Naskah Resmi (Form Number)</label>
-                <input type="text" name="nomor_naskah" value="<?= h($mitra['nomor_naskah'] ?? '') ?>" placeholder="Contoh: W.31.HH.01.02-45/2026">
-                <div class="muted" style="font-size:11px;margin-top:2px;">Nomor registrasi naskah fisik bertanda tangan.</div>
-            </div>
-            <div class="field">
-                <label>Portofolio</label>
-                <select name="portofolio">
-                    <?php foreach (['Pilot Utama','Cadangan'] as $opt): ?>
-                    <option <?= ($mitra['portofolio'] ?? '') === $opt ? 'selected' : '' ?>><?= $opt ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="field">
-                <label>Bentuk Naskah</label>
-                <select name="jenis">
-                    <?php foreach (['PKS','MoU'] as $opt): ?>
-                    <option <?= ($mitra['jenis'] ?? '') === $opt ? 'selected' : '' ?>><?= $opt ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
-            <!-- Multi-Selection Bidang pada Edit Naskah -->
-            <div class="field" style="grid-column:1/-1;">
-                <label style="font-weight:600;">Bidang Kerja Sama (Dapat Memilih Lebih Dari Satu) *</label>
-                <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">
-                    <?php
-                    $curBidangArr = array_filter(array_map('trim', explode(',', $mitra['bidang'] ?? 'AHU')));
-                    foreach ($bidangOptions as $bKey => $bLabel):
-                        $checked = in_array($bKey, $curBidangArr, true) ? 'checked' : '';
-                    ?>
-                    <label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;padding:6px 12px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer;">
-                        <input type="checkbox" name="bidang[]" value="<?= $bKey ?>" <?= $checked ?>>
-                        <span><?= $bLabel ?></span>
-                    </label>
-                    <?php endforeach; ?>
-                </div>
-                <div class="muted" style="font-size:11px;margin-top:4px;">Centang satu atau beberapa bidang pengampu di lingkungan Kanwil Kepri.</div>
-            </div>
-
-            <div class="field" style="grid-column:1/-1;">
-                <label>Nama Mitra *</label>
-                <input type="text" name="nama_mitra" value="<?= h($mitra['nama_mitra']) ?>" required>
-            </div>
-
-            <div class="field" style="grid-column:1/-1;">
-                <label>Judul Naskah</label>
-                <input type="text" name="judul" value="<?= h($mitra['judul']) ?>">
-            </div>
-
-            <div class="field">
-                <label>Kerja Sama Utama (Payung MoU)</label>
-                <select name="pks_induk_id">
-                    <option value="">- Tidak ada (Bukan Turunan) -</option>
-                    <?php foreach ($mouOptions as $mou): ?>
-                    <?php if ((int)$mou['id'] === $id) continue; ?>
-                    <option value="<?= $mou['id'] ?>" <?= (int)($mitra['pks_induk_id'] ?? 0) === (int)$mou['id'] ? 'selected' : '' ?>><?= h($mou['kode']) ?> &mdash; <?= h(singkat($mou['nama_mitra'], 35)) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
-            <div class="field">
-                <label>Status Tanggal</label>
-                <select name="status_tanggal">
-                    <?php foreach (['BELUM TERVERIFIKASI','TERVERIFIKASI'] as $opt): ?>
-                    <option <?= ($mitra['status_tanggal'] ?? '') === $opt ? 'selected' : '' ?>><?= $opt ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
-            <div class="field">
-                <label>Tanggal Mulai</label>
-                <input type="date" name="tanggal_mulai" value="<?= h($mitra['tanggal_mulai']) ?>">
-            </div>
-            <div class="field">
-                <label>Tanggal Berakhir</label>
-                <input type="date" name="tanggal_berakhir" value="<?= h($mitra['tanggal_berakhir']) ?>">
-            </div>
-
-            <div class="field">
-                <label>Evaluasi Rencana Kerja (Per Tahun)</label>
-                <input type="number" name="evaluasi_per_tahun" value="<?= h($mitra['evaluasi_per_tahun'] ?? 4) ?>" min="1" max="12" required>
-                <div class="muted" style="font-size:11px;margin-top:2px;">Berapa kali kegiatan evaluasi rencana kerja dilakukan per tahun (default: 4).</div>
-            </div>
-
-            <div class="field">
-                <label>Sumber Baseline</label>
-                <input type="text" name="sumber_baseline" value="<?= h($mitra['sumber_baseline'] ?? '') ?>">
-            </div>
-
-            <!-- PIC Internal & PIC Mitra (dengan nomor kontak) -->
-            <div class="field">
-                <label>Nama PIC Internal (Kanwil)</label>
-                <input type="text" name="pic_internal" value="<?= h($mitra['pic_internal'] ?? '') ?>" placeholder="Nama pejabat / pengampu Kanwil">
-            </div>
-            <div class="field">
-                <label>Nomor HP/Kontak PIC Internal (Form Number)</label>
-                <input type="text" name="pic_internal_no" value="<?= h($mitra['pic_internal_no'] ?? '') ?>" placeholder="Contoh: 0812-3456-7890">
-            </div>
-            <div class="field">
-                <label>Nama PIC Mitra</label>
-                <input type="text" name="pic_mitra" value="<?= h($mitra['pic_mitra'] ?? '') ?>" placeholder="Nama narahubung / PIC Mitra">
-            </div>
-            <div class="field">
-                <label>Nomor HP/Kontak PIC Mitra (Form Number)</label>
-                <input type="text" name="pic_mitra_no" value="<?= h($mitra['pic_mitra_no'] ?? '') ?>" placeholder="Contoh: 0813-9876-5432">
-            </div>
-
-            <div class="field">
-                <label>Upload Scan Berkas Naskah (.PDF)</label>
-                <input type="file" name="file_naskah" accept=".pdf">
-                <?php if (!empty($mitra['file_naskah'])): ?>
-                <div style="margin-top:6px;">
-                    <a href="<?= h($mitra['file_naskah']) ?>" target="_blank" class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:4px;">
-                        <?= uiIcon('file-text', 13) ?> Lihat Berkas Scan PDF
-                    </a>
-                </div>
-                <?php endif; ?>
-            </div>
-            <div class="field">
-                <label>Foto Dokumentasi (JPG/PNG)</label>
-                <input type="file" name="foto_kerjasama" accept=".jpg,.jpeg,.png,.webp">
-                <?php if (!empty($mitra['foto_kerjasama'])): ?>
-                <div style="margin-top:6px;">
-                    <a href="<?= h($mitra['foto_kerjasama']) ?>" target="_blank" class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:4px;">
-                        <?= uiIcon('eye', 13) ?> Lihat Foto
-                    </a>
-                </div>
-                <?php endif; ?>
-            </div>
-        </div>
-
-        <div style="margin-top:16px;">
-            <?php if ($canManage): ?>
-            <button type="submit" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;">
-                <?= uiIcon('save', 14) ?> Simpan Perubahan
-            </button>
-            <?php endif; ?>
-            <a href="portofolio.php" class="btn btn-outline" style="margin-left:8px;">&larr; Kembali ke Portofolio</a>
-        </div>
-        </fieldset>
-    </form>
-</div>
-
-<!-- Card Rencana Kerja Tahunan (/Tahun) -->
-<div class="card" style="margin-bottom:24px;">
-    <div class="flex-between" style="margin-bottom:14px;">
-        <div>
-            <h2 style="margin:0;font-size:16px;">Rencana Kerja Tahunan (/Tahun)</h2>
-            <div class="muted" style="font-size:12px;">Program dan target operasional turunan naskah per tahun</div>
-        </div>
-        <?php if ($canManage): ?>
-        <button type="button" onclick="toggleRkAddForm()" class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:5px;">
-            <?= uiIcon('plus', 13) ?> Tambah Rencana Kerja
-        </button>
-        <?php endif; ?>
-    </div>
-
-    <!-- Formulir Rencana Kerja Baru (Tanpa Field Status) -->
-    <div id="rkAddForm" style="display:none;background:#f8fafc;padding:16px;border-radius:6px;border:1px solid #e2e8f0;margin-bottom:16px;">
-        <h3 style="font-size:14px;margin-top:0;margin-bottom:12px;color:#1e40af;">Formulir Rencana Kerja Baru</h3>
-        <form method="post">
-            <?= csrfField() ?>
-            <input type="hidden" name="sub_action" value="add_rencana_kerja">
-            <div class="form-grid">
-                <div class="field" style="grid-column:1/-1;">
-                    <label>Judul Rencana Kerja Tahunan *</label>
-                    <input type="text" name="judul_rencana" required placeholder="Contoh: Rencana Aksi Sosialisasi Kekayaan Intelektual Terpadu 2026">
-                </div>
-                <div class="field">
-                    <label>Tanggal Mulai</label>
-                    <input type="date" name="tanggal_mulai" value="<?= date('Y-01-01') ?>">
-                </div>
-                <div class="field">
-                    <label>Tanggal Selesai</label>
-                    <input type="date" name="tanggal_selesai" value="<?= date('Y-12-31') ?>">
-                </div>
-                <div class="field" style="grid-column:1/-1;">
-                    <label>Ruang Lingkup &amp; Target Kegiatan</label>
-                    <textarea name="ruang_lingkup" rows="2" placeholder="Uraikan target kegiatan dan keluaran tahunan yang disepakati..."></textarea>
-                </div>
-            </div>
-            <div style="margin-top:12px;">
-                <button type="submit" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:5px;">
-                    <?= uiIcon('save', 13) ?> Simpan Rencana Kerja
-                </button>
-                <button type="button" onclick="toggleRkAddForm()" class="btn btn-outline btn-sm" style="margin-left:6px;">Batal</button>
-            </div>
-        </form>
-    </div>
-
-    <!-- Tabel Rencana Kerja (Kolom Status Dihilangkan, Tambah Kolom Aksi Edit & Hapus) -->
-    <div class="table-wrap">
-        <table class="table" style="width:100%;">
-            <thead>
-                <tr>
-                    <th style="width:22%;">Tahun / Periode</th>
-                    <th style="width:34%;">Judul Rencana Kerja</th>
-                    <th style="width:30%;">Ruang Lingkup &amp; Target Kegiatan</th>
-                    <th style="width:14%;text-align:center;">Aksi</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (empty($listRk)): ?>
-                <tr>
-                    <td colspan="4">
-                        <?= uiEmptyState('Belum Ada Rencana Kerja Tahunan', 'Gunakan formulir di atas untuk menambahkan jadwal kegiatan evaluasi tahunan.', 'file-text') ?>
-                    </td>
-                </tr>
-                <?php else: ?>
-                <?php foreach ($listRk as $rk): ?>
-                <tr>
-                    <td>
-                        <strong><?= date('Y', strtotime($rk['tanggal_mulai'])) ?></strong>
-                        <div class="muted" style="font-size:11px;margin-top:2px;">
-                            <?= formatTanggal($rk['tanggal_mulai']) ?> s.d. <?= formatTanggal($rk['tanggal_selesai']) ?>
-                        </div>
-                    </td>
-                    <td><strong><?= h($rk['judul_rencana']) ?></strong></td>
-                    <td style="font-size:12.5px;line-height:1.45;"><?= nl2br(h($rk['ruang_lingkup'] ?? '-')) ?></td>
-                    <td style="text-align:center;white-space:nowrap;">
-                        <?php if ($canManage): ?>
-                        <div style="display:inline-flex;gap:4px;align-items:center;">
-                            <button type="button" class="btn btn-outline btn-sm" style="padding:4px 8px;font-size:11.5px;display:inline-flex;align-items:center;gap:4px;" onclick="openEditRkModal(<?= htmlspecialchars(json_encode($rk), ENT_QUOTES, 'UTF-8') ?>)">
-                                <?= uiIcon('edit', 12) ?> Edit
-                            </button>
-                            <form method="post" style="display:inline;" onsubmit="return confirm('Apakah Anda yakin ingin menghapus rencana kerja ini?');">
-                                <?= csrfField() ?>
-                                <input type="hidden" name="sub_action" value="delete_rencana_kerja">
-                                <input type="hidden" name="rk_id" value="<?= $rk['id'] ?>">
-                                <button type="submit" class="btn btn-outline btn-sm" style="padding:4px 8px;font-size:11.5px;color:#dc2626;border-color:#fca5a5;background:#fef2f2;display:inline-flex;align-items:center;gap:4px;">
-                                    <?= uiIcon('trash', 12) ?> Hapus
-                                </button>
-                            </form>
-                        </div>
-                        <?php else: ?>
-                        <span class="muted" style="font-size:11px;">-</span>
-                        <?php endif; ?>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<!-- Modal Pop-up Edit Rencana Kerja (Tanpa Field Status) -->
-<div id="editRkModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.6);z-index:9999;align-items:center;justify-content:center;padding:16px;">
-    <div style="background:#fff;border-radius:8px;max-width:540px;width:100%;padding:20px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);border:1px solid #cbd5e1;position:relative;">
-        <div class="flex-between" style="margin-bottom:14px;border-bottom:1px solid #f1f5f9;padding-bottom:10px;">
-            <h3 style="margin:0;font-size:15px;color:#1e293b;display:inline-flex;align-items:center;gap:6px;">
-                <?= uiIcon('edit', 15) ?> Edit Rencana Kerja Tahunan
-            </h3>
-            <button type="button" onclick="closeEditRkModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#64748b;line-height:1;">&times;</button>
-        </div>
-        <form method="post">
-            <?= csrfField() ?>
-            <input type="hidden" name="sub_action" value="edit_rencana_kerja">
-            <input type="hidden" name="rk_id" id="modalEditRkId">
-            <div class="form-grid">
-                <div class="field" style="grid-column:1/-1;">
-                    <label>Judul Rencana Kerja Tahunan *</label>
-                    <input type="text" name="judul_rencana" id="modalEditRkJudul" required>
-                </div>
-                <div class="field">
-                    <label>Tanggal Mulai</label>
-                    <input type="date" name="tanggal_mulai" id="modalEditRkMulai">
-                </div>
-                <div class="field">
-                    <label>Tanggal Selesai</label>
-                    <input type="date" name="tanggal_selesai" id="modalEditRkSelesai">
-                </div>
-                <div class="field" style="grid-column:1/-1;">
-                    <label>Ruang Lingkup &amp; Target Kegiatan</label>
-                    <textarea name="ruang_lingkup" id="modalEditRkRuang" rows="3"></textarea>
-                </div>
-            </div>
-            <div style="margin-top:16px;text-align:right;">
-                <button type="button" onclick="closeEditRkModal()" class="btn btn-outline btn-sm" style="margin-right:6px;">Batal</button>
-                <button type="submit" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:5px;">
-                    <?= uiIcon('save', 13) ?> Simpan Perubahan
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<script>
-function toggleRkAddForm() {
-    var f = document.getElementById('rkAddForm');
-    f.style.display = (f.style.display === 'none' || f.style.display === '') ? 'block' : 'none';
-}
-function openEditRkModal(rk) {
-    document.getElementById('modalEditRkId').value = rk.id || '';
-    document.getElementById('modalEditRkJudul').value = rk.judul_rencana || '';
-    document.getElementById('modalEditRkMulai').value = rk.tanggal_mulai || '';
-    document.getElementById('modalEditRkSelesai').value = rk.tanggal_selesai || '';
-    document.getElementById('modalEditRkRuang').value = rk.ruang_lingkup || '';
-    document.getElementById('editRkModal').style.display = 'flex';
-}
-function closeEditRkModal() {
-    document.getElementById('editRkModal').style.display = 'none';
-}
-</script>
-<?php
-    require __DIR__ . '/includes/footer.php';
-    exit;
-}
-
-// ============================================================================
-// 5. RENDER VIEW: LISTING PORTOFOLIO (DEFAULT)
+// 3. RENDER VIEW: PORTOFOLIO & MODAL MANAGEMENT (CONSOLIDATED)
 // ============================================================================
 $all = getAllMitraSummary($pdo);
 $pageTitle = 'Portofolio';
+
+// Ambil rincian lengkap mitra dan rencana kerja untuk modal interaktif
+$allMitraDetails = $pdo->query("SELECT * FROM mitra_kinerja ORDER BY kode")->fetchAll(PDO::FETCH_ASSOC);
+$allRkDetails = $pdo->query("SELECT * FROM rencana_kerja ORDER BY tanggal_mulai ASC")->fetchAll(PDO::FETCH_ASSOC);
+
+$partnersData = [];
+foreach ($allMitraDetails as $mItem) {
+    $mid = (int)$mItem['id'];
+    $partnersData[$mid] = $mItem;
+    $partnersData[$mid]['rencana_kerja'] = [];
+}
+foreach ($allRkDetails as $rkItem) {
+    $mid = (int)$rkItem['mitra_id'];
+    if (isset($partnersData[$mid])) {
+        $partnersData[$mid]['rencana_kerja'][] = $rkItem;
+    }
+}
+
+// Flash messages
+$msg = $_GET['msg'] ?? '';
+if ($msg === 'created') {
+    $success = 'Naskah kerja sama baru berhasil didaftarkan ke sistem.';
+} elseif ($msg === 'updated') {
+    $success = 'Perubahan data naskah kerja sama berhasil disimpan.';
+} elseif ($msg === 'rk_added') {
+    $success = 'Rencana kerja tahunan berhasil ditambahkan.';
+} elseif ($msg === 'rk_updated') {
+    $success = 'Rencana kerja tahunan berhasil diperbarui.';
+} elseif ($msg === 'rk_deleted') {
+    $success = 'Rencana kerja tahunan berhasil dihapus.';
+}
+
 require __DIR__ . '/includes/header.php';
 ?>
 
@@ -947,12 +460,24 @@ require __DIR__ . '/includes/header.php';
     <div style="display:flex;gap:8px;">
         <a href="dashboard.php" class="btn btn-outline btn-sm">&larr; Dashboard</a>
         <?php if (in_array(currentUser()['role'] ?? '', ['admin','pemeriksa','pengampu','pic'], true)): ?>
-        <a href="portofolio.php?action=add" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:5px;">
+        <button type="button" onclick="openTambahNaskahModal()" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;">
             <?= uiIcon('plus', 13) ?> Tambah Naskah
-        </a>
+        </button>
         <?php endif; ?>
     </div>
 </div>
+
+<?php if ($success): ?>
+<div class="alert alert-info" style="margin-bottom:16px;animation:pageFadeSlideIn 0.2s cubic-bezier(0.16,1,0.3,1);">
+    <?= h($success) ?>
+</div>
+<?php endif; ?>
+
+<?php if (!empty($errors)): ?>
+<div class="alert alert-warning" style="margin-bottom:16px;">
+    <?php foreach ($errors as $e): ?><div><?= h($e) ?></div><?php endforeach; ?>
+</div>
+<?php endif; ?>
 
 <div class="card">
     <div class="filters">
@@ -961,7 +486,7 @@ require __DIR__ . '/includes/header.php';
             <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;display:inline-flex;align-items:center;">
                 <?= uiIcon('search', 14) ?>
             </span>
-            <input type="text" id="fSearch" placeholder="Cari kode / mitra / bidang..." style="padding:7px 10px 7px 32px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%;box-sizing:border-box;">
+            <input type="text" id="fSearch" placeholder="Cari kode / mitra / naskah / bidang..." style="padding:7px 10px 7px 32px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%;box-sizing:border-box;">
         </div>
 
         <!-- Filter Portofolio -->
@@ -1041,6 +566,7 @@ require __DIR__ . '/includes/header.php';
                 <th>Kode</th>
                 <th>Portofolio</th>
                 <th>Mitra</th>
+                <th>Naskah</th>
                 <th>Bidang</th>
                 <th>Berlaku s.d.</th>
                 <th>Nilai</th>
@@ -1055,11 +581,11 @@ require __DIR__ . '/includes/header.php';
         </thead>
         <tbody>
         <?php if (empty($all)): ?>
-            <tr id="emptyRow"><td colspan="13"><?= uiEmptyState('Belum Ada Data Kerja Sama', 'Naskah kerja sama belum tersedia atau belum ditambahkan.', 'file-text') ?></td></tr>
+            <tr id="emptyRow"><td colspan="14"><?= uiEmptyState('Belum Ada Data Kerja Sama', 'Naskah kerja sama belum tersedia atau belum ditambahkan.', 'file-text') ?></td></tr>
         <?php else: ?>
-            <tr id="noFilterMatchRow" style="display:none;"><td colspan="13"><?= uiEmptyState('Tidak Ada Data yang Sesuai', 'Tidak ditemukan naskah yang cocok dengan filter. Gunakan Reset Filter untuk memuat kembali.', 'search') ?></td></tr>
+            <tr id="noFilterMatchRow" style="display:none;"><td colspan="14"><?= uiEmptyState('Tidak Ada Data yang Sesuai', 'Tidak ditemukan naskah yang cocok dengan filter. Gunakan Reset Filter untuk memuat kembali.', 'search') ?></td></tr>
             <?php foreach ($all as $s): $m = $s['mitra']; ?>
-            <tr data-portofolio="<?= h($m['portofolio']) ?>" data-bidang="<?= h($m['bidang'] ?? 'AHU') ?>" data-kategori="<?= h($s['kategori']) ?>" data-status="<?= h($s['status_scorecard']) ?>" data-posisi="<?= h($s['posisi_portofolio']) ?>" data-rekomendasi="<?= h($s['rekomendasi']) ?>" data-rekomendasi-key="<?= h(ekstrakKeywordRekomendasi($s['rekomendasi'])) ?>">
+            <tr data-id="<?= (int)$m['id'] ?>" data-portofolio="<?= h($m['portofolio']) ?>" data-bidang="<?= h($m['bidang'] ?? 'AHU') ?>" data-kategori="<?= h($s['kategori']) ?>" data-status="<?= h($s['status_scorecard']) ?>" data-posisi="<?= h($s['posisi_portofolio']) ?>" data-rekomendasi="<?= h($s['rekomendasi']) ?>" data-rekomendasi-key="<?= h(ekstrakKeywordRekomendasi($s['rekomendasi'])) ?>">
                 <td>
                     <strong><?= h($m['kode']) ?></strong>
                     <?php if (!empty($m['nomor_naskah'])): ?>
@@ -1067,7 +593,17 @@ require __DIR__ . '/includes/header.php';
                     <?php endif; ?>
                 </td>
                 <td><?= h($m['portofolio']) ?></td>
-                <td><?= h($m['nama_mitra']) ?></td>
+                <td><strong><?= h($m['nama_mitra']) ?></strong></td>
+                <td>
+                    <div style="font-size:12px;color:#1e293b;line-height:1.35;max-width:220px;font-weight:500;"><?= h($m['judul'] ?: '-') ?></div>
+                    <?php if (!empty($m['file_naskah'])): ?>
+                    <div style="margin-top:3px;">
+                        <a href="<?= h($m['file_naskah']) ?>" target="_blank" class="badge badge-primary" style="font-size:9.5px;text-decoration:none;display:inline-flex;align-items:center;gap:3px;padding:2px 6px;">
+                            <?= uiIcon('file-text', 10) ?> Scan PDF
+                        </a>
+                    </div>
+                    <?php endif; ?>
+                </td>
                 <td>
                     <?php
                     $bArray = array_filter(array_map('trim', explode(',', $m['bidang'] ?? 'AHU')));
@@ -1085,7 +621,8 @@ require __DIR__ . '/includes/header.php';
                 <td><span class="badge badge-secondary" style="font-size:11px;max-width:180px;white-space:normal;display:inline-block;line-height:1.25;text-align:left;"><?= h($s['posisi_portofolio']) ?></span></td>
                 <td>
                     <?php 
-                    $rekHead = trim(explode("\n", trim($s['rekomendasi'] ?? '-'))[0]) ?: '-';
+                    $rekHead = trim(explode("
+", trim($s['rekomendasi'] ?? '-'))[0]) ?: '-';
                     ?>
                     <span class="badge badge-<?= warnaRekomendasi($s['rekomendasi']) ?>" style="font-size:11px;max-width:210px;white-space:normal;display:inline-block;line-height:1.25;text-align:left;" title="<?= h($s['rekomendasi']) ?>">
                         <?= h(singkat($rekHead, 45)) ?>
@@ -1096,7 +633,7 @@ require __DIR__ . '/includes/header.php';
                 <td>
                     <div style="display:flex;gap:4px;flex-wrap:nowrap;">
                         <?php if (in_array(currentUser()['role'], ['admin','pemeriksa','pengampu','pic'])): ?>
-                        <a href="portofolio.php?action=edit&id=<?= $m['id'] ?>" class="btn btn-outline btn-sm">Edit</a>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="openEditNaskahModal(<?= $m['id'] ?>)">Edit</button>
                         <?php endif; ?>
                         <a href="mitra_edit.php?id=<?= $m['id'] ?>" class="btn btn-outline btn-sm">Scorecard</a>
                         <?php if (in_array(currentUser()['role'], ['admin','validator'])): ?>
@@ -1110,10 +647,714 @@ require __DIR__ . '/includes/header.php';
         </tbody>
     </table>
     </div>
+
+    <!-- Table Pagination -->
+    <div id="portPaginationWrap" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid #e2e8f0;">
+        <div id="portPageInfo" style="font-size:12.5px;color:#64748b;font-weight:500;">
+            Menampilkan 1 – <?= min(10, count($all)) ?> dari <?= count($all) ?> naskah
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+            <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#64748b;">
+                <span>Tampilkan:</span>
+                <select id="portPageSize" onchange="changePortPageSize(this.value)" style="padding:4px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;cursor:pointer;">
+                    <option value="10" selected>10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="all">Semua</option>
+                </select>
+            </div>
+            <div id="portPaginationNav" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;"></div>
+        </div>
+    </div>
 </div>
 
+<!-- ========================================================================= -->
+<!-- MODAL 1: TAMBAH NASKAH BARU                                               -->
+<!-- ========================================================================= -->
+<div id="modalTambahNaskah" class="app-modal-overlay">
+    <div class="app-modal-box" style="max-width: 820px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;border-bottom:1px solid #e2e8f0;padding-bottom:12px;">
+            <div>
+                <h2 style="margin:0;font-size:18px;color:#0f172a;display:inline-flex;align-items:center;gap:8px;">
+                    <?= uiIcon('plus', 16) ?> Tambah Naskah Kerja Sama Baru
+                </h2>
+                <div class="muted" style="font-size:12px;">Registrasi dokumen PKS/MoU dan rincian stakeholder ke dalam sistem</div>
+            </div>
+            <button type="button" onclick="closeTambahNaskahModal()" style="background:none;border:none;font-size:24px;color:#64748b;cursor:pointer;padding:2px 8px;line-height:1;">&times;</button>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" id="formTambahNaskah">
+            <?= csrfField() ?>
+            <input type="hidden" name="action" value="add">
+            
+            <div class="form-grid">
+                <div class="field">
+                    <label style="font-weight:600;">Kode Naskah (P11, C06, dst) *</label>
+                    <input type="text" name="kode" maxlength="5" required placeholder="Contoh: P11" value="">
+                </div>
+                <div class="field">
+                    <label style="font-weight:600;">Nomor Naskah Resmi (Form Number)</label>
+                    <input type="text" name="nomor_naskah" placeholder="Contoh: W.32.UM.01.01-123 Tahun 2026" value="">
+                </div>
+                <div class="field">
+                    <label style="font-weight:600;">Portofolio Kerja Sama *</label>
+                    <select name="portofolio" required>
+                        <option value="Pilot Utama">Pilot Utama (Scorecard Evaluasi)</option>
+                        <option value="Cadangan">Cadangan (Monitoring)</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label style="font-weight:600;">Bentuk Naskah *</label>
+                    <select name="jenis" required>
+                        <option value="PKS">PKS (Perjanjian Kerja Sama)</option>
+                        <option value="MoU">MoU (Nota Kesepahaman)</option>
+                    </select>
+                </div>
+
+                <!-- Dropdown Multiple Select Bidang -->
+                <div class="field" style="grid-column: 1 / -1;">
+                    <label style="font-weight:600;">Bidang Kerja Sama *</label>
+                    <div class="form-multiselect-wrap" id="msWrapTambahBidang">
+                        <button type="button" class="form-multiselect-btn" id="msBtnTambahBidang" onclick="toggleMultiSelectDropdown('msMenuTambahBidang')">
+                            <span id="msLabelTambahBidang" style="color:#64748b;">Pilih Bidang Kerja Sama...</span>
+                            <?= uiIcon('chevron-down', 13) ?>
+                        </button>
+                        <div class="form-multiselect-dropdown" id="msMenuTambahBidang" style="display:none;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px 8px;border-bottom:1px solid #f1f5f9;margin-bottom:6px;">
+                                <span style="font-size:11px;font-weight:700;color:#64748b;">PILIH SATU ATAU LEBIH</span>
+                                <button type="button" onclick="selectAllFormBidang('tambah', true)" style="background:none;border:none;color:#2563eb;font-size:11px;cursor:pointer;padding:0;">Pilih Semua</button>
+                            </div>
+                            <?php foreach ($bidangOptions as $bKey => $bLabel): ?>
+                            <label style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:4px;cursor:pointer;font-size:12.5px;color:#334155;user-select:none;">
+                                <input type="checkbox" name="bidang[]" value="<?= $bKey ?>" class="chk-tambah-bidang" onchange="updateMultiSelectLabel('tambah')">
+                                <span><?= $bLabel ?></span>
+                            </label>
+                            <?php endforeach; ?>
+                            <div style="border-top:1px solid #f1f5f9;margin-top:6px;padding-top:6px;text-align:right;">
+                                <button type="button" onclick="selectAllFormBidang('tambah', false)" style="background:none;border:none;color:#dc2626;font-size:11px;cursor:pointer;padding:0;">Reset Pilihan</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="muted" style="font-size:11.5px;margin-top:4px;">Pilih satu atau beberapa bidang pengampu di lingkungan Kanwil Kepri.</div>
+                </div>
+
+                <div class="field" style="grid-column: 1 / -1;">
+                    <label style="font-weight:600;">Nama Mitra Kerja Sama *</label>
+                    <input type="text" name="nama_mitra" required placeholder="Contoh: Universitas Maritim Raja Ali Haji (UMRAH)" value="">
+                </div>
+                <div class="field" style="grid-column: 1 / -1;">
+                    <label style="font-weight:600;">Judul Naskah Kerja Sama *</label>
+                    <textarea name="judul" rows="2" required placeholder="Tuliskan judul lengkap naskah kerja sama"></textarea>
+                </div>
+                <div class="field" style="grid-column: 1 / -1;">
+                    <label style="font-weight:600;">MoU Induk / Kerja Sama Utama (Opsional)</label>
+                    <select name="pks_induk_id">
+                        <option value="">-- Tidak Berinduk (MoU Sendiri atau PKS Mandiri) --</option>
+                        <?php foreach ($mouOptions as $mo): ?>
+                        <option value="<?= $mo['id'] ?>"><?= h($mo['kode']) ?> - <?= h($mo['nama_mitra']) ?>: <?= h(singkat($mo['judul'], 60)) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="field">
+                    <label style="font-weight:600;">Status Verifikasi Tanggal *</label>
+                    <select name="status_tanggal">
+                        <option value="DEFINITIF">Definitif (Tanggal naskah pasti)</option>
+                        <option value="ESTIMASI">Estimasi (Dalam proses penetapan)</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label style="font-weight:600;">Tanggal Mulai Berlaku *</label>
+                    <input type="date" name="tanggal_mulai" required value="<?= date('Y-m-d') ?>">
+                </div>
+                <div class="field">
+                    <label style="font-weight:600;">Tanggal Berakhir *</label>
+                    <input type="date" name="tanggal_berakhir" required value="<?= date('Y-m-d', strtotime('+3 years')) ?>">
+                </div>
+                <div class="field">
+                    <label style="font-weight:600;">Frekuensi Evaluasi Scorecard</label>
+                    <select name="evaluasi_per_tahun">
+                        <option value="1">1 Kali / Tahun (Tahunan)</option>
+                        <option value="2">2 Kali / Tahun (Semesteran)</option>
+                        <option value="4">4 Kali / Tahun (Triwulanan)</option>
+                    </select>
+                </div>
+
+                <!-- PIC Stakeholders -->
+                <div class="field">
+                    <label style="font-weight:600;">Nama PIC Internal (Kanwil)</label>
+                    <input type="text" name="pic_internal" placeholder="Pejabat / Staf Pengampu" value="">
+                </div>
+                <div class="field">
+                    <label style="font-weight:600;">No. Telp / HP PIC Internal (Form Number)</label>
+                    <input type="text" name="pic_internal_no" placeholder="Contoh: 0812xxxxxxx" value="">
+                </div>
+                <div class="field">
+                    <label style="font-weight:600;">Nama PIC Mitra</label>
+                    <input type="text" name="pic_mitra" placeholder="Nama Narahubung Mitra" value="">
+                </div>
+                <div class="field">
+                    <label style="font-weight:600;">No. Telp / HP PIC Mitra (Form Number)</label>
+                    <input type="text" name="pic_mitra_no" placeholder="Contoh: 0813xxxxxxx" value="">
+                </div>
+
+                <!-- File Berkas -->
+                <div class="field">
+                    <label style="font-weight:600;">Upload Scan Berkas Naskah (PDF)</label>
+                    <input type="file" name="file_naskah" accept=".pdf">
+                    <div class="muted" style="font-size:11px;margin-top:3px;">Format PDF (Maks. 15MB). Terhubung otomatis ke Bukti Elemen 1.</div>
+                </div>
+                <div class="field">
+                    <label style="font-weight:600;">Upload Foto Dokumentasi (Opsional)</label>
+                    <input type="file" name="foto_kerjasama" accept=".jpg,.jpeg,.png,.webp">
+                    <div class="muted" style="font-size:11px;margin-top:3px;">Format Gambar (JPG/PNG/WebP, Maks. 5MB).</div>
+                </div>
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:22px;padding-top:16px;border-top:1px solid #e2e8f0;">
+                <button type="button" onclick="closeTambahNaskahModal()" class="btn btn-outline">Batal</button>
+                <button type="submit" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;">
+                    <?= uiIcon('check-circle', 14) ?> Simpan Naskah Baru
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL 2: EDIT NASKAH & RENCANA KERJA TAHUNAN                              -->
+<!-- ========================================================================= -->
+<div id="modalEditNaskah" class="app-modal-overlay">
+    <div class="app-modal-box" style="max-width: 880px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid #e2e8f0;padding-bottom:10px;">
+            <div>
+                <h2 style="margin:0;font-size:18px;color:#0f172a;display:inline-flex;align-items:center;gap:8px;">
+                    <span id="editModalPartnerKode" class="badge badge-primary" style="font-size:13px;padding:3px 8px;">-</span>
+                    <span id="editModalPartnerNama">Edit Naskah Kerja Sama</span>
+                </h2>
+                <div class="muted" style="font-size:12px;">Edit naskah kerja sama dan kelola rencana kerja tahunan</div>
+            </div>
+            <button type="button" onclick="closeEditNaskahModal()" style="background:none;border:none;font-size:24px;color:#64748b;cursor:pointer;padding:2px 8px;line-height:1;">&times;</button>
+        </div>
+
+        <!-- Modal Tabs -->
+        <div class="modal-tab-nav">
+            <button type="button" class="modal-tab-btn active" id="tabBtnEditInfo" onclick="switchEditModalTab('info')">
+                <?= uiIcon('file-text', 14) ?> Identitas & Berkas Naskah
+            </button>
+            <button type="button" class="modal-tab-btn" id="tabBtnEditRk" onclick="switchEditModalTab('rk')">
+                <?= uiIcon('calendar', 14) ?> Rencana Kerja Tahunan (<span id="editModalRkCount">0</span>)
+            </button>
+        </div>
+
+        <!-- TAB 1: IDENTITAS & BERKAS NASKAH -->
+        <div id="tabContentEditInfo">
+            <form method="post" enctype="multipart/form-data" id="formEditNaskah">
+                <?= csrfField() ?>
+                <input type="hidden" name="action" value="edit">
+                <input type="hidden" name="id" id="edit_id" value="">
+
+                <div class="form-grid">
+                    <div class="field">
+                        <label style="font-weight:600;">Kode Naskah</label>
+                        <input type="text" id="edit_kode_display" disabled style="background:#f8fafc;color:#64748b;font-weight:700;">
+                    </div>
+                    <div class="field">
+                        <label style="font-weight:600;">Nomor Naskah Resmi (Form Number)</label>
+                        <input type="text" name="nomor_naskah" id="edit_nomor_naskah" placeholder="Nomor naskah resmi">
+                    </div>
+                    <div class="field">
+                        <label style="font-weight:600;">Portofolio *</label>
+                        <select name="portofolio" id="edit_portofolio" required>
+                            <option value="Pilot Utama">Pilot Utama</option>
+                            <option value="Cadangan">Cadangan</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label style="font-weight:600;">Bentuk Naskah *</label>
+                        <select name="jenis" id="edit_jenis" required>
+                            <option value="PKS">PKS (Perjanjian Kerja Sama)</option>
+                            <option value="MoU">MoU (Nota Kesepahaman)</option>
+                        </select>
+                    </div>
+
+                    <!-- Dropdown Multiple Select Bidang Edit -->
+                    <div class="field" style="grid-column: 1 / -1;">
+                        <label style="font-weight:600;">Bidang Kerja Sama *</label>
+                        <div class="form-multiselect-wrap" id="msWrapEditBidang">
+                            <button type="button" class="form-multiselect-btn" id="msBtnEditBidang" onclick="toggleMultiSelectDropdown('msMenuEditBidang')">
+                                <span id="msLabelEditBidang" style="color:#64748b;">Pilih Bidang Kerja Sama...</span>
+                                <?= uiIcon('chevron-down', 13) ?>
+                            </button>
+                            <div class="form-multiselect-dropdown" id="msMenuEditBidang" style="display:none;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px 8px;border-bottom:1px solid #f1f5f9;margin-bottom:6px;">
+                                    <span style="font-size:11px;font-weight:700;color:#64748b;">PILIH SATU ATAU LEBIH</span>
+                                    <button type="button" onclick="selectAllFormBidang('edit', true)" style="background:none;border:none;color:#2563eb;font-size:11px;cursor:pointer;padding:0;">Pilih Semua</button>
+                                </div>
+                                <?php foreach ($bidangOptions as $bKey => $bLabel): ?>
+                                <label style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:4px;cursor:pointer;font-size:12.5px;color:#334155;user-select:none;">
+                                    <input type="checkbox" name="bidang[]" value="<?= $bKey ?>" class="chk-edit-bidang" onchange="updateMultiSelectLabel('edit')">
+                                    <span><?= $bLabel ?></span>
+                                </label>
+                                <?php endforeach; ?>
+                                <div style="border-top:1px solid #f1f5f9;margin-top:6px;padding-top:6px;text-align:right;">
+                                    <button type="button" onclick="selectAllFormBidang('edit', false)" style="background:none;border:none;color:#dc2626;font-size:11px;cursor:pointer;padding:0;">Reset Pilihan</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="field" style="grid-column: 1 / -1;">
+                        <label style="font-weight:600;">Nama Mitra Kerja Sama *</label>
+                        <input type="text" name="nama_mitra" id="edit_nama_mitra" required>
+                    </div>
+                    <div class="field" style="grid-column: 1 / -1;">
+                        <label style="font-weight:600;">Judul Naskah Kerja Sama *</label>
+                        <textarea name="judul" id="edit_judul" rows="2" required></textarea>
+                    </div>
+                    <div class="field" style="grid-column: 1 / -1;">
+                        <label style="font-weight:600;">MoU Induk / Kerja Sama Utama</label>
+                        <select name="pks_induk_id" id="edit_pks_induk_id">
+                            <option value="">-- Tidak Berinduk (Mandiri) --</option>
+                            <?php foreach ($mouOptions as $mo): ?>
+                            <option value="<?= $mo['id'] ?>"><?= h($mo['kode']) ?> - <?= h($mo['nama_mitra']) ?>: <?= h(singkat($mo['judul'], 60)) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label style="font-weight:600;">Status Verifikasi Tanggal *</label>
+                        <select name="status_tanggal" id="edit_status_tanggal">
+                            <option value="DEFINITIF">Definitif (Pasti)</option>
+                            <option value="ESTIMASI">Estimasi (Proses)</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label style="font-weight:600;">Tanggal Mulai Berlaku *</label>
+                        <input type="date" name="tanggal_mulai" id="edit_tanggal_mulai" required>
+                    </div>
+                    <div class="field">
+                        <label style="font-weight:600;">Tanggal Berakhir *</label>
+                        <input type="date" name="tanggal_berakhir" id="edit_tanggal_berakhir" required>
+                    </div>
+                    <div class="field">
+                        <label style="font-weight:600;">Frekuensi Evaluasi Scorecard</label>
+                        <select name="evaluasi_per_tahun" id="edit_evaluasi_per_tahun">
+                            <option value="1">1 Kali / Tahun (Tahunan)</option>
+                            <option value="2">2 Kali / Tahun (Semesteran)</option>
+                            <option value="4">4 Kali / Tahun (Triwulanan)</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label style="font-weight:600;">Sumber Data Baseline</label>
+                        <select name="sumber_baseline" id="edit_sumber_baseline">
+                            <option value="LAPORAN RESMI">Laporan Resmi</option>
+                            <option value="DATA UNIT">Data Unit</option>
+                            <option value="ESTIMASI TERVERIFIKASI">Estimasi Terverifikasi</option>
+                            <option value="SURVEI AWAL">Survei Awal</option>
+                        </select>
+                    </div>
+
+                    <!-- PIC Stakeholders -->
+                    <div class="field">
+                        <label style="font-weight:600;">Nama PIC Internal (Kanwil)</label>
+                        <input type="text" name="pic_internal" id="edit_pic_internal">
+                    </div>
+                    <div class="field">
+                        <label style="font-weight:600;">No. Telp / HP PIC Internal (Form Number)</label>
+                        <input type="text" name="pic_internal_no" id="edit_pic_internal_no">
+                    </div>
+                    <div class="field">
+                        <label style="font-weight:600;">Nama PIC Mitra</label>
+                        <input type="text" name="pic_mitra" id="edit_pic_mitra">
+                    </div>
+                    <div class="field">
+                        <label style="font-weight:600;">No. Telp / HP PIC Mitra (Form Number)</label>
+                        <input type="text" name="pic_mitra_no" id="edit_pic_mitra_no">
+                    </div>
+
+                    <!-- File Berkas -->
+                    <div class="field">
+                        <label style="font-weight:600;">Upload Scan Berkas Naskah (PDF)</label>
+                        <input type="file" name="file_naskah" accept=".pdf">
+                        <div id="edit_file_preview" style="margin-top:4px;font-size:12px;"></div>
+                    </div>
+                    <div class="field">
+                        <label style="font-weight:600;">Upload Foto Dokumentasi</label>
+                        <input type="file" name="foto_kerjasama" accept=".jpg,.jpeg,.png,.webp">
+                        <div id="edit_foto_preview" style="margin-top:4px;font-size:12px;"></div>
+                    </div>
+                </div>
+
+                <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:22px;padding-top:16px;border-top:1px solid #e2e8f0;">
+                    <button type="button" onclick="closeEditNaskahModal()" class="btn btn-outline">Batal</button>
+                    <button type="submit" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;">
+                        <?= uiIcon('check-circle', 14) ?> Simpan Perubahan Naskah
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- TAB 2: RENCANA KERJA TAHUNAN -->
+        <div id="tabContentEditRk" style="display:none;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                <div>
+                    <h3 style="margin:0;font-size:15px;color:#0f172a;">Rencana Kerja Tahunan</h3>
+                    <div class="muted" style="font-size:12px;">Target operasional tahunan dan kegiatan riil turunan naskah kerja sama</div>
+                </div>
+                <button type="button" class="btn btn-primary btn-sm" onclick="toggleAddRkBox(true)" style="display:inline-flex;align-items:center;gap:5px;">
+                    <?= uiIcon('plus', 13) ?> Tambah Rencana Kerja
+                </button>
+            </div>
+
+            <!-- Form Tambah Rencana Kerja (Inline Drop-box) -->
+            <div id="boxAddRk" style="display:none;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:16px;margin-bottom:16px;animation:dropdownFadeSlide 0.18s cubic-bezier(0.16,1,0.3,1);">
+                <h4 style="margin:0 0 12px 0;font-size:14px;color:#1e293b;">Formulir Rencana Kerja Baru</h4>
+                <form method="post" id="formAddRk">
+                    <?= csrfField() ?>
+                    <input type="hidden" name="action" value="edit">
+                    <input type="hidden" name="sub_action" value="add_rencana_kerja">
+                    <input type="hidden" name="id" id="add_rk_mitra_id" value="">
+
+                    <div class="form-grid">
+                        <div class="field" style="grid-column:1/-1;">
+                            <label style="font-weight:600;">Judul Rencana Kerja *</label>
+                            <input type="text" name="judul_rencana" required placeholder="Contoh: Penyelenggaraan Sosialisasi AHU dan Pendaftaran Hak Cipta Bersama">
+                        </div>
+                        <div class="field" style="grid-column:1/-1;">
+                            <label style="font-weight:600;">Ruang Lingkup & Target Kegiatan</label>
+                            <textarea name="ruang_lingkup" rows="2" placeholder="Uraikan target, output konkret, atau indikator kegiatan tahunan"></textarea>
+                        </div>
+                        <div class="field">
+                            <label style="font-weight:600;">Tanggal Mulai</label>
+                            <input type="date" name="tanggal_mulai" value="<?= date('Y-01-01') ?>">
+                        </div>
+                        <div class="field">
+                            <label style="font-weight:600;">Tanggal Selesai</label>
+                            <input type="date" name="tanggal_selesai" value="<?= date('Y-12-31') ?>">
+                        </div>
+                    </div>
+                    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;">
+                        <button type="button" onclick="toggleAddRkBox(false)" class="btn btn-outline btn-sm">Batal</button>
+                        <button type="submit" class="btn btn-primary btn-sm"><?= uiIcon('check-circle', 13) ?> Simpan Rencana Kerja</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Table Rencana Kerja -->
+            <div class="table-wrap">
+                <table id="tblEditModalRk" style="width:100%;">
+                    <thead>
+                        <tr>
+                            <th style="width:140px;">Tahun / Periode</th>
+                            <th>Judul Rencana Kerja</th>
+                            <th>Ruang Lingkup & Target</th>
+                            <th style="width:110px;">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyEditModalRk">
+                        <!-- Populated dynamically via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- NESTED MODAL: EDIT RENCANA KERJA                                          -->
+<!-- ========================================================================= -->
+<div id="modalNestedEditRk" class="app-modal-overlay">
+    <div class="app-modal-box" style="max-width: 600px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid #e2e8f0;padding-bottom:10px;">
+            <h3 style="margin:0;font-size:16px;color:#0f172a;">Edit Rencana Kerja Tahunan</h3>
+            <button type="button" onclick="closeNestedEditRk()" style="background:none;border:none;font-size:22px;color:#64748b;cursor:pointer;padding:2px 8px;line-height:1;">&times;</button>
+        </div>
+        <form method="post" id="formNestedEditRk">
+            <?= csrfField() ?>
+            <input type="hidden" name="action" value="edit">
+            <input type="hidden" name="sub_action" value="edit_rencana_kerja">
+            <input type="hidden" name="id" id="nested_rk_mitra_id" value="">
+            <input type="hidden" name="rk_id" id="nested_rk_id" value="">
+
+            <div class="form-grid">
+                <div class="field" style="grid-column:1/-1;">
+                    <label style="font-weight:600;">Judul Rencana Kerja *</label>
+                    <input type="text" name="judul_rencana" id="nested_rk_judul" required>
+                </div>
+                <div class="field" style="grid-column:1/-1;">
+                    <label style="font-weight:600;">Ruang Lingkup & Target Kegiatan</label>
+                    <textarea name="ruang_lingkup" id="nested_rk_ruang" rows="3"></textarea>
+                </div>
+                <div class="field">
+                    <label style="font-weight:600;">Tanggal Mulai</label>
+                    <input type="date" name="tanggal_mulai" id="nested_rk_mulai">
+                </div>
+                <div class="field">
+                    <label style="font-weight:600;">Tanggal Selesai</label>
+                    <input type="date" name="tanggal_selesai" id="nested_rk_selesai">
+                </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:12px;border-top:1px solid #e2e8f0;">
+                <button type="button" onclick="closeNestedEditRk()" class="btn btn-outline btn-sm">Batal</button>
+                <button type="submit" class="btn btn-primary btn-sm"><?= uiIcon('check-circle', 13) ?> Simpan Perubahan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Form Hidden untuk Hapus Rencana Kerja -->
+<form method="post" id="formDeleteRk" style="display:none;">
+    <?= csrfField() ?>
+    <input type="hidden" name="action" value="edit">
+    <input type="hidden" name="sub_action" value="delete_rencana_kerja">
+    <input type="hidden" name="id" id="delete_rk_mitra_id" value="">
+    <input type="hidden" name="rk_id" id="delete_rk_id" value="">
+</form>
+
 <script>
-// Multi-selection dropdown toggle
+// Data Mitra & Rencana Kerja untuk Modal Interaktif
+window.PORT_PARTNERS_DATA = <?= json_encode($partnersData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+
+// ============================================================================
+// MODAL MANAGEMENT
+// ============================================================================
+function openTambahNaskahModal() {
+    var m = document.getElementById('modalTambahNaskah');
+    if (!m) return;
+    document.getElementById('formTambahNaskah').reset();
+    selectAllFormBidang('tambah', false);
+    m.style.display = 'flex';
+}
+
+function closeTambahNaskahModal() {
+    var m = document.getElementById('modalTambahNaskah');
+    if (m) m.style.display = 'none';
+}
+
+function openEditNaskahModal(id, initialTab) {
+    var data = window.PORT_PARTNERS_DATA[id];
+    if (!data) return;
+
+    // Set header
+    document.getElementById('editModalPartnerKode').textContent = data.kode || '-';
+    document.getElementById('editModalPartnerNama').textContent = data.nama_mitra || 'Edit Naskah';
+
+    // Set fields
+    document.getElementById('edit_id').value = data.id;
+    document.getElementById('add_rk_mitra_id').value = data.id;
+    document.getElementById('edit_kode_display').value = data.kode || '';
+    document.getElementById('edit_nomor_naskah').value = data.nomor_naskah || '';
+    document.getElementById('edit_portofolio').value = data.portofolio || 'Pilot Utama';
+    document.getElementById('edit_jenis').value = data.jenis || 'PKS';
+    document.getElementById('edit_nama_mitra').value = data.nama_mitra || '';
+    document.getElementById('edit_judul').value = data.judul || '';
+    document.getElementById('edit_pks_induk_id').value = data.pks_induk_id || '';
+    document.getElementById('edit_status_tanggal').value = data.status_tanggal || 'DEFINITIF';
+    document.getElementById('edit_tanggal_mulai').value = data.tanggal_mulai || '';
+    document.getElementById('edit_tanggal_berakhir').value = data.tanggal_berakhir || '';
+    document.getElementById('edit_evaluasi_per_tahun').value = data.evaluasi_per_tahun || '1';
+    document.getElementById('edit_sumber_baseline').value = data.sumber_baseline || 'LAPORAN RESMI';
+    document.getElementById('edit_pic_internal').value = data.pic_internal || '';
+    document.getElementById('edit_pic_internal_no').value = data.pic_internal_no || '';
+    document.getElementById('edit_pic_mitra').value = data.pic_mitra || '';
+    document.getElementById('edit_pic_mitra_no').value = data.pic_mitra_no || '';
+
+    // Bidang multi-selection
+    var curBidangs = (data.bidang || 'AHU').split(',').map(function(s){ return s.trim(); });
+    setMultiSelectValues('edit', curBidangs);
+
+    // Previews
+    var fPrev = document.getElementById('edit_file_preview');
+    if (data.file_naskah) {
+        fPrev.innerHTML = '<a href="' + encodeURI(data.file_naskah) + '" target="_blank" class="badge badge-primary" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;"><?= uiIcon('file-text', 11) ?> Berkas Tersedia (Klik untuk Lihat)</a>';
+    } else {
+        fPrev.innerHTML = '<span class="muted" style="font-size:11px;">Belum ada scan naskah diunggah.</span>';
+    }
+
+    var imgPrev = document.getElementById('edit_foto_preview');
+    if (data.foto_kerjasama) {
+        imgPrev.innerHTML = '<img src="' + encodeURI(data.foto_kerjasama) + '" alt="Foto" style="max-height:48px;border-radius:4px;border:1px solid #cbd5e1;display:block;">';
+    } else {
+        imgPrev.innerHTML = '<span class="muted" style="font-size:11px;">Belum ada foto dokumentasi.</span>';
+    }
+
+    // Render Rencana Kerja
+    renderEditModalRk(data);
+
+    // Switch tab
+    switchEditModalTab(initialTab || 'info');
+
+    // Show modal
+    var m = document.getElementById('modalEditNaskah');
+    if (m) m.style.display = 'flex';
+}
+
+function closeEditNaskahModal() {
+    var m = document.getElementById('modalEditNaskah');
+    if (m) m.style.display = 'none';
+    toggleAddRkBox(false);
+}
+
+function switchEditModalTab(tab) {
+    var btnInfo = document.getElementById('tabBtnEditInfo');
+    var btnRk = document.getElementById('tabBtnEditRk');
+    var cInfo = document.getElementById('tabContentEditInfo');
+    var cRk = document.getElementById('tabContentEditRk');
+
+    if (tab === 'rk') {
+        btnInfo.classList.remove('active');
+        btnRk.classList.add('active');
+        cInfo.style.display = 'none';
+        cRk.style.display = 'block';
+    } else {
+        btnRk.classList.remove('active');
+        btnInfo.classList.add('active');
+        cRk.style.display = 'none';
+        cInfo.style.display = 'block';
+    }
+}
+
+function renderEditModalRk(data) {
+    var rkList = data.rencana_kerja || [];
+    document.getElementById('editModalRkCount').textContent = rkList.length;
+
+    var tbody = document.getElementById('tbodyEditModalRk');
+    tbody.innerHTML = '';
+
+    if (rkList.length === 0) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td colspan="4" style="text-align:center;padding:24px;color:#64748b;font-size:12.5px;">Belum ada rencana kerja tahunan untuk naskah ini. Klik "+ Tambah Rencana Kerja" di atas untuk menambahkan.</td>';
+        tbody.appendChild(tr);
+        return;
+    }
+
+    rkList.forEach(function(rk) {
+        var tr = document.createElement('tr');
+        var periode = (rk.tanggal_mulai ? rk.tanggal_mulai.substring(0, 4) : '-') + (rk.tanggal_selesai ? ' s.d. ' + rk.tanggal_selesai.substring(0, 4) : '');
+        var escapeTitle = (rk.judul_rencana || '').replace(/"/g, '&quot;');
+        var escapeRuang = (rk.ruang_lingkup || '').replace(/"/g, '&quot;');
+
+        tr.innerHTML = '<td><strong>' + periode + '</strong><br><span class="muted" style="font-size:10px;">' + (rk.tanggal_mulai || '') + '</span></td>' +
+            '<td><div style="font-weight:600;font-size:12.5px;color:#1e293b;">' + (rk.judul_rencana || '-') + '</div></td>' +
+            '<td><div style="font-size:12px;color:#475569;line-height:1.4;">' + (rk.ruang_lingkup || '-') + '</div></td>' +
+            '<td><div style="display:flex;gap:4px;">' +
+            '<button type="button" class="btn btn-outline btn-sm" onclick="openNestedEditRk(' + rk.id + ', ' + data.id + ')">Edit</button>' +
+            '<button type="button" class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#fca5a5;" onclick="confirmDeleteRk(' + rk.id + ', ' + data.id + ')">Hapus</button>' +
+            '</div></td>';
+        tbody.appendChild(tr);
+    });
+}
+
+function toggleAddRkBox(show) {
+    var box = document.getElementById('boxAddRk');
+    if (!box) return;
+    box.style.display = show ? 'block' : 'none';
+    if (show) {
+        document.getElementById('formAddRk').reset();
+        document.getElementById('add_rk_mitra_id').value = document.getElementById('edit_id').value;
+    }
+}
+
+function openNestedEditRk(rkId, mitraId) {
+    var data = window.PORT_PARTNERS_DATA[mitraId];
+    if (!data) return;
+    var rk = (data.rencana_kerja || []).find(function(item){ return item.id == rkId; });
+    if (!rk) return;
+
+    document.getElementById('nested_rk_mitra_id').value = mitraId;
+    document.getElementById('nested_rk_id').value = rk.id;
+    document.getElementById('nested_rk_judul').value = rk.judul_rencana || '';
+    document.getElementById('nested_rk_ruang').value = rk.ruang_lingkup || '';
+    document.getElementById('nested_rk_mulai').value = rk.tanggal_mulai || '';
+    document.getElementById('nested_rk_selesai').value = rk.tanggal_selesai || '';
+
+    var m = document.getElementById('modalNestedEditRk');
+    if (m) m.style.display = 'flex';
+}
+
+function closeNestedEditRk() {
+    var m = document.getElementById('modalNestedEditRk');
+    if (m) m.style.display = 'none';
+}
+
+function confirmDeleteRk(rkId, mitraId) {
+    if (!confirm('Apakah Anda yakin ingin menghapus rencana kerja tahunan ini?')) return;
+    document.getElementById('delete_rk_mitra_id').value = mitraId;
+    document.getElementById('delete_rk_id').value = rkId;
+    document.getElementById('formDeleteRk').submit();
+}
+
+// Close modals when clicking outside
+window.addEventListener('click', function(e) {
+    var mAdd = document.getElementById('modalTambahNaskah');
+    var mEdit = document.getElementById('modalEditNaskah');
+    var mNested = document.getElementById('modalNestedEditRk');
+    if (e.target === mAdd) closeTambahNaskahModal();
+    if (e.target === mEdit) closeEditNaskahModal();
+    if (e.target === mNested) closeNestedEditRk();
+});
+
+// ============================================================================
+// DROPDOWN MULTIPLE SELECT HELPERS (TAMBAH & EDIT FORM)
+// ============================================================================
+function toggleMultiSelectDropdown(menuId) {
+    var menu = document.getElementById(menuId);
+    if (!menu) return;
+    var isShown = (menu.style.display === 'block');
+    document.querySelectorAll('.form-multiselect-dropdown').forEach(function(d){ d.style.display = 'none'; });
+    menu.style.display = isShown ? 'none' : 'block';
+}
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.form-multiselect-wrap')) {
+        document.querySelectorAll('.form-multiselect-dropdown').forEach(function(d){ d.style.display = 'none'; });
+    }
+});
+
+function selectAllFormBidang(prefix, val) {
+    document.querySelectorAll('.chk-' + prefix + '-bidang').forEach(function(cb) {
+        cb.checked = val;
+    });
+    updateMultiSelectLabel(prefix);
+}
+
+function updateMultiSelectLabel(prefix) {
+    var checked = [];
+    document.querySelectorAll('.chk-' + prefix + '-bidang:checked').forEach(function(cb) {
+        checked.push(cb.value);
+    });
+    var capFirst = prefix.charAt(0).toUpperCase() + prefix.slice(1);
+    var lbl = document.getElementById('msLabel' + capFirst + 'Bidang');
+    if (!lbl) return;
+
+    if (checked.length === 0) {
+        lbl.textContent = 'Pilih Bidang Kerja Sama...';
+        lbl.style.color = '#64748b';
+        lbl.title = '';
+    } else if (checked.length === 1) {
+        lbl.textContent = checked[0];
+        lbl.style.color = '#0f172a';
+        lbl.title = checked[0];
+    } else {
+        lbl.textContent = checked.join(', ') + ' (' + checked.length + ' Bidang)';
+        lbl.style.color = '#0f172a';
+        lbl.title = checked.join(', ');
+    }
+}
+
+function setMultiSelectValues(prefix, valuesArray) {
+    document.querySelectorAll('.chk-' + prefix + '-bidang').forEach(function(cb) {
+        cb.checked = valuesArray.indexOf(cb.value) !== -1;
+    });
+    updateMultiSelectLabel(prefix);
+}
+
+// ============================================================================
+// TABLE FILTERS & CLIENT-SIDE PAGINATION
+// ============================================================================
+var portCurrentPage = 1;
+var portPageSize = 10;
+var portMatchedRows = [];
+
 var btnFilterBidang = document.getElementById('btnFilterBidang');
 var menuFilterBidang = document.getElementById('menuFilterBidang');
 
@@ -1148,13 +1389,11 @@ function applyFilters() {
     var rek = document.getElementById('fRekomendasi').value;
     var s = document.getElementById('fStatus').value;
 
-    // Kumpulkan multi-selection bidang
     var checkedBidangs = [];
     document.querySelectorAll('.chk-filter-bidang:checked').forEach(function(cb) {
         checkedBidangs.push(cb.value);
     });
 
-    // Update label tombol filter bidang
     var lbl = document.getElementById('labelFilterBidang');
     if (lbl) {
         if (checkedBidangs.length === 0) {
@@ -1169,14 +1408,13 @@ function applyFilters() {
         }
     }
 
-    var visibleCount = 0;
+    portMatchedRows = [];
     var rows = document.querySelectorAll('#tblPortofolio tbody tr:not(#emptyRow):not(#noFilterMatchRow)');
     rows.forEach(function(tr) {
         var matchQ = !q || tr.textContent.toLowerCase().indexOf(q) !== -1;
         var matchP = !p || tr.dataset.portofolio === p;
         var matchK = !k || tr.dataset.kategori === k;
 
-        // Cek multi-selection bidang
         var matchB = true;
         if (checkedBidangs.length > 0) {
             var rowBidangRaw = tr.dataset.bidang || '';
@@ -1205,13 +1443,118 @@ function applyFilters() {
         var matchRek = !rek || (tr.dataset.rekomendasiKey === rek);
         var matchS = !s || tr.dataset.status === s;
         var isVisible = (matchQ && matchP && matchB && matchK && matchPos && matchRek && matchS);
-        tr.style.display = isVisible ? '' : 'none';
-        if (isVisible) visibleCount++;
+        
+        if (isVisible) {
+            portMatchedRows.push(tr);
+        } else {
+            tr.style.display = 'none';
+        }
     });
+
     var noMatch = document.getElementById('noFilterMatchRow');
     if (noMatch) {
-        noMatch.style.display = (rows.length > 0 && visibleCount === 0) ? '' : 'none';
+        noMatch.style.display = (rows.length > 0 && portMatchedRows.length === 0) ? '' : 'none';
     }
+
+    portCurrentPage = 1;
+    renderPortPagination();
+}
+
+function changePortPageSize(sz) {
+    portPageSize = (sz === 'all') ? 999999 : parseInt(sz, 10);
+    portCurrentPage = 1;
+    renderPortPagination();
+}
+
+function goToPortPage(p) {
+    portCurrentPage = p;
+    renderPortPagination();
+}
+
+function renderPortPagination() {
+    var total = portMatchedRows.length;
+    var wrap = document.getElementById('portPaginationWrap');
+    var nav = document.getElementById('portPaginationNav');
+    var info = document.getElementById('portPageInfo');
+    if (!wrap || !nav || !info) return;
+
+    if (total === 0) {
+        wrap.style.display = 'none';
+        return;
+    }
+    wrap.style.display = 'flex';
+
+    var totalPages = Math.ceil(total / portPageSize) || 1;
+    if (portCurrentPage > totalPages) portCurrentPage = totalPages;
+    if (portCurrentPage < 1) portCurrentPage = 1;
+
+    var start = (portCurrentPage - 1) * portPageSize;
+    var end = Math.min(start + portPageSize, total);
+
+    // Show only the page slice
+    portMatchedRows.forEach(function(tr, idx) {
+        tr.style.display = (idx >= start && idx < end) ? '' : 'none';
+    });
+
+    info.textContent = 'Menampilkan ' + (start + 1) + ' – ' + end + ' dari ' + total + ' naskah';
+
+    // Build pagination buttons
+    nav.innerHTML = '';
+    if (totalPages <= 1) return;
+
+    var btnFirst = document.createElement('button');
+    btnFirst.type = 'button';
+    btnFirst.className = 'port-page-btn';
+    btnFirst.innerHTML = '&laquo;';
+    btnFirst.title = 'Halaman Pertama';
+    btnFirst.disabled = (portCurrentPage === 1);
+    btnFirst.onclick = function(){ goToPortPage(1); };
+    nav.appendChild(btnFirst);
+
+    var btnPrev = document.createElement('button');
+    btnPrev.type = 'button';
+    btnPrev.className = 'port-page-btn';
+    btnPrev.innerHTML = '&lsaquo;';
+    btnPrev.title = 'Sebelumnya';
+    btnPrev.disabled = (portCurrentPage === 1);
+    btnPrev.onclick = function(){ goToPortPage(portCurrentPage - 1); };
+    nav.appendChild(btnPrev);
+
+    var maxButtons = 5;
+    var startP = Math.max(1, portCurrentPage - 2);
+    var endP = Math.min(totalPages, startP + maxButtons - 1);
+    if (endP - startP < maxButtons - 1) {
+        startP = Math.max(1, endP - maxButtons + 1);
+    }
+
+    for (var p = startP; p <= endP; p++) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'port-page-btn' + (p === portCurrentPage ? ' active' : '');
+        btn.textContent = p;
+        (function(page){
+            btn.onclick = function(){ goToPortPage(page); };
+        })(p);
+        nav.appendChild(btn);
+    }
+
+    var btnNext = document.createElement('button');
+    btnNext.type = 'button';
+    btnNext.className = 'port-page-btn';
+    btnNext.innerHTML = '&rsaquo;';
+    btnNext.title = 'Berikutnya';
+    btnNext.disabled = (portCurrentPage === totalPages);
+    btnNext.onclick = function(){ goToPortPage(portCurrentPage + 1); };
+    nav.appendChild(btnNext);
+
+    var btnLast = document.createElement('button');
+    btnLast.type = 'button';
+    btnLast.className = 'port-page-btn';
+    btnLast.innerHTML = '&raquo;';
+    btnLast.title = 'Halaman Terakhir';
+    btnLast.disabled = (portCurrentPage === totalPages);
+    btnLast.onclick = function(){ goToPortPage(totalPages); };
+    nav.appendChild(btnLast);
 }
 
 document.getElementById('fSearch').addEventListener('input', applyFilters);
@@ -1236,7 +1579,18 @@ function resetFilters() {
     applyFilters();
 }
 
-document.addEventListener('DOMContentLoaded', applyFilters);
+// Auto-open modal jika diminta via query param
+document.addEventListener('DOMContentLoaded', function() {
+    applyFilters();
+    var params = new URLSearchParams(window.location.search);
+    if (params.get('open_modal') === 'add' || params.get('action') === 'add') {
+        openTambahNaskahModal();
+    } else if (params.get('edit_id')) {
+        openEditNaskahModal(parseInt(params.get('edit_id'), 10), params.get('tab') || 'info');
+    } else if (params.get('action') === 'edit' && params.get('id')) {
+        openEditNaskahModal(parseInt(params.get('id'), 10), params.get('tab') || 'info');
+    }
+});
 window.addEventListener('pageshow', applyFilters);
 </script>
 

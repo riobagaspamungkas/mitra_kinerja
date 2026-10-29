@@ -2598,6 +2598,236 @@ tr:hover td { background: #fafbfc; }
     line-height: 1.45;
 }
 
+/* ---------- Fluid Animations & Micro-Interactions System ---------- */
+@keyframes modalOverlayFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes modalBoxPop {
+    from {
+        opacity: 0;
+        transform: scale(0.96) translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes dropdownFadeSlide {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes subtlePillPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+}
+
+/* Universal Modal Component */
+.app-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    animation: modalOverlayFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.app-modal-box {
+    background: #ffffff;
+    border-radius: 14px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 45px -10px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.08);
+    animation: modalBoxPop 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+    position: relative;
+    padding: 24px;
+    box-sizing: border-box;
+}
+
+/* Dropdown Animation Enhancement */
+.notif-dropdown,
+.user-dropdown-popup,
+#menuFilterBidang,
+.form-multiselect-dropdown {
+    animation: dropdownFadeSlide 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Card & Button Subtle Hover Micro-Animations */
+.card {
+    transition: border-color 0.2s ease, box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.kpi-card {
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+}
+.kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+    border-color: #cbd5e1;
+}
+
+.action-card {
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.action-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+}
+.action-card:active {
+    transform: translateY(0);
+}
+
+.btn {
+    transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease, transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.16s ease;
+}
+.btn:hover {
+    transform: translateY(-1px);
+}
+.btn:active {
+    transform: translateY(0) scale(0.985);
+}
+
+/* Table Row Smooth Hover */
+table tbody tr {
+    transition: background-color 0.15s ease;
+}
+table tbody tr:hover td {
+    background-color: rgba(241, 245, 249, 0.65);
+}
+
+/* Sidebar Smooth Hover */
+.sidebar-nav a {
+    transition: background-color 0.18s ease, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), color 0.18s ease;
+}
+.sidebar-nav a:hover {
+    transform: translateX(3px);
+}
+
+/* Form Inputs Smooth Focus */
+.field input, .field select, .field textarea, .filters input, .filters select {
+    transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
+}
+
+/* Notification Urgent Pulse */
+.notif-badge.has-urgent {
+    animation: subtlePillPulse 2.4s ease-in-out infinite;
+}
+
+/* Form Multi-Select Component */
+.form-multiselect-wrap {
+    position: relative;
+    width: 100%;
+}
+.form-multiselect-btn {
+    width: 100%;
+    min-height: 40px;
+    padding: 6px 12px;
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    text-align: left;
+    box-sizing: border-box;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+.form-multiselect-btn:focus,
+.form-multiselect-btn:hover {
+    border-color: #3b82f6;
+    outline: none;
+}
+.form-multiselect-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.12);
+    z-index: 1000;
+    padding: 8px;
+    max-height: 230px;
+    overflow-y: auto;
+}
+
+/* Pagination Button Styles */
+.port-page-btn, .g0-page-btn {
+    padding: 5px 10px;
+    font-size: 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    background: #fff;
+    color: #334155;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    min-width: 28px;
+    text-align: center;
+}
+.port-page-btn:hover:not(:disabled), .g0-page-btn:hover:not(:disabled) {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+    color: #0f172a;
+}
+.port-page-btn.active, .g0-page-btn.active {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #fff;
+    font-weight: 700;
+}
+.port-page-btn:disabled, .g0-page-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+/* Modal Tabs */
+.modal-tab-nav {
+    display: flex;
+    border-bottom: 1px solid #e2e8f0;
+    gap: 8px;
+    margin-bottom: 18px;
+}
+.modal-tab-btn {
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.modal-tab-btn:hover {
+    color: #1e293b;
+}
+.modal-tab-btn.active {
+    color: #2563eb;
+    border-bottom-color: #2563eb;
+}
+
+
 
 
 
