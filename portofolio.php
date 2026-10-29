@@ -28,9 +28,7 @@ $bidangOptions = [
 $allBidangKeys = array_keys($bidangOptions);
 $mouOptions = $pdo->query("SELECT id, kode, nama_mitra, judul FROM mitra_kinerja WHERE jenis = 'MoU' ORDER BY kode")->fetchAll();
 
-// ============================================================================
-// 1. POST HANDLER: TAMBAH NASKAH BARU (?action=add)
-// ============================================================================
+// Tambah naskah baru (?action=add)
 if ($action === 'add' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     requireRole(['admin', 'pemeriksa', 'pengampu', 'pic']);
     $csrfToken = isset($_POST['csrf_token']) && is_string($_POST['csrf_token']) ? $_POST['csrf_token'] : null;
@@ -194,9 +192,7 @@ if ($action === 'add' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     }
 }
 
-// ============================================================================
-// 2. POST HANDLER: EDIT NASKAH & RENCANA KERJA (?action=edit&id=...)
-// ============================================================================
+// Edit naskah dan rencana kerja (?action=edit&id=...)
 if ($action === 'edit' && $id > 0 && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     requireRole(['admin', 'pemeriksa', 'pengampu', 'pic']);
     $csrfToken = isset($_POST['csrf_token']) && is_string($_POST['csrf_token']) ? $_POST['csrf_token'] : null;
@@ -409,12 +405,9 @@ if ($action === 'edit' && $id > 0 && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POS
     }
 }
 
-// ============================================================================
 
 
-// ============================================================================
-// 3. RENDER VIEW: PORTOFOLIO & MODAL MANAGEMENT (CONSOLIDATED)
-// ============================================================================
+// Render view portofolio dan modal
 $all = getAllMitraSummary($pdo);
 $pageTitle = 'Portofolio';
 
@@ -670,9 +663,7 @@ require __DIR__ . '/includes/header.php';
     </div>
 </div>
 
-<!-- ========================================================================= -->
-<!-- MODAL 1: TAMBAH NASKAH BARU                                               -->
-<!-- ========================================================================= -->
+<!-- MODAL 1: TAMBAH NASKAH BARU                                                -->
 <div id="modalTambahNaskah" class="app-modal-overlay">
     <div class="app-modal-box" style="max-width: 820px;">
         <div class="app-modal-header">
@@ -826,9 +817,7 @@ require __DIR__ . '/includes/header.php';
     </div>
 </div>
 
-<!-- ========================================================================= -->
-<!-- MODAL 2: EDIT NASKAH & RENCANA KERJA TAHUNAN                              -->
-<!-- ========================================================================= -->
+<!-- MODAL 2: EDIT NASKAH & RENCANA KERJA TAHUNAN                               -->
 <div id="modalEditNaskah" class="app-modal-overlay">
     <div class="app-modal-box" style="max-width: 880px;">
         <div class="app-modal-header">
@@ -1074,9 +1063,7 @@ require __DIR__ . '/includes/header.php';
     </div>
 </div>
 
-<!-- ========================================================================= -->
-<!-- NESTED MODAL: EDIT RENCANA KERJA                                          -->
-<!-- ========================================================================= -->
+<!-- NESTED MODAL: EDIT RENCANA KERJA                                           -->
 <div id="modalNestedEditRk" class="app-modal-overlay">
     <div class="app-modal-box" style="max-width: 600px;">
         <div class="app-modal-header">
@@ -1132,9 +1119,7 @@ require __DIR__ . '/includes/header.php';
 // Data Mitra & Rencana Kerja untuk Modal Interaktif
 window.PORT_PARTNERS_DATA = <?= json_encode($partnersData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
 
-// ============================================================================
-// MODAL MANAGEMENT
-// ============================================================================
+// Modal management
 function openTambahNaskahModal() {
     var m = document.getElementById('modalTambahNaskah');
     if (!m) return;
@@ -1311,9 +1296,7 @@ window.addEventListener('click', function(e) {
     if (e.target === mNested) closeNestedEditRk();
 });
 
-// ============================================================================
-// DROPDOWN MULTIPLE SELECT HELPERS (TAMBAH & EDIT FORM)
-// ============================================================================
+// Dropdown multi-select helpers
 function toggleMultiSelectDropdown(menuId) {
     var menu = document.getElementById(menuId);
     if (!menu) return;
@@ -1366,9 +1349,7 @@ function setMultiSelectValues(prefix, valuesArray) {
     updateMultiSelectLabel(prefix);
 }
 
-// ============================================================================
-// TABLE FILTERS & CLIENT-SIDE PAGINATION
-// ============================================================================
+// Filter tabel dan pagination
 var portCurrentPage = 1;
 var portPageSize = 10;
 var portMatchedRows = [];

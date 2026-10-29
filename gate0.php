@@ -1180,7 +1180,7 @@ if (($view === 'detail' || $view === 'print') && $detailId > 0) {
     $pertanyaanData = json_decode($usulan['pertanyaan_uji'] ?? '[]', true) ?: [];
     $triggerData = json_decode($usulan['trigger_khusus'] ?? '[]', true) ?: [];
 
-    $pageTitle = 'Formulir Gate 0 — ' . $usulan['nomor_usulan'];
+    $pageTitle = 'Formulir Gate 0: ' . $usulan['nomor_usulan'];
     if ($view === 'detail') {
         require __DIR__ . '/includes/header.php';
     } else {
@@ -1425,7 +1425,7 @@ $revisiCount = count(array_filter($usulanList, fn($u) => ($u['status_persetujuan
 $ditolakCount = count(array_filter($usulanList, fn($u) => ($u['status_persetujuan'] ?? '') === 'Ditolak Pimpinan'));
 $siapPromosiCount = count(array_filter($usulanList, fn($u) => ($u['status_persetujuan'] ?? '') === 'Disetujui Pimpinan' && !$u['is_promoted_to_pks']));
 
-$pageTitle = 'Gate 0 — Pra-Kerja Sama';
+$pageTitle = 'Gate 0: Pra-Kerja Sama';
 require __DIR__ . '/includes/header.php';
 ?>
 
@@ -1501,7 +1501,7 @@ require __DIR__ . '/includes/header.php';
 
 <div class="flex-between" style="margin-bottom:18px;">
     <div>
-        <h1 style="margin:0;font-size:20px;">Gate 0 — Pra-Kerja Sama</h1>
+        <h1 style="margin:0;font-size:20px;">Gate 0: Pra-Kerja Sama</h1>
         <div class="muted" style="font-size:13px;">Uji kelayakan calon kerja sama sebelum penandatanganan naskah</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;background:#f8fafc;padding:6px 12px;border:1px solid #cbd5e1;border-radius:6px;">

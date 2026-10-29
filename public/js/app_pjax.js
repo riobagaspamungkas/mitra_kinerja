@@ -1,5 +1,5 @@
 /**
- * Mitra Kinerja — Ultra-Fluid Native PJAX Navigation Engine
+ * Mitra Kinerja: Native PJAX Navigation Engine
  * Keeps the Hero Header (.app-hero) and Sidebar (.app-sidebar) permanently mounted
  * Swaps only .page-body, updates title and active nav, with zero flicker.
  */

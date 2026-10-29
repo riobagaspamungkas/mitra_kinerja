@@ -29,7 +29,7 @@ body {
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-/* ============ SIDEBAR LAYOUT ============ */
+/* SIDEBAR LAYOUT */
 .app-layout {
     display: flex;
     flex-direction: column;
@@ -54,7 +54,7 @@ a:hover { text-decoration: underline; }
     background:
         linear-gradient(180deg,
         #0f2b46 0%,
-        #0f2b46 50%,          /* solid navy diperpanjang — nutupin sampai akhir menu "Laporan" */
+        #0f2b46 50%,          /* Solid navy background extending to footer */
         rgba(15, 43, 70, .55) 62%,   /* mulai transisi */
         rgba(15, 43, 70, .30) 78%,   /* foto makin kelihatan */
         rgba(15, 43, 70, .25) 100%), /* foto + tagline emas paling jelas di bawah */
@@ -95,7 +95,7 @@ a:hover { text-decoration: underline; }
     max-width: calc(var(--sidebar-w) - 24px);
 }
 
-/* Main Content — header full-width, sidebar overlap di atasnya */
+/* Main content layout */
 .app-content { flex: 1; min-height: 0; display: flex; flex-direction: column; min-width: 0; }
 
 /* ---------- Hero Header — full-width, sticky, sidebar overlap di atasnya ---------- */
@@ -157,8 +157,8 @@ a:hover { text-decoration: underline; }
     opacity: 0.7;
     text-shadow: 0 2px 6px rgba(0,0,0,.45);
     text-align: left;
-    transform: translateY(-25px) rotate(-12deg);         /* baru — sama seperti sidebar */
-    transform-origin: right bottom;   /* baru — dikunci di kanan-bawah (dekat avatar), biar sisi kiri teks yang "turun", bukan malah mendorong ke arah avatar */
+    transform: translateY(-25px) rotate(-12deg);         /* Match sidebar angle */
+    transform-origin: right bottom;   /* Locked bottom right */si kiri teks yang "turun", bukan malah mendorong ke arah avatar */
 }
 .header-user { display: flex; align-items: center; gap: 10px; }
 .header-user .user-avatar {
@@ -177,7 +177,7 @@ a:hover { text-decoration: underline; }
 }
 .header-user .btn-logout:hover { background: rgba(255,255,255,.15); color: #fff; text-decoration: none; }
 
-/* ---------- Fluid Page Transition Keyframes & Styles ---------- */
+/* Fluid Page Transition Keyframes & Styles */
 @keyframes pageFadeSlideIn {
     0% {
         opacity: 0.2;
@@ -189,7 +189,7 @@ a:hover { text-decoration: underline; }
     }
 }
 
-/* Page Body — offset from sidebar */
+/* Page body offset */
 .page-body {
     padding: 24px 28px 40px;
     flex: 1;
@@ -241,7 +241,7 @@ a:hover { text-decoration: underline; }
     }
 }
 
-/* Footer — diposisikan di akhir konten secara wajar */
+/* Footer layout */
 .app-footer {
     position: relative;
     margin-top: auto;
@@ -274,7 +274,7 @@ a:hover { text-decoration: underline; }
     padding-left: 14px;
 }
 
-/* ============ LOGIN (TRANSLUCENT GLASS) ============ */
+/* LOGIN (TRANSLUCENT GLASS) */
 .login-wrap {
     min-height: 100vh;
     display: flex;
@@ -458,7 +458,7 @@ a:hover { text-decoration: underline; }
     letter-spacing: 0.1px;
 }
 
-/* ============ LOGIN LOADING OVERLAY (GLASSMORPHISM 3S DELAY) ============ */
+/* LOGIN LOADING OVERLAY (GLASSMORPHISM 3S DELAY) */
 .login-loading-overlay {
     position: fixed;
     inset: 0;
@@ -607,7 +607,7 @@ a:hover { text-decoration: underline; }
     color: #64748b;
 }
 
-/* ============ DASHBOARD COMPONENTS ============ */
+/* DASHBOARD COMPONENTS */
 .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
 .kpi-card {
     background: #fff; border-radius: 14px; padding: 18px 20px;
@@ -660,7 +660,7 @@ a:hover { text-decoration: underline; }
 .kpi-card .kpi-progress { margin-top: 8px; height: 8px; border-radius: 4px; background: #e5e7eb; overflow: hidden; }
 .kpi-card .kpi-progress .bar { height: 100%; border-radius: 4px; }
 
-/* Ikon lingkaran SOLID (putih di atas warna penuh) — sesuai mockup */
+/* Solid icon badge */
 .kpi-icon-blue { background: #2563eb; }
 .kpi-icon-navy { background: #1e40af; }
 .kpi-icon-green { background: #16a34a; }
@@ -712,7 +712,7 @@ a:hover { text-decoration: underline; }
 .status-dot.dot-yellow::before { background: var(--yellow); }
 .status-dot.dot-red::before { background: var(--red); }
 
-/* Quick actions — sesuai mockup: pill-shaped dengan panah kanan */
+/* Quick actions layout */
 .actions-row {
     display: flex !important;
     gap: 16px;
@@ -756,7 +756,7 @@ a:hover { text-decoration: underline; }
 }
 .action-card .ac-arrow svg { width: 16px; height: 16px; }
 
-/* Warna card — Biru, Emas, Navy gelap, Emas */
+/* Card color variants */
 .ac-blue  { background: linear-gradient(135deg, #1a3a7a, #2563eb); }
 .ac-gold  { background: linear-gradient(135deg, #7a5c12, #b8922a 40%, #d4a833 100%); }
 .ac-navy  { background: linear-gradient(135deg, #0a1e3a, #142d50 50%, #1c3d6a); }
@@ -776,7 +776,7 @@ a:hover { text-decoration: underline; }
 .card h2 { font-size: 15px; margin: 0 0 14px; }
 .card h3 { font-size: 13px; margin: 0 0 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; }
 
-/* ============ GENERIC ============ */
+/* GENERIC */
 
 /* Backward-compat for mitra_edit / mitra_validasi pages */
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 20px; }
@@ -793,7 +793,7 @@ th { color: var(--text-muted); font-weight: 600; font-size: 12px; text-transform
 tr:hover td { background: #fafbfc; }
 .table-wrap { overflow-x: auto; }
 
-/* ---------- Badges ---------- */
+/* Badges */
 .badge {
     display: inline-block;
     padding: 3px 9px;
@@ -811,7 +811,7 @@ tr:hover td { background: #fafbfc; }
 .badge-info { background: #e0f2fe; color: #0369a1; }
 .badge-outline { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
 
-/* ---------- Forms ---------- */
+/* Forms */
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
 .field label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px; color: var(--text-muted); }
 .field input, .field select, .field textarea {
@@ -841,7 +841,7 @@ tr:hover td { background: #fafbfc; }
 .btn-warning:hover { background: #a16207; }
 .btn-sm { padding: 5px 10px; font-size: 12px; }
 
-/* ---------- Indikator blocks ---------- */
+/* Indikator blocks */
 .indikator-block {
     border: 1px solid var(--border);
     border-radius: 10px;
@@ -1157,9 +1157,8 @@ tr:hover td { background: #fafbfc; }
 .ai-trigger-btn svg { width: 22px; height: 22px; }
 .ai-trigger-btn { display: none; /* shown via JS when toast is dismissed */ }
 
-/* ============================================================
- * PRINT & PDF STYLES
- * ============================================================ */
+/* * PRINT & PDF STYLES
+ * */
 @media print {
     @page {
         size: A4 portrait;
@@ -1257,7 +1256,7 @@ tr:hover td { background: #fafbfc; }
     }
 }
 
-/* ---------- Searchable Combobox & Dropdown Autocomplete ---------- */
+/* Searchable Combobox & Dropdown Autocomplete */
 .searchable-combobox-wrap {
     position: relative;
     width: 100%;
@@ -1362,7 +1361,7 @@ tr:hover td { background: #fafbfc; }
     text-align: center;
 }
 
-/* ---------- Alert Collapsible / Dropdown with Scrollbar ---------- */
+/* Alert Collapsible / Dropdown with Scrollbar */
 .alert-collapsible {
     border-radius: 8px;
     margin-bottom: 20px;
@@ -1657,7 +1656,7 @@ tr:hover td { background: #fafbfc; }
     }
 }
 
-/* ---------- Header Notification Bell & Dropdown ---------- */
+/* Header Notification Bell & Dropdown */
 .header-notif-wrap {
     position: relative;
     display: flex;
@@ -2157,7 +2156,7 @@ tr:hover td { background: #fafbfc; }
     margin-top: 1px;
 }
 
-/* ---------- Confirmation Modal (Ganti Akun & Logout) ---------- */
+/* Confirmation Modal (Ganti Akun & Logout) */
 .user-confirm-modal-overlay {
     position: fixed;
     inset: 0;
@@ -2258,7 +2257,7 @@ tr:hover td { background: #fafbfc; }
     background: #b91c1c;
 }
 
-/* ---------- Avatar Photo & Edit Badge ---------- */
+/* Avatar Photo & Edit Badge */
 .avatar-photo,
 .header-avatar-img,
 .udp-avatar-img,
@@ -2305,7 +2304,7 @@ tr:hover td { background: #fafbfc; }
     color: #059669;
 }
 
-/* ---------- Modal Edit Profil (Ubah Nama & Foto) ---------- */
+/* Modal Edit Profil (Ubah Nama & Foto) */
 .profile-modal-overlay {
     position: fixed;
     inset: 0;
@@ -2562,7 +2561,7 @@ tr:hover td { background: #fafbfc; }
     cursor: not-allowed;
 }
 
-/* ---------- Tidy Empty State Helper Component ---------- */
+/* Tidy Empty State Helper Component */
 .table-empty-box {
     display: flex;
     flex-direction: column;

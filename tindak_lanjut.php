@@ -371,9 +371,7 @@ require __DIR__ . '/includes/header.php';
 </div>
 
 <script>
-// ============================================================================
-// TINDAK LANJUT FILTER & PAGINATION ENGINE
-// ============================================================================
+// Tindak lanjut filter and pagination engine
 var tlCurrentPage = 1;
 var tlPageSize = 10;
 var tlMatchedRows = [];

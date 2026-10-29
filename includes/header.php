@@ -105,7 +105,7 @@ if ($user) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title><?= h($pageTitle ?? 'Mitra Kinerja') ?> — Mitra Kinerja</title>
+<title><?= h($pageTitle ?? 'Mitra Kinerja') ?> | Mitra Kinerja</title>
 <link rel="stylesheet" href="public/css/style.css?v=<?= filemtime(__DIR__ . '/../public/css/style.css') ?>">
 <link rel="preload" as="image" href="public/img/header-bridge.jpg">
 <link rel="preload" as="image" href="public/img/sidebar-coast.jpeg">

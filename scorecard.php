@@ -463,7 +463,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] 
                                 $pdo->commit();
 
                                 logAudit($targetId, $user['id'], 'IMPORT_SCORECARD', "Import Scorecard untuk {$targetMitra['kode']}: {$updatedScorecard} indikator diperbarui.");
-                                $success = "Data Scorecard untuk <strong>" . h($targetMitra['kode']) . " — " . h($targetMitra['nama_mitra']) . "</strong> berhasil di-import!<br>"
+                                $success = "Data Scorecard untuk <strong>" . h($targetMitra['kode']) . ": " . h($targetMitra['nama_mitra']) . "</strong> berhasil di-import!<br>"
                                          . "&bull; {$updatedScorecard} indikator Scorecard (I1–I7) berhasil disinkronkan ke sistem.<br>"
                                          . (!empty($validScStatus) ? "&bull; Status Scorecard: <strong>" . h($validScStatus) . "</strong>.<br>" : "")
                                          . (!empty($posisiPortofolio) ? "&bull; Posisi Portofolio: <strong>" . h($posisiPortofolio) . "</strong>.<br>" : "");
@@ -1035,9 +1035,7 @@ window.addEventListener('keydown', function(e) {
     }
 });
 
-// ============================================================================
-// SCORECARD FILTER & PAGINATION ENGINE
-// ============================================================================
+// Scorecard filter and pagination engine
 var scCurrentPage = 1;
 var scPageSize = 10;
 var scMatchedRows = [];
