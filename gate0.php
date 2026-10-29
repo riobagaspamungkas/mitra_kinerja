@@ -492,31 +492,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                 ]);
                 $newMitraId = (int)$pdo->lastInsertId();
 
-                // Truncate / fit rencana_kerja judul_rencana to 255 chars
-                $rkJudul = 'Rencana Kerja ' . $pra['judul_rencana'];
-                $rkLen = function_exists('mb_strlen') ? mb_strlen($rkJudul) : strlen($rkJudul);
-                if ($rkLen > 255) {
-                    $rkJudul = (function_exists('mb_substr') ? mb_substr($rkJudul, 0, 252) : substr($rkJudul, 0, 252)) . '...';
-                }
-
-                // Clamp work plan duration so tanggal_selesai does not exceed $selesaiPks
-                $rkSelesai = date('Y-m-d', strtotime($mulaiPks . ' +1 year'));
-                if ($rkSelesai > $selesaiPks) {
-                    $rkSelesai = $selesaiPks;
-                }
-
-                $stmtRK = $pdo->prepare('INSERT INTO rencana_kerja (
-                    mitra_id, judul_rencana, ruang_lingkup, maksud_tujuan, tanggal_mulai, tanggal_selesai, status, alasan_persetujuan
-                ) VALUES (?, ?, ?, ?, ?, ?, \'Disetujui\', ?)');
-                $stmtRK->execute([
-                    $newMitraId,
-                    $rkJudul,
-                    $pra['ruang_lingkup'],
-                    $pra['tujuan_singkat'],
-                    $mulaiPks,
-                    $rkSelesai,
-                    'Disetujui otomatis melalui kelayakan Gate 0'
-                ]);
+                // Catatan: Sesuai aturan tata kelola, saat naskah baru dibuat dari Gate 0,
+                // data Rencana Kerja masih dalam keadaan kosong hingga disusun secara resmi.
 
                 // Inisialisasi 12 Elemen Baseline FIX
                 foreach (BASELINE_12_DEFS as $n => $d) {

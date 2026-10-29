@@ -544,8 +544,8 @@ require __DIR__ . '/includes/header.php';
             </p>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <a href="mitra_manage.php" class="btn btn-outline" style="font-size:12px;">
-                &larr; Manajemen Naskah
+            <a href="portofolio.php" class="btn btn-outline" style="font-size:12px;">
+                &larr; Portofolio
             </a>
             <a href="baseline.php" class="btn btn-outline" style="font-size:12px;">
                 Buka Baseline &rarr;

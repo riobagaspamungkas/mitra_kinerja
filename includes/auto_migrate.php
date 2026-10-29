@@ -158,7 +158,8 @@ function ensureDatabaseSchema(PDO $pdo): void {
             $colsMkMap = array_flip($colsMk);
 
             $neededColsMk = [
-                'bidang' => "ALTER TABLE mitra_kinerja ADD COLUMN bidang ENUM('AHU', 'KI', 'P3H', 'PPL', 'Keuangan', 'Humas', 'SDM') NULL DEFAULT 'AHU' AFTER jenis",
+                'nomor_naskah' => "ALTER TABLE mitra_kinerja ADD COLUMN nomor_naskah VARCHAR(100) NULL AFTER kode",
+                'bidang' => "ALTER TABLE mitra_kinerja ADD COLUMN bidang VARCHAR(255) NULL DEFAULT 'AHU' AFTER jenis",
                 'pks_induk_id' => "ALTER TABLE mitra_kinerja ADD COLUMN pks_induk_id INT NULL AFTER jenis",
                 'baseline_status' => "ALTER TABLE mitra_kinerja ADD COLUMN baseline_status ENUM('BELUM DIISI', 'DALAM PROSES', 'TERVERIFIKASI / DIKUNCI') NOT NULL DEFAULT 'BELUM DIISI' AFTER status_tanggal",
                 'baseline_locked_at' => "ALTER TABLE mitra_kinerja ADD COLUMN baseline_locked_at DATETIME NULL AFTER baseline_status",
@@ -166,8 +167,10 @@ function ensureDatabaseSchema(PDO $pdo): void {
                 'baseline_pemeriksa' => "ALTER TABLE mitra_kinerja ADD COLUMN baseline_pemeriksa VARCHAR(255) NULL AFTER baseline_locked_by",
                 'baseline_catatan_ringkasan' => "ALTER TABLE mitra_kinerja ADD COLUMN baseline_catatan_ringkasan TEXT NULL AFTER baseline_pemeriksa",
                 'pic_internal' => "ALTER TABLE mitra_kinerja ADD COLUMN pic_internal VARCHAR(255) NULL AFTER sumber_baseline",
-                'pic_mitra' => "ALTER TABLE mitra_kinerja ADD COLUMN pic_mitra VARCHAR(255) NULL AFTER pic_internal",
-                'pic_focal_point' => "ALTER TABLE mitra_kinerja ADD COLUMN pic_focal_point VARCHAR(255) NULL AFTER pic_mitra",
+                'pic_internal_no' => "ALTER TABLE mitra_kinerja ADD COLUMN pic_internal_no VARCHAR(50) NULL AFTER pic_internal",
+                'pic_mitra' => "ALTER TABLE mitra_kinerja ADD COLUMN pic_mitra VARCHAR(255) NULL AFTER pic_internal_no",
+                'pic_mitra_no' => "ALTER TABLE mitra_kinerja ADD COLUMN pic_mitra_no VARCHAR(50) NULL AFTER pic_mitra",
+                'pic_focal_point' => "ALTER TABLE mitra_kinerja ADD COLUMN pic_focal_point VARCHAR(255) NULL AFTER pic_mitra_no",
                 'evaluasi_per_tahun' => "ALTER TABLE mitra_kinerja ADD COLUMN evaluasi_per_tahun INT NOT NULL DEFAULT 4 AFTER status_tanggal",
             ];
 
@@ -176,6 +179,11 @@ function ensureDatabaseSchema(PDO $pdo): void {
                     try { $pdo->exec($sqlAlter); } catch (Throwable $e) {}
                 }
             }
+
+            // Pastikan kolom bidang bertipe VARCHAR(255) agar mendukung multi-selection bidang
+            try {
+                $pdo->exec("ALTER TABLE mitra_kinerja MODIFY COLUMN bidang VARCHAR(255) NULL DEFAULT 'AHU'");
+            } catch (Throwable $e) {}
         } catch (Throwable $e) {}
 
         // Siklus monev unique index check
