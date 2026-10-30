@@ -28,7 +28,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 if ($mitraId <= 0 || $tindakan === '') {
                     $errors[] = 'Pilih naskah dan isi tindakan.';
                 } else {
-                    // BUG-TL-02: FK validation
+                    // FK validation
                     $chk = $pdo->prepare('SELECT id FROM mitra_kinerja WHERE id = ?');
                     $chk->execute([$mitraId]);
                     if (!$chk->fetch()) {
@@ -56,7 +56,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                                 } elseif ($_FILES['file_bukti']['size'] > 25 * 1024 * 1024) {
                                     $errors[] = 'Ukuran file bukti melebihi batas maksimum 25MB.';
                                 } else {
-                                    // BUG-TL-01: Validasi keaslian file (magic bytes)
+                                    // Validasi keaslian file (magic bytes)
                                     $tmpPath = $_FILES['file_bukti']['tmp_name'];
                                     $magicOk = false;
                                     if ($ext === 'pdf') {
@@ -75,7 +75,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                                     } else {
                                         $uploadDir = __DIR__ . '/public/uploads/tindak_lanjut/';
                                         if (!is_dir($uploadDir)) {
-                                            mkdir($uploadDir, 0777, true);
+                                            mkdir($uploadDir, 0775, true);
                                         }
                                         $cleanBase = preg_replace('/[^a-zA-Z0-9_\.-]/', '_', pathinfo($_FILES['file_bukti']['name'], PATHINFO_FILENAME));
                                         $targetFile = 'bukti_' . $mitraId . '_' . time() . '_' . $cleanBase . '.' . $ext;
@@ -90,7 +90,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                         }
 
                         if (empty($errors)) {
-                            // BUG-TL-02: try/catch on insert
+                            // try/catch on insert
                             try {
                                 $stmt = $pdo->prepare('INSERT INTO tindak_lanjut (mitra_id, tindakan, tenggat, file_bukti) VALUES (?, ?, ?, ?)');
                                 $stmt->execute([$mitraId, $tindakan, $tenggat ?: null, $fileBukti]);
@@ -142,7 +142,7 @@ if ($filterMitraId > 0) {
 }
 
 $tindakLanjut = getTindakLanjut($pdo, $filterMitraId);
-// BUG-TL-05: Completed tasks (Selesai) placed at the bottom; valid imminent deadlines before NULL or '0000-00-00'
+// Completed tasks (Selesai) placed at the bottom; valid imminent deadlines before NULL or '0000-00-00'
 usort($tindakLanjut, function($a, $b) {
     $isDoneA = ($a['status'] ?? '') === 'Selesai';
     $isDoneB = ($b['status'] ?? '') === 'Selesai';
@@ -150,8 +150,8 @@ usort($tindakLanjut, function($a, $b) {
         return $isDoneA ? 1 : -1;
     }
 
-    $hasDateA = !empty($a['tenggat']) && $a['tenggat'] !== '0000-00-00';
-    $hasDateB = !empty($b['tenggat']) && $b['tenggat'] !== '0000-00-00';
+    $hasDateA = !empty($a['tenggat']) && $a['tenggat'] !== '0000-00-00' && $a['tenggat'] > '1970-01-01';
+    $hasDateB = !empty($b['tenggat']) && $b['tenggat'] !== '0000-00-00' && $b['tenggat'] > '1970-01-01';
     if ($hasDateA && !$hasDateB) return -1;
     if (!$hasDateA && $hasDateB) return 1;
     if (!$hasDateA && !$hasDateB) return $b['id'] <=> $a['id'];
@@ -229,17 +229,63 @@ require __DIR__ . '/includes/header.php';
 <?php endif; ?>
 
 <div class="card">
-    <h2>Daftar Tindak Lanjut</h2>
+    <div class="flex-between" style="margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+        <h2 style="margin:0;">Daftar Tindak Lanjut</h2>
+    </div>
+
+    <div class="filters" style="margin-bottom:16px;">
+        <!-- Search Input -->
+        <div style="position:relative;display:inline-block;min-width:240px;">
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;display:inline-flex;align-items:center;">
+                <?= uiIcon('search', 14) ?>
+            </span>
+            <input type="text" id="tlSearch" placeholder="Cari kode / mitra / tindakan / bukti..." style="padding:7px 10px 7px 32px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%;box-sizing:border-box;">
+        </div>
+
+        <!-- Filter Status -->
+        <select id="tlFilterStatus">
+            <option value="">Semua Status</option>
+            <option value="Belum">Belum</option>
+            <option value="Proses">Proses</option>
+            <option value="Selesai">Selesai</option>
+        </select>
+
+        <!-- Filter Tenggat Waktu -->
+        <select id="tlFilterTenggat">
+            <option value="">Semua Tenggat Waktu</option>
+            <option value="terlewat">🚨 Terlewat / Overdue</option>
+            <option value="mendekati">⚠️ Mendekati (&lt; 30 Hari)</option>
+            <option value="aman">✓ Aman / Masih Panjang</option>
+            <option value="tanpa_tenggat">Tanpa Tenggat</option>
+        </select>
+
+        <button type="button" id="tlBtnReset" onclick="resetTlFilters()" class="btn btn-outline btn-sm" style="padding:7px 12px;font-size:12.5px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;cursor:pointer;" title="Reset Semua Filter">
+            <?= uiIcon('refresh', 13) ?> Reset Filter
+        </button>
+    </div>
+
     <div class="table-wrap">
-    <table>
+    <table id="tblTindakLanjut">
         <thead><tr><th>Naskah</th><th>Tindakan</th><th>Tenggat</th><th>Status</th><th>Bukti Kegiatan</th><th>Aksi</th></tr></thead>
         <tbody>
+        <tr id="tlNoMatchRow" style="display:none;"><td colspan="6"><?= uiEmptyState('Tidak Ada Tindak Lanjut yang Sesuai', 'Tidak ditemukan agenda tindak lanjut yang cocok dengan filter pencarian.', 'search') ?></td></tr>
         <?php if (empty($tindakLanjut)): ?>
-            <tr><td colspan="6" class="muted" style="text-align:center;padding:20px;">Belum ada tindak lanjut</td></tr>
+            <tr><td colspan="6"><?= uiEmptyState('Belum Ada Tindak Lanjut', 'Belum ada agenda atau catatan tindak lanjut yang tercatat pada sistem.', 'file-text') ?></td></tr>
         <?php else: foreach ($tindakLanjut as $tl):
             $dotClass = match($tl['status']) { 'Selesai' => 'dot-green', 'Proses' => 'dot-yellow', default => 'dot-red' };
+            $tenggatType = 'tanpa_tenggat';
+            if (!empty($tl['tenggat']) && $tl['tenggat'] !== '0000-00-00') {
+                $diffDays = (int)floor((strtotime($tl['tenggat']) - time()) / 86400);
+                if ($diffDays < 0 && ($tl['status'] ?? '') !== 'Selesai') {
+                    $tenggatType = 'terlewat';
+                } elseif ($diffDays <= 30 && ($tl['status'] ?? '') !== 'Selesai') {
+                    $tenggatType = 'mendekati';
+                } else {
+                    $tenggatType = 'aman';
+                }
+            }
         ?>
-            <tr>
+            <tr data-kode="<?= h(strtoupper($tl['kode'])) ?>" data-mitra="<?= h(strtolower($tl['nama_mitra'] ?? '')) ?>" data-tindakan="<?= h(strtolower($tl['tindakan'] ?? '')) ?>" data-status="<?= h($tl['status']) ?>" data-tenggat-type="<?= $tenggatType ?>">
                 <td><strong><?= h($tl['kode']) ?></strong> <span class="muted" style="font-size:11px;"><?= h(singkat($tl['nama_mitra'], 30)) ?></span></td>
                 <td><?= h($tl['tindakan']) ?></td>
                 <td><?= formatTanggal($tl['tenggat']) ?></td>
@@ -303,6 +349,187 @@ require __DIR__ . '/includes/header.php';
         </tbody>
     </table>
     </div>
+
+    <!-- Tindak Lanjut Table Pagination -->
+    <div id="tlPaginationWrap" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid #e2e8f0;">
+        <div id="tlPageInfo" style="font-size:12.5px;color:#64748b;font-weight:500;">
+            Menampilkan 1 – <?= min(10, count($tindakLanjut)) ?> dari <?= count($tindakLanjut) ?> tindak lanjut
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+            <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#64748b;">
+                <span>Tampilkan:</span>
+                <select id="tlPageSize" onchange="changeTlPageSize(this.value)" style="padding:4px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;cursor:pointer;">
+                    <option value="10" selected>10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="all">Semua</option>
+                </select>
+            </div>
+            <div id="tlPaginationNav" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;"></div>
+        </div>
+    </div>
 </div>
+
+<script>
+// Tindak lanjut filter and pagination engine
+var tlCurrentPage = 1;
+var tlPageSize = 10;
+var tlMatchedRows = [];
+
+function applyTlFilters() {
+    var tbl = document.getElementById('tblTindakLanjut');
+    var sInput = document.getElementById('tlSearch');
+    if (!tbl || !sInput) return;
+
+    var q = (sInput.value || '').toLowerCase().trim();
+    var sEl = document.getElementById('tlFilterStatus');
+    var s = sEl ? sEl.value : '';
+    var tgEl = document.getElementById('tlFilterTenggat');
+    var tg = tgEl ? tgEl.value : '';
+
+    tlMatchedRows = [];
+    var rows = document.querySelectorAll('#tblTindakLanjut tbody tr:not(#tlNoMatchRow)');
+    rows.forEach(function(tr) {
+        var kode = (tr.dataset.kode || '').toLowerCase();
+        var mitra = (tr.dataset.mitra || '').toLowerCase();
+        var tindakan = (tr.dataset.tindakan || '').toLowerCase();
+        var textContent = tr.textContent.toLowerCase();
+
+        var matchQ = !q || (kode.indexOf(q) !== -1 || mitra.indexOf(q) !== -1 || tindakan.indexOf(q) !== -1 || textContent.indexOf(q) !== -1);
+        var matchS = !s || tr.dataset.status === s;
+        var matchTg = !tg || tr.dataset.tenggatType === tg;
+
+        var isVisible = (matchQ && matchS && matchTg);
+        if (isVisible) {
+            tlMatchedRows.push(tr);
+        } else {
+            tr.style.display = 'none';
+        }
+    });
+
+    var noMatch = document.getElementById('tlNoMatchRow');
+    if (noMatch) {
+        noMatch.style.display = (rows.length > 0 && tlMatchedRows.length === 0) ? '' : 'none';
+    }
+
+    tlCurrentPage = 1;
+    renderTlPagination();
+}
+
+function changeTlPageSize(sz) {
+    tlPageSize = (sz === 'all') ? 999999 : parseInt(sz, 10);
+    tlCurrentPage = 1;
+    renderTlPagination();
+}
+
+function goToTlPage(p) {
+    tlCurrentPage = p;
+    renderTlPagination();
+}
+
+function renderTlPagination() {
+    var total = tlMatchedRows.length;
+    var wrap = document.getElementById('tlPaginationWrap');
+    var nav = document.getElementById('tlPaginationNav');
+    var info = document.getElementById('tlPageInfo');
+    if (!wrap || !nav || !info) return;
+
+    if (total === 0) {
+        wrap.style.display = 'none';
+        return;
+    }
+    wrap.style.display = 'flex';
+
+    var totalPages = Math.ceil(total / tlPageSize) || 1;
+    if (tlCurrentPage > totalPages) tlCurrentPage = totalPages;
+    if (tlCurrentPage < 1) tlCurrentPage = 1;
+
+    var start = (tlCurrentPage - 1) * tlPageSize;
+    var end = Math.min(start + tlPageSize, total);
+
+    tlMatchedRows.forEach(function(tr, idx) {
+        tr.style.display = (idx >= start && idx < end) ? '' : 'none';
+    });
+
+    info.textContent = 'Menampilkan ' + (start + 1) + ' – ' + end + ' dari ' + total + ' tindak lanjut';
+
+    nav.innerHTML = '';
+    if (totalPages <= 1) return;
+
+    var btnFirst = document.createElement('button');
+    btnFirst.type = 'button';
+    btnFirst.className = 'tl-page-btn';
+    btnFirst.innerHTML = '&laquo;';
+    btnFirst.title = 'Halaman Pertama';
+    btnFirst.disabled = (tlCurrentPage === 1);
+    btnFirst.onclick = function(){ goToTlPage(1); };
+    nav.appendChild(btnFirst);
+
+    var btnPrev = document.createElement('button');
+    btnPrev.type = 'button';
+    btnPrev.className = 'tl-page-btn';
+    btnPrev.innerHTML = '&lsaquo;';
+    btnPrev.title = 'Sebelumnya';
+    btnPrev.disabled = (tlCurrentPage === 1);
+    btnPrev.onclick = function(){ goToTlPage(tlCurrentPage - 1); };
+    nav.appendChild(btnPrev);
+
+    var maxButtons = 5;
+    var startP = Math.max(1, tlCurrentPage - 2);
+    var endP = Math.min(totalPages, startP + maxButtons - 1);
+    if (endP - startP < maxButtons - 1) {
+        startP = Math.max(1, endP - maxButtons + 1);
+    }
+
+    for (var p = startP; p <= endP; p++) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'tl-page-btn' + (p === tlCurrentPage ? ' active' : '');
+        btn.textContent = p;
+        (function(page){
+            btn.onclick = function(){ goToTlPage(page); };
+        })(p);
+        nav.appendChild(btn);
+    }
+
+    var btnNext = document.createElement('button');
+    btnNext.type = 'button';
+    btnNext.className = 'tl-page-btn';
+    btnNext.innerHTML = '&rsaquo;';
+    btnNext.title = 'Berikutnya';
+    btnNext.disabled = (tlCurrentPage === totalPages);
+    btnNext.onclick = function(){ goToTlPage(tlCurrentPage + 1); };
+    nav.appendChild(btnNext);
+
+    var btnLast = document.createElement('button');
+    btnLast.type = 'button';
+    btnLast.className = 'tl-page-btn';
+    btnLast.innerHTML = '&raquo;';
+    btnLast.title = 'Halaman Terakhir';
+    btnLast.disabled = (tlCurrentPage === totalPages);
+    btnLast.onclick = function(){ goToTlPage(totalPages); };
+    nav.appendChild(btnLast);
+}
+
+function resetTlFilters() {
+    var sInput = document.getElementById('tlSearch');
+    if (sInput) sInput.value = '';
+    var sEl = document.getElementById('tlFilterStatus');
+    if (sEl) sEl.value = '';
+    var tgEl = document.getElementById('tlFilterTenggat');
+    if (tgEl) tgEl.value = '';
+    applyTlFilters();
+}
+
+var tlSearchEl = document.getElementById('tlSearch');
+if (tlSearchEl) tlSearchEl.addEventListener('input', applyTlFilters);
+var tlStatusEl = document.getElementById('tlFilterStatus');
+if (tlStatusEl) tlStatusEl.addEventListener('change', applyTlFilters);
+var tlTenggatEl = document.getElementById('tlFilterTenggat');
+if (tlTenggatEl) tlTenggatEl.addEventListener('change', applyTlFilters);
+
+document.addEventListener('DOMContentLoaded', applyTlFilters);
+window.addEventListener('pageshow', applyTlFilters);
+</script>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>

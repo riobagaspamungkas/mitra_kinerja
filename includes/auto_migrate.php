@@ -9,7 +9,7 @@ function ensureDatabaseSchema(PDO $pdo): void {
     static $checked = false;
     if ($checked) return;
 
-    // ── 0. FAST-PATH HEALTH CHECK (Sub-millisecond) ─────────────────────────
+    // FAST-PATH HEALTH CHECK (Sub-millisecond)
     // Pastikan seluruh tabel dan kolom migrasi V2.1 tersedia lengkap
     // sebelum melewati DDL / ALTER TABLE.
     try {
@@ -24,6 +24,12 @@ function ensureDatabaseSchema(PDO $pdo): void {
         $roleCol = $pdo->query("SHOW COLUMNS FROM users LIKE 'role'")->fetch();
         if (!$roleCol || !str_contains($roleCol['Type'] ?? '', 'pengampu') || !str_contains($roleCol['Type'] ?? '', 'pic')) {
             throw new Exception("Role migration needed");
+        }
+        $pdo->query("SELECT foto FROM users LIMIT 1");
+        $countUsers = (int)$pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
+        $countMitra = (int)$pdo->query("SELECT COUNT(*) FROM mitra_kinerja")->fetchColumn();
+        if ($countUsers === 0 || $countMitra === 0) {
+            throw new Exception("Database seeding needed");
         }
         $checked = true;
         return;
@@ -146,13 +152,14 @@ function ensureDatabaseSchema(PDO $pdo): void {
             ) ENGINE=InnoDB;
         ");
 
-        // ── 3. CEK DAN TAMBAH KOLOM YANG KURANG SECARA EFISIEN ──────────────
+        // Cek dan tambah kolom yang kurang secara efisien
         try {
             $colsMk = $pdo->query("SHOW COLUMNS FROM mitra_kinerja")->fetchAll(PDO::FETCH_COLUMN);
             $colsMkMap = array_flip($colsMk);
 
             $neededColsMk = [
-                'bidang' => "ALTER TABLE mitra_kinerja ADD COLUMN bidang ENUM('AHU', 'KI', 'P3H', 'PPL', 'Keuangan', 'Humas', 'SDM') NULL DEFAULT 'AHU' AFTER jenis",
+                'nomor_naskah' => "ALTER TABLE mitra_kinerja ADD COLUMN nomor_naskah VARCHAR(100) NULL AFTER kode",
+                'bidang' => "ALTER TABLE mitra_kinerja ADD COLUMN bidang VARCHAR(255) NULL DEFAULT 'AHU' AFTER jenis",
                 'pks_induk_id' => "ALTER TABLE mitra_kinerja ADD COLUMN pks_induk_id INT NULL AFTER jenis",
                 'baseline_status' => "ALTER TABLE mitra_kinerja ADD COLUMN baseline_status ENUM('BELUM DIISI', 'DALAM PROSES', 'TERVERIFIKASI / DIKUNCI') NOT NULL DEFAULT 'BELUM DIISI' AFTER status_tanggal",
                 'baseline_locked_at' => "ALTER TABLE mitra_kinerja ADD COLUMN baseline_locked_at DATETIME NULL AFTER baseline_status",
@@ -160,8 +167,10 @@ function ensureDatabaseSchema(PDO $pdo): void {
                 'baseline_pemeriksa' => "ALTER TABLE mitra_kinerja ADD COLUMN baseline_pemeriksa VARCHAR(255) NULL AFTER baseline_locked_by",
                 'baseline_catatan_ringkasan' => "ALTER TABLE mitra_kinerja ADD COLUMN baseline_catatan_ringkasan TEXT NULL AFTER baseline_pemeriksa",
                 'pic_internal' => "ALTER TABLE mitra_kinerja ADD COLUMN pic_internal VARCHAR(255) NULL AFTER sumber_baseline",
-                'pic_mitra' => "ALTER TABLE mitra_kinerja ADD COLUMN pic_mitra VARCHAR(255) NULL AFTER pic_internal",
-                'pic_focal_point' => "ALTER TABLE mitra_kinerja ADD COLUMN pic_focal_point VARCHAR(255) NULL AFTER pic_mitra",
+                'pic_internal_no' => "ALTER TABLE mitra_kinerja ADD COLUMN pic_internal_no VARCHAR(50) NULL AFTER pic_internal",
+                'pic_mitra' => "ALTER TABLE mitra_kinerja ADD COLUMN pic_mitra VARCHAR(255) NULL AFTER pic_internal_no",
+                'pic_mitra_no' => "ALTER TABLE mitra_kinerja ADD COLUMN pic_mitra_no VARCHAR(50) NULL AFTER pic_mitra",
+                'pic_focal_point' => "ALTER TABLE mitra_kinerja ADD COLUMN pic_focal_point VARCHAR(255) NULL AFTER pic_mitra_no",
                 'evaluasi_per_tahun' => "ALTER TABLE mitra_kinerja ADD COLUMN evaluasi_per_tahun INT NOT NULL DEFAULT 4 AFTER status_tanggal",
             ];
 
@@ -170,6 +179,11 @@ function ensureDatabaseSchema(PDO $pdo): void {
                     try { $pdo->exec($sqlAlter); } catch (Throwable $e) {}
                 }
             }
+
+            // Pastikan kolom bidang bertipe VARCHAR(255) agar mendukung multi-selection bidang
+            try {
+                $pdo->exec("ALTER TABLE mitra_kinerja MODIFY COLUMN bidang VARCHAR(255) NULL DEFAULT 'AHU'");
+            } catch (Throwable $e) {}
         } catch (Throwable $e) {}
 
         // Siklus monev unique index check
@@ -213,6 +227,26 @@ function ensureDatabaseSchema(PDO $pdo): void {
             $roleCol = $pdo->query("SHOW COLUMNS FROM users LIKE 'role'")->fetch();
             if ($roleCol && (!str_contains($roleCol['Type'] ?? '', 'pengampu') || !str_contains($roleCol['Type'] ?? '', 'pic'))) {
                 $pdo->exec("ALTER TABLE users MODIFY COLUMN role ENUM('admin','pemeriksa','validator','pimpinan','pengampu','pic') NOT NULL");
+            }
+        } catch (Throwable $e) {}
+
+        // Users foto column check
+        try {
+            $fotoCol = $pdo->query("SHOW COLUMNS FROM users LIKE 'foto'")->fetch();
+            if (!$fotoCol) {
+                $pdo->exec("ALTER TABLE users ADD COLUMN foto VARCHAR(255) NULL DEFAULT NULL AFTER role");
+            }
+        } catch (Throwable $e) {}
+
+        // pra_pks status_persetujuan enum & file_usulan column check
+        try {
+            $spCol = $pdo->query("SHOW COLUMNS FROM pra_pks LIKE 'status_persetujuan'")->fetch();
+            if ($spCol && !str_contains($spCol['Type'] ?? '', 'Draft')) {
+                $pdo->exec("ALTER TABLE pra_pks MODIFY COLUMN status_persetujuan ENUM('Draft', 'Menunggu Persetujuan Pimpinan', 'Disetujui Pimpinan', 'Dikembalikan untuk Revisi', 'Ditolak Pimpinan') NOT NULL DEFAULT 'Draft'");
+            }
+            $fuCol = $pdo->query("SHOW COLUMNS FROM pra_pks LIKE 'file_usulan'")->fetch();
+            if (!$fuCol) {
+                $pdo->exec("ALTER TABLE pra_pks ADD COLUMN file_usulan VARCHAR(255) NULL AFTER perkiraan_selesai");
             }
         } catch (Throwable $e) {}
 
@@ -351,7 +385,11 @@ function ensureDatabaseSchema(PDO $pdo): void {
                 if (file_exists($seedFile)) {
                     $sqlContent = file_get_contents($seedFile);
                     if ($sqlContent) {
-                        $pdo->exec($sqlContent);
+                        try {
+                            $pdo->exec($sqlContent);
+                        } finally {
+                            try { $pdo->exec("UNLOCK TABLES"); } catch (Throwable $ue) {}
+                        }
                     }
                 }
             }

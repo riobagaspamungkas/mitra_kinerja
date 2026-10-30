@@ -1,4 +1,8 @@
 <?php
+if (php_sapi_name() !== 'cli') {
+    http_response_code(403);
+    exit('Access denied: CLI only.');
+}
 require_once dirname(__DIR__) . '/config/database.php';
 $pdo = getDB();
 

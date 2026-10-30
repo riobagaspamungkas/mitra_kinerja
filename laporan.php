@@ -18,7 +18,7 @@ require __DIR__ . '/includes/header.php';
         <div class="muted" style="font-size:13px;">Rekapitulasi evaluasi kinerja dan tindak lanjut kerja sama</div>
     </div>
     <div style="display:flex;gap:8px;">
-        <button onclick="window.print()" class="btn btn-primary btn-sm">🖨️ Cetak / Simpan PDF</button>
+        <button onclick="window.print()" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:5px;"><?= uiIcon('printer', 14) ?> Cetak / Simpan PDF</button>
         <a href="dashboard.php" class="btn btn-outline btn-sm">&larr; Dashboard</a>
     </div>
 </div>

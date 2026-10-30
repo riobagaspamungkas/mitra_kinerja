@@ -62,6 +62,20 @@ if (APP_ENV === 'development') {
 // Cookie sesi lebih aman kalau sudah HTTPS (production biasanya sudah SSL).
 // Di dev lokal tanpa HTTPS, cookie_secure otomatis nonaktif supaya login tetap bisa dites.
 if (!headers_sent() && session_status() === PHP_SESSION_NONE) {
+    // Default direktori sesi aman jika direktori sistem tidak dapat ditulis (Linux non-root / server headless)
+    $currentSessionPath = ini_get('session.save_path');
+    if (empty($currentSessionPath) || !is_dir($currentSessionPath) || !is_writable($currentSessionPath)) {
+        $localSessionPath = __DIR__ . '/../cache/sessions';
+        if (!is_dir($localSessionPath)) {
+            @mkdir($localSessionPath, 0700, true);
+        }
+        if (is_dir($localSessionPath) && is_writable($localSessionPath)) {
+            session_save_path($localSessionPath);
+        } else {
+            session_save_path(sys_get_temp_dir());
+        }
+    }
+
     $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
         || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
     session_set_cookie_params([

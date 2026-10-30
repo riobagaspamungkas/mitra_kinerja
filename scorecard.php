@@ -83,7 +83,7 @@ function formatKeputusanPimpinan(?string $hasilUji): array {
 }
 }
 
-// ── PROSES IMPORT SCORECARD EXCEL (.xlsx) ──────────────────────────────────
+// PROSES IMPORT SCORECARD EXCEL (.xlsx)
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] ?? ''), ['import_scorecard', 'import_naskah'], true)) {
     $csrfToken = isset($_POST['csrf_token']) && is_string($_POST['csrf_token']) ? $_POST['csrf_token'] : null;
     if (!verifyCsrfToken($csrfToken)) {
@@ -96,13 +96,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] 
         $stmtM->execute([$targetId]);
         $targetMitra = $stmtM->fetch();
 
-        // Bug 4: Enforce assignment check for role 'pengampu' matching mitra_edit.php
+        // Enforce assignment check for role 'pengampu' matching mitra_edit.php
         $isAssigned = $targetMitra && ((!empty($targetMitra['pemeriksa_id']) && (int)$targetMitra['pemeriksa_id'] === (int)$user['id'])
             || (!empty($targetMitra['pic_internal']) && stripos($targetMitra['pic_internal'], $user['nama'] ?? $user['username'] ?? '') !== false));
         $canImportThisMitra = in_array($userRole, ['admin', 'pemeriksa'], true)
             || ($userRole === 'pengampu' && ($isAssigned || empty($targetMitra['pemeriksa_id'])));
 
-        // Bug 3: Prevent non-admin users from importing over finalized/validated scorecards
+        // Prevent non-admin users from importing over finalized/validated scorecards
         $targetValStatus = 'BELUM';
         if ($targetId > 0) {
             $stmtVal = $pdo->prepare('SELECT status FROM validasi WHERE mitra_id = ?');
@@ -179,7 +179,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] 
                         $weights = ['I1' => 10, 'I2' => 15, 'I3' => 15, 'I4' => 20, 'I5' => 20, 'I6' => 10, 'I7' => 10];
                         $updatedScorecard = 0;
 
-                        // Bug 1.2: Wrap multi-row Excel import in a PDO database transaction
+                        // Wrap multi-row Excel import in a PDO database transaction
                         $pdo->beginTransaction();
                         try {
                             foreach ($scRows as $rIdx => $row) {
@@ -214,14 +214,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] 
                                 if (str_contains($rawStatus, 'BELUM DAPAT') || str_contains($rawStatus, 'BELUM DINILAI')) {
                                     $statusPem = 'BELUM DAPAT DINILAI';
                                 } elseif (str_contains($rawStatus, 'DAPAT DINILAI') || (str_contains($rawStatus, 'MEMADAI') && !str_contains($rawStatus, 'BELUM'))) {
-                                    $statusPem = 'BUKTI MEMADAI';
+                                    $statusPem = 'DAPAT DINILAI';
                                 } elseif (str_contains($rawStatus, 'BELUM MEMADAI') || str_contains($rawStatus, 'BELUM CUKUP')) {
                                     $statusPem = 'BUKTI BELUM MEMADAI';
                                 } elseif (str_contains($rawStatus, 'CUKUP') && !str_contains($rawStatus, 'BELUM')) {
                                     $statusPem = 'BUKTI CUKUP';
                                 }
 
-                                // Bug 1.1: Range-clamp imported scores max(0, min(4, $rawSkor)), and set score to null if status is not DAPAT DINILAI / BUKTI MEMADAI
+                                // Range-clamp imported scores max(0, min(4, $rawSkor)), and set score to null if status is not DAPAT DINILAI / BUKTI MEMADAI
                                 if (in_array($statusPem, ['DAPAT DINILAI', 'BUKTI MEMADAI', 'BUKTI CUKUP'], true) && is_numeric($rawSkor)) {
                                     $skor = max(0, min(4, (int)$rawSkor));
                                     $nilai = round(($skor / 4.0) * $bobot, 2);
@@ -234,8 +234,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] 
                                 $stmtCheck = $pdo->prepare('SELECT id FROM indikator_skor WHERE mitra_id = ? AND kode_indikator = ?');
                                 $stmtCheck->execute([$targetId, $kodeInd]);
                                 if ($stmtCheck->fetch()) {
-                                    // Bug 7.2: Include bobot in UPDATE query
-                                    // Bug 1.4: If sheet name is SCORECARD, don't overwrite temuan_bukti with empty string if not found
+                                    // Include bobot in UPDATE query
+                                    // If sheet name is SCORECARD, don't overwrite temuan_bukti with empty string if not found
                                     if ($isPenilaianLayout || $evidenceLoc !== '') {
                                         $stmtU = $pdo->prepare('UPDATE indikator_skor SET bobot = ?, status_pemeriksaan = ?, kondisi_baseline = ?, kondisi_saat_ini = ?, temuan_bukti = ?, skor = ?, alasan_skor = ?, catatan_tindak_lanjut = ?, nilai = ?, referensi_baseline = ? WHERE mitra_id = ? AND kode_indikator = ?');
                                         $stmtU->execute([$bobot, $statusPem, $kondisiBaseline, $kondisi, $evidenceLoc, $skor, $alasanSkor, $catatanTl, $nilai, $kondisiBaseline, $targetId, $kodeInd]);
@@ -310,25 +310,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] 
                                     }
                                 }
 
-                                // Bug 7.4 & Bug 14: Map imported posisi_portofolio and rekomendasi appropriately
+                                // Map imported posisi_portofolio secara tepat, pertahankan teks resmi jika spesifik
                                 if (!empty($posisiPortofolio)) {
-                                    $uPos = strtoupper(trim($posisiPortofolio));
-                                    if (str_contains($uPos, 'BELUM') || str_contains($uPos, 'TIDAK')) {
-                                        $posisiPortofolio = 'BELUM DAPAT DITENTUKAN';
-                                    } elseif (str_contains($uPos, 'BERDAMPAK')) {
-                                        $posisiPortofolio = 'BERDAMPAK';
-                                    } elseif (str_contains($uPos, 'OUTCOME')) {
-                                        $posisiPortofolio = 'OUTCOME TERBENTUK';
-                                    } elseif (str_contains($uPos, 'OUTPUT')) {
-                                        $posisiPortofolio = 'OUTPUT TERSEDIA';
-                                    } elseif (str_contains($uPos, 'AKTIF') || str_contains($uPos, 'IMPLEMENTASI') || str_contains($uPos, 'BERJALAN')) {
-                                        $posisiPortofolio = 'AKTIF';
-                                    } else {
-                                        $posisiPortofolio = 'BELUM DAPAT DITENTUKAN';
-                                    }
+                                    $posisiPortofolio = trim($posisiPortofolio);
                                 }
 
-                                // Bug 16: Periksa status validasi untuk pembatasan import status FINAL bagi non-admin
+                                // Periksa status validasi untuk pembatasan import status FINAL bagi non-admin
                                 $stmtValChk = $pdo->prepare('SELECT status FROM validasi WHERE mitra_id = ?');
                                 $stmtValChk->execute([$targetId]);
                                 $isValApproved = ($stmtValChk->fetchColumn() === 'DISETUJUI');
@@ -357,7 +344,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] 
                                     $pdo->prepare('UPDATE mitra_kinerja SET ' . implode(', ', $uSqlParts) . ' WHERE id = ?')->execute($uParams);
                                 }
 
-                                // Bug 7.1: Check for PIC in PENILAIAN or KENDALI sheets where official templates store PIC data
+                                // Check for PIC in PENILAIAN or KENDALI sheets where official templates store PIC data
                                 $picInternalFound = '';
                                 $picMitraFound = '';
                                 $picFocalPoint = '';
@@ -434,7 +421,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] 
                                 // Sinkronkan status scorecard dan nilai final di DB
                                 syncStatusScorecard($pdo, $targetId);
 
-                                // Bug 1.3 & Bug 15: Validasi status_scorecard dari spreadsheet terhadap nilai yang diizinkan
+                                // Validasi status_scorecard dari spreadsheet terhadap nilai yang diizinkan
                                 $allowedScStatuses = [
                                     'SIAP DIVALIDASI',
                                     'FINAL/TERVALIDASI',
@@ -457,7 +444,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] 
                                         $normStatus = 'MASA IMPLEMENTASI AWAL';
                                     }
                                     if (in_array($normStatus, $allowedScStatuses, true)) {
-                                        // Bug 16: Do not allow non-admin users to import 'FINAL/TERVALIDASI' without validator sign-off; clamp to 'SIAP DIVALIDASI'
+                                        // Do not allow non-admin users to import 'FINAL/TERVALIDASI' without validator sign-off; clamp to 'SIAP DIVALIDASI'
                                         if (in_array($normStatus, ['FINAL', 'FINAL/TERVALIDASI'], true) && $importerRole !== 'admin' && !$isValApproved) {
                                             $validScStatus = 'SIAP DIVALIDASI';
                                         } else {
@@ -470,10 +457,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] 
                                     $pdo->prepare('UPDATE mitra_kinerja SET status_scorecard = ? WHERE id = ?')->execute([$validScStatus, $targetId]);
                                 }
 
+                                // Reset status validasi PERLU PERBAIKAN ke BELUM setelah import revisi berhasil
+                                resetValidasiJikaPerluPerbaikan($pdo, $targetId);
+
                                 $pdo->commit();
 
                                 logAudit($targetId, $user['id'], 'IMPORT_SCORECARD', "Import Scorecard untuk {$targetMitra['kode']}: {$updatedScorecard} indikator diperbarui.");
-                                $success = "Data Scorecard untuk <strong>" . h($targetMitra['kode']) . " — " . h($targetMitra['nama_mitra']) . "</strong> berhasil di-import!<br>"
+                                $success = "Data Scorecard untuk <strong>" . h($targetMitra['kode']) . ": " . h($targetMitra['nama_mitra']) . "</strong> berhasil di-import!<br>"
                                          . "&bull; {$updatedScorecard} indikator Scorecard (I1–I7) berhasil disinkronkan ke sistem.<br>"
                                          . (!empty($validScStatus) ? "&bull; Status Scorecard: <strong>" . h($validScStatus) . "</strong>.<br>" : "")
                                          . (!empty($posisiPortofolio) ? "&bull; Posisi Portofolio: <strong>" . h($posisiPortofolio) . "</strong>.<br>" : "");
@@ -503,9 +493,13 @@ usort($all, function($a, $b) {
 });
 
 $dueSoonMonev = [];
+$overdueMonev = [];
 foreach ($all as $s) {
     if (!empty($s['monev']['warning_1_bulan'])) {
         $dueSoonMonev[] = $s;
+    }
+    if (!empty($s['monev']['has_overdue'])) {
+        $overdueMonev[] = $s;
     }
 }
 
@@ -593,6 +587,34 @@ require __DIR__ . '/includes/header.php';
 </div>
 <?php endif; ?>
 
+<?php if (!empty($overdueMonev)): ?>
+<div class="alert alert-danger" style="margin-bottom:20px;border-left:4px solid #dc2626;background:#fef2f2;color:#991b1b;">
+    <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:#b91c1c;">
+        🚨 Jadwal Evaluasi Terlewat (Terlewat / Overdue)
+    </div>
+    <div style="font-size:13px;line-height:1.5;">
+        Terdapat <strong><?= count($overdueMonev) ?> kerja sama</strong> yang memiliki tahapan evaluasi melewati batas waktu dan belum diselesaikan. Harap segera lakukan penuntasan evaluasi:
+    </div>
+    <div style="font-size:13px;margin-top:8px;">
+        <ul style="margin:4px 0 0 18px;padding:0;">
+            <?php foreach ($overdueMonev as $od): 
+                $odMilestones = $od['monev']['overdue_milestones'] ?? [];
+            ?>
+            <?php foreach ($odMilestones as $oms): ?>
+            <li style="margin-bottom:4px;">
+                <strong><?= h($od['mitra']['kode']) ?></strong> &mdash; <?= h($od['mitra']['nama_mitra']) ?> &bull; 
+                Siklus: <span class="badge badge-danger" style="font-size:10px;font-weight:600;"><?= h($oms['nama']) ?></span> &bull;
+                Target: <strong><?= formatTanggal($oms['target_tgl']) ?></strong> 
+                (<span style="color:#b91c1c;font-weight:600;">Terlewat <?= abs($oms['sisa_hari']) ?> hari lalu</span>) &bull;
+                <a href="mitra_edit.php?id=<?= $od['mitra']['id'] ?>" style="color:#dc2626;text-decoration:underline;font-weight:600;">Buka Penilaian &rarr;</a>
+            </li>
+            <?php endforeach; ?>
+            <?php endforeach; ?>
+        </ul>
+    </div>
+</div>
+<?php endif; ?>
+
 <?php if ($userRole === 'pengampu' || $userRole === 'pic' || !empty($dueSoonMonev)): ?>
 <div class="alert alert-warning" style="margin-bottom:20px;border-left:4px solid #ea580c;background:#fff7ed;color:#9a3412;">
     <?php if ($userRole === 'pengampu'): ?>
@@ -653,8 +675,60 @@ require __DIR__ . '/includes/header.php';
 <?php endif; ?>
 
 <div class="card">
+    <div class="filters">
+        <!-- Search Input -->
+        <div style="position:relative;display:inline-block;min-width:240px;">
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;display:inline-flex;align-items:center;">
+                <?= uiIcon('search', 14) ?>
+            </span>
+            <input type="text" id="scSearch" placeholder="Cari kode / nama mitra / naskah..." style="padding:7px 10px 7px 32px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%;box-sizing:border-box;">
+        </div>
+
+        <!-- Filter Portofolio -->
+        <select id="scFilterPortofolio">
+            <option value="">Semua Portofolio</option>
+            <option value="Pilot Utama">Pilot Utama</option>
+            <option value="Cadangan">Cadangan</option>
+        </select>
+
+        <!-- Filter Kategori Kinerja -->
+        <select id="scFilterKategori">
+            <option value="">Semua Kategori Kinerja</option>
+            <option value="KUAT">Kuat</option>
+            <option value="CUKUP/PERLU PENGUATAN">Cukup / Perlu Penguatan</option>
+            <option value="PERLU PERBAIKAN">Perlu Perbaikan</option>
+            <option value="KRITIS">Kritis</option>
+            <option value="DALAM PROSES">Dalam Proses</option>
+        </select>
+
+        <!-- Filter Status Scorecard -->
+        <select id="scFilterStatus">
+            <option value="">Semua Status Scorecard</option>
+            <option value="FINAL/TERVALIDASI">Final/Tervalidasi</option>
+            <option value="SIAP DIVALIDASI">Siap Divalidasi</option>
+            <option value="DALAM PENILAIAN">Dalam Penilaian</option>
+            <option value="BELUM DINILAI">Belum Dinilai</option>
+            <option value="BUKTI BELUM MEMADAI">Bukti Belum Memadai</option>
+            <option value="PERLU PERBAIKAN">Perlu Perbaikan</option>
+            <option value="MASA IMPLEMENTASI AWAL">Masa Implementasi Awal</option>
+        </select>
+
+        <!-- Filter Validasi -->
+        <select id="scFilterValidasi">
+            <option value="">Semua Status Validasi</option>
+            <option value="DISETUJUI">Disetujui</option>
+            <option value="SIAP">Siap Divalidasi</option>
+            <option value="PERLU PERBAIKAN">Perlu Perbaikan</option>
+            <option value="BELUM">Belum</option>
+        </select>
+
+        <button type="button" id="scBtnReset" onclick="resetScFilters()" class="btn btn-outline btn-sm" style="padding:7px 12px;font-size:12.5px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;cursor:pointer;" title="Reset Semua Filter">
+            <?= uiIcon('refresh', 13) ?> Reset Filter
+        </button>
+    </div>
+
     <div class="table-wrap">
-    <table>
+    <table id="tblScorecard">
         <thead>
             <tr>
                 <th style="width:55px;text-align:center;">Kode</th>
@@ -672,6 +746,7 @@ require __DIR__ . '/includes/header.php';
             </tr>
         </thead>
         <tbody>
+        <tr id="scNoMatchRow" style="display:none;"><td colspan="<?= $canImport ? 10 : 9 ?>"><?= uiEmptyState('Tidak Ada Data yang Sesuai', 'Tidak ditemukan data scorecard yang cocok dengan filter pencarian.', 'search') ?></td></tr>
         <?php foreach ($all as $s): 
             $m = $s['mitra'];
             $vStatus = strtoupper(trim((string)($s['validasi']['status'] ?? 'BELUM')));
@@ -685,7 +760,7 @@ require __DIR__ . '/includes/header.php';
             $rekomText = trim((string)($s['rekomendasi'] ?? ''));
             $posisiText = trim((string)($s['posisi_portofolio'] ?? '-'));
         ?>
-            <tr>
+            <tr data-kode="<?= h(strtoupper($m['kode'])) ?>" data-mitra="<?= h(strtolower($m['nama_mitra'])) ?>" data-judul="<?= h(strtolower($m['judul'] ?? '')) ?>" data-portofolio="<?= h($m['portofolio'] ?? '') ?>" data-kategori="<?= h($s['kategori'] ?? '') ?>" data-status="<?= h($s['status_scorecard'] ?? '') ?>" data-validasi="<?= h($vStatus) ?>">
                 <td style="text-align:center;font-weight:700;color:#1e40af;vertical-align:middle;">
                     <?= h($m['kode']) ?>
                 </td>
@@ -739,16 +814,16 @@ require __DIR__ . '/includes/header.php';
                 ?>
                 <td style="text-align:center;vertical-align:middle;white-space:nowrap;">
                     <div style="display:inline-flex;gap:6px;align-items:center;justify-content:center;">
-                        <a href="<?= h($tmpl['file']) ?>" download="Template_Scorecard_<?= h($m['kode']) ?>.xlsx" class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 8px;display:inline-flex;align-items:center;gap:3px;color:#047857;border-color:#a7f3d0;background:#ecfdf5;font-weight:600;" title="Unduh <?= h($tmpl['label']) ?>">
-                            <span>⬇️</span> Template
+                        <a href="<?= h($tmpl['file']) ?>" download="Template_Scorecard_<?= h($m['kode']) ?>.xlsx" class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 8px;display:inline-flex;align-items:center;gap:4px;color:#047857;border-color:#a7f3d0;background:#ecfdf5;font-weight:600;" title="Unduh <?= h($tmpl['label']) ?>">
+                            <?= uiIcon('download', 11) ?> Template
                         </a>
                         <?php if ($canImportRow): ?>
-                        <button type="button" class="btn btn-primary btn-sm" onclick="openImportModal(<?= (int)$m['id'] ?>, <?= htmlspecialchars(json_encode((string)$m['kode']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$m['nama_mitra']), ENT_QUOTES, 'UTF-8') ?>)" style="font-size:11px;padding:4px 9px;display:inline-flex;align-items:center;gap:3px;font-weight:600;" title="Import Data Scorecard (.xlsx)">
-                            <span>📥</span> Import
+                        <button type="button" class="btn btn-primary btn-sm" onclick="openImportModal(<?= (int)$m['id'] ?>, <?= htmlspecialchars(json_encode((string)$m['kode']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$m['nama_mitra']), ENT_QUOTES, 'UTF-8') ?>)" style="font-size:11px;padding:4px 9px;display:inline-flex;align-items:center;gap:4px;font-weight:600;" title="Import Data Scorecard (.xlsx)">
+                            <?= uiIcon('upload', 11) ?> Import
                         </button>
                         <?php else: ?>
-                        <button type="button" class="btn btn-sm" disabled style="font-size:11px;padding:4px 9px;display:inline-flex;align-items:center;gap:3px;opacity:0.5;cursor:not-allowed;" title="<?= $isRowLocked ? 'Terkunci (FINAL/TERVALIDASI)' : 'Tidak memiliki akses import' ?>">
-                            <span>🔒</span> Terkunci
+                        <button type="button" class="btn btn-sm" disabled style="font-size:11px;padding:4px 9px;display:inline-flex;align-items:center;gap:4px;opacity:0.5;cursor:not-allowed;" title="<?= $isRowLocked ? 'Terkunci (FINAL/TERVALIDASI)' : 'Tidak memiliki akses import' ?>">
+                            <?= uiIcon('lock', 11) ?> Terkunci
                         </button>
                         <?php endif; ?>
                     </div>
@@ -783,6 +858,25 @@ require __DIR__ . '/includes/header.php';
         <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
+
+    <!-- Scorecard Table Pagination -->
+    <div id="scPaginationWrap" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid #e2e8f0;">
+        <div id="scPageInfo" style="font-size:12.5px;color:#64748b;font-weight:500;">
+            Menampilkan 1 – <?= min(10, count($all)) ?> dari <?= count($all) ?> naskah
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+            <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#64748b;">
+                <span>Tampilkan:</span>
+                <select id="scPageSize" onchange="changeScPageSize(this.value)" style="padding:4px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;cursor:pointer;">
+                    <option value="10" selected>10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="all">Semua</option>
+                </select>
+            </div>
+            <div id="scPaginationNav" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;"></div>
+        </div>
     </div>
 </div>
 
@@ -940,6 +1034,180 @@ window.addEventListener('keydown', function(e) {
         closeRekomModal();
     }
 });
+
+// Scorecard filter and pagination engine
+var scCurrentPage = 1;
+var scPageSize = 10;
+var scMatchedRows = [];
+
+function applyScorecardFilters() {
+    var tbl = document.getElementById('tblScorecard');
+    var sInput = document.getElementById('scSearch');
+    if (!tbl || !sInput) return;
+
+    var q = (sInput.value || '').toLowerCase().trim();
+    var pEl = document.getElementById('scFilterPortofolio');
+    var p = pEl ? pEl.value : '';
+    var kEl = document.getElementById('scFilterKategori');
+    var k = kEl ? kEl.value : '';
+    var sEl = document.getElementById('scFilterStatus');
+    var s = sEl ? sEl.value : '';
+    var vEl = document.getElementById('scFilterValidasi');
+    var v = vEl ? vEl.value : '';
+
+    scMatchedRows = [];
+    var rows = document.querySelectorAll('#tblScorecard tbody tr:not(#scNoMatchRow)');
+    rows.forEach(function(tr) {
+        var kode = (tr.dataset.kode || '').toLowerCase();
+        var mitra = (tr.dataset.mitra || '').toLowerCase();
+        var judul = (tr.dataset.judul || '').toLowerCase();
+        var matchQ = !q || (kode.indexOf(q) !== -1 || mitra.indexOf(q) !== -1 || judul.indexOf(q) !== -1);
+        
+        var matchP = !p || tr.dataset.portofolio === p;
+        var matchK = !k || tr.dataset.kategori === k;
+        var matchS = !s || tr.dataset.status === s;
+        var matchV = !v || tr.dataset.validasi === v;
+
+        var isVisible = (matchQ && matchP && matchK && matchS && matchV);
+        if (isVisible) {
+            scMatchedRows.push(tr);
+        } else {
+            tr.style.display = 'none';
+        }
+    });
+
+    var noMatch = document.getElementById('scNoMatchRow');
+    if (noMatch) {
+        noMatch.style.display = (rows.length > 0 && scMatchedRows.length === 0) ? '' : 'none';
+    }
+
+    scCurrentPage = 1;
+    renderScorecardPagination();
+}
+
+function changeScPageSize(sz) {
+    scPageSize = (sz === 'all') ? 999999 : parseInt(sz, 10);
+    scCurrentPage = 1;
+    renderScorecardPagination();
+}
+
+function goToScPage(p) {
+    scCurrentPage = p;
+    renderScorecardPagination();
+}
+
+function renderScorecardPagination() {
+    var total = scMatchedRows.length;
+    var wrap = document.getElementById('scPaginationWrap');
+    var nav = document.getElementById('scPaginationNav');
+    var info = document.getElementById('scPageInfo');
+    if (!wrap || !nav || !info) return;
+
+    if (total === 0) {
+        wrap.style.display = 'none';
+        return;
+    }
+    wrap.style.display = 'flex';
+
+    var totalPages = Math.ceil(total / scPageSize) || 1;
+    if (scCurrentPage > totalPages) scCurrentPage = totalPages;
+    if (scCurrentPage < 1) scCurrentPage = 1;
+
+    var start = (scCurrentPage - 1) * scPageSize;
+    var end = Math.min(start + scPageSize, total);
+
+    scMatchedRows.forEach(function(tr, idx) {
+        tr.style.display = (idx >= start && idx < end) ? '' : 'none';
+    });
+
+    info.textContent = 'Menampilkan ' + (start + 1) + ' – ' + end + ' dari ' + total + ' naskah';
+
+    nav.innerHTML = '';
+    if (totalPages <= 1) return;
+
+    var btnFirst = document.createElement('button');
+    btnFirst.type = 'button';
+    btnFirst.className = 'sc-page-btn';
+    btnFirst.innerHTML = '&laquo;';
+    btnFirst.title = 'Halaman Pertama';
+    btnFirst.disabled = (scCurrentPage === 1);
+    btnFirst.onclick = function(){ goToScPage(1); };
+    nav.appendChild(btnFirst);
+
+    var btnPrev = document.createElement('button');
+    btnPrev.type = 'button';
+    btnPrev.className = 'sc-page-btn';
+    btnPrev.innerHTML = '&lsaquo;';
+    btnPrev.title = 'Sebelumnya';
+    btnPrev.disabled = (scCurrentPage === 1);
+    btnPrev.onclick = function(){ goToScPage(scCurrentPage - 1); };
+    nav.appendChild(btnPrev);
+
+    var maxButtons = 5;
+    var startP = Math.max(1, scCurrentPage - 2);
+    var endP = Math.min(totalPages, startP + maxButtons - 1);
+    if (endP - startP < maxButtons - 1) {
+        startP = Math.max(1, endP - maxButtons + 1);
+    }
+
+    for (var p = startP; p <= endP; p++) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'sc-page-btn' + (p === scCurrentPage ? ' active' : '');
+        btn.textContent = p;
+        (function(page){
+            btn.onclick = function(){ goToScPage(page); };
+        })(p);
+        nav.appendChild(btn);
+    }
+
+    var btnNext = document.createElement('button');
+    btnNext.type = 'button';
+    btnNext.className = 'sc-page-btn';
+    btnNext.innerHTML = '&rsaquo;';
+    btnNext.title = 'Berikutnya';
+    btnNext.disabled = (scCurrentPage === totalPages);
+    btnNext.onclick = function(){ goToScPage(scCurrentPage + 1); };
+    nav.appendChild(btnNext);
+
+    var btnLast = document.createElement('button');
+    btnLast.type = 'button';
+    btnLast.className = 'sc-page-btn';
+    btnLast.innerHTML = '&raquo;';
+    btnLast.title = 'Halaman Terakhir';
+    btnLast.disabled = (scCurrentPage === totalPages);
+    btnLast.onclick = function(){ goToScPage(totalPages); };
+    nav.appendChild(btnLast);
+}
+
+function resetScFilters() {
+    var sInput = document.getElementById('scSearch');
+    if (sInput) sInput.value = '';
+    var pEl = document.getElementById('scFilterPortofolio');
+    if (pEl) pEl.value = '';
+    var kEl = document.getElementById('scFilterKategori');
+    if (kEl) kEl.value = '';
+    var sEl = document.getElementById('scFilterStatus');
+    if (sEl) sEl.value = '';
+    var vEl = document.getElementById('scFilterValidasi');
+    if (vEl) vEl.value = '';
+    applyScorecardFilters();
+}
+
+var scSearchEl = document.getElementById('scSearch');
+if (scSearchEl) scSearchEl.addEventListener('input', applyScorecardFilters);
+var scPortoEl = document.getElementById('scFilterPortofolio');
+if (scPortoEl) scPortoEl.addEventListener('change', applyScorecardFilters);
+var scKatEl = document.getElementById('scFilterKategori');
+if (scKatEl) scKatEl.addEventListener('change', applyScorecardFilters);
+var scStatEl = document.getElementById('scFilterStatus');
+if (scStatEl) scStatEl.addEventListener('change', applyScorecardFilters);
+var scValEl = document.getElementById('scFilterValidasi');
+if (scValEl) scValEl.addEventListener('change', applyScorecardFilters);
+
+document.addEventListener('DOMContentLoaded', applyScorecardFilters);
+window.addEventListener('pageshow', applyScorecardFilters);
+
 </script>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>

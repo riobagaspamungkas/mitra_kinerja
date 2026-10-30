@@ -34,7 +34,7 @@ $templateMap = [
     'P13' => ['file' => 'public/templates/template_scorecard_v2_1.xlsx', 'label' => 'Scorecard Template V2.1 (P13)'],
 ];
 
-// ── PROSES IMPORT WORKBOOK EXCEL ──────────────────────────────────────────
+// Proses import workbook excel
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'import_naskah') {
     $csrfToken = isset($_POST['csrf_token']) && is_string($_POST['csrf_token']) ? $_POST['csrf_token'] : null;
     if (!verifyCsrfToken($csrfToken)) {
@@ -70,12 +70,29 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                     $importType = trim($_POST['import_type'] ?? 'all');
                     $targetCode = strtoupper(trim($targetMitra['kode']));
 
-                    // BUG-IM-01 & Bug 5: Allow admin ($isAdmin) to import baseline data on locked records matching baseline.php
+                    // Authorization check: non-admin cannot import/update finalized/validated partnerships
+                    $stmtVal = $pdo->prepare('SELECT status FROM validasi WHERE mitra_id = ?');
+                    $stmtVal->execute([$targetId]);
+                    $targetValStatus = $stmtVal->fetchColumn() ?: 'BELUM';
+                    $isLockedFinal = in_array($targetMitra['status_scorecard'] ?? '', ['FINAL', 'FINAL/TERVALIDASI'], true) || $targetValStatus === 'DISETUJUI';
+
+                    // Enforce pengampu unit assignment check ($isAssigned)
+                    $userRole = $user['role'] ?? 'pengampu';
+                    $isAssigned = (!empty($targetMitra['pemeriksa_id']) && (int)$targetMitra['pemeriksa_id'] === (int)$user['id'])
+                        || (!empty($targetMitra['pic_internal']) && stripos($targetMitra['pic_internal'], $user['nama'] ?? $user['username'] ?? '') !== false);
+                    $canImportThisMitra = in_array($userRole, ['admin', 'pemeriksa'], true)
+                        || ($userRole === 'pengampu' && ($isAssigned || empty($targetMitra['pemeriksa_id'])));
+
+                    // & Bug 5: Allow admin ($isAdmin) to import baseline data on locked records matching baseline.php
                     $isTargetLocked = str_contains($targetMitra['baseline_status'] ?? '', 'DIKUNCI');
-                    if ($importType === 'baseline' && $isTargetLocked && !$isAdmin) {
+                    if (!$canImportThisMitra) {
+                        $errors[] = 'Akses ditolak: Sebagai role pengampu, Anda hanya diizinkan mengimpor data untuk naskah yang ditugaskan kepada Anda.';
+                    } elseif ($isLockedFinal && !$isAdmin) {
+                        $errors[] = "Akses ditolak: Data naskah {$targetMitra['kode']} telah berstatus FINAL/TERVALIDASI atau disetujui validator. Hanya admin yang dapat mengubah atau mengimpor ulang data ini.";
+                    } elseif ($importType === 'baseline' && $isTargetLocked && !$isAdmin) {
                         $errors[] = "Data Baseline untuk naskah {$targetMitra['kode']} telah dikunci (TERVERIFIKASI / DIKUNCI) dan tidak dapat di-import ulang.";
                     } else {
-                        // BUG-IM-05: Wrap multi-table import in a database transaction
+                        // Wrap multi-table import in a database transaction
                         $pdo->beginTransaction();
                         try {
                             // Temukan Sheet Baseline & Sheet Scorecard
@@ -169,13 +186,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                     // Baca metadata pemeriksa & cut-off jika ada
                     $pemeriksaRaw = trim((string)($baseRows[5][8] ?? $baseRows[5][7] ?? $baseRows[5][3] ?? ''));
                     $pemeriksaVal = '';
-                    // BUG-IM-06: Guard against placeholder text [NAMA PEMERIKSA]
+                    // Guard against placeholder text [NAMA PEMERIKSA]
                     if ($pemeriksaRaw !== '' && !preg_match('/^\[.*\]$/', $pemeriksaRaw) && stripos($pemeriksaRaw, 'nama pemeriksa') === false && $pemeriksaRaw !== '-') {
                         $pemeriksaVal = $pemeriksaRaw;
                     }
 
                     $cutoffVal = $baseRows[8][8] ?? $baseRows[8][7] ?? $baseRows[8][2] ?? '';
-                    // BUG-IM-02 & Bug 10: Convert Excel serial dates & support textual Indonesian date formats
+                    // & Bug 10: Convert Excel serial dates & support textual Indonesian date formats
                     $cutoffDate = null;
                     if (!empty($cutoffVal)) {
                         $cStr = trim((string)$cutoffVal);
@@ -208,7 +225,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                         $linkBukti = trim((string)($row[8] ?? ''));
                         $catatan = trim((string)($row[9] ?? ''));
 
-                        // BUG-BL-01, BUG-BL-02: Normalisasi status secara cerdas
+                        // Normalisasi status secara cerdas
                         $finalStatus = 'BELUM DIISI';
                         if (str_contains($rawStatus, 'BELUM TERVERIFIKASI') || str_contains($rawStatus, 'BELUM SESUAI') || str_contains($rawStatus, 'TIDAK SESUAI')) {
                             $finalStatus = 'BELUM TERVERIFIKASI';
@@ -318,7 +335,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                             $catatanTl = '';
                         }
 
-                        // BUG-IM-03: Normalisasi status pemeriksaan (cegah 'BUKTI BELUM CUKUP' menjadi 'BUKTI CUKUP')
+                        // Normalisasi status pemeriksaan (cegah 'BUKTI BELUM CUKUP' menjadi 'BUKTI CUKUP')
                         $statusPem = 'BELUM DITELAAH';
                         if (str_contains($rawStatus, 'BELUM DAPAT') || str_contains($rawStatus, 'BELUM DINILAI')) {
                             $statusPem = 'BELUM DAPAT DINILAI';
@@ -330,7 +347,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                             $statusPem = 'BUKTI CUKUP';
                         }
 
-                        // Bug 22, BUG-IM-10: In scorecard import, compute $nilai deterministically from $skor and $bobot; do not use raw formula cell value if $skor is null
+                        // In scorecard import, compute $nilai deterministically from $skor and $bobot; do not use raw formula cell value if $skor is null
                         if (!in_array($statusPem, ['BUKTI MEMADAI', 'BUKTI CUKUP'], true)) {
                             $skor = null;
                             $nilai = null;
@@ -395,16 +412,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
 
                     // Sinkronkan total skor dan status scorecard
                     syncStatusScorecard($pdo, $targetId);
-                    // BUG-IM-04: Ensure syncStatusScorecard preserves 'SIAP DIVALIDASI' status
-                    if (!empty($rawScStatus) && !str_contains(strtoupper($rawScStatus), 'BELUM') && (str_contains(strtoupper($rawScStatus), 'SIAP') || strtoupper($rawScStatus) === 'SIAP DIVALIDASI')) {
+                    // Guardrail: Non-admin tidak boleh mem-bypass validasi dengan mengimpor status FINAL langsung dari Excel
+                    $validScStatus = $rawScStatus;
+                    if (!$isAdmin && in_array(strtoupper($rawScStatus), ['FINAL', 'FINAL/TERVALIDASI'], true)) {
+                        $validScStatus = 'SIAP DIVALIDASI';
+                    }
+                    if (!empty($validScStatus) && !str_contains(strtoupper($validScStatus), 'BELUM') && (str_contains(strtoupper($validScStatus), 'SIAP') || strtoupper($validScStatus) === 'SIAP DIVALIDASI')) {
                         $pdo->prepare('UPDATE mitra_kinerja SET status_scorecard = ? WHERE id = ?')->execute(['SIAP DIVALIDASI', $targetId]);
-                    } elseif (!empty($rawScStatus)) {
-                        $pdo->prepare('UPDATE mitra_kinerja SET status_scorecard = ? WHERE id = ?')->execute([$rawScStatus, $targetId]);
+                    } elseif (!empty($validScStatus)) {
+                        $pdo->prepare('UPDATE mitra_kinerja SET status_scorecard = ? WHERE id = ?')->execute([$validScStatus, $targetId]);
                     }
                 }
 
-                // 3. IMPORT DATA IDENTITAS & PIC (JIKA ADA)
-                if ($picSheetName && !empty($parsedWb[$picSheetName])) {
+                // 3. IMPORT DATA IDENTITAS & PIC (JIKA ADA DAN TIDAK DIKUNCI / ADMIN)
+                if ($picSheetName && !empty($parsedWb[$picSheetName]) && (!$isTargetLocked || $isAdmin)) {
                     $picRows = $parsedWb[$picSheetName];
                     $picInternalFound = '';
                     $picMitraFound = '';
@@ -425,7 +446,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                             $val = trim((string)($pRow[2] ?? ''));
                         }
 
-                        // BUG-BL-06: Do not let "Nama Mitra" label overwrite pic_mitra with organization name
+                        // Do not let "Nama Mitra" label overwrite pic_mitra with organization name
                         if (str_contains($label, 'pic mitra') || str_contains($label, 'focal point mitra') || (str_contains($label, 'pic') && str_contains($label, 'mitra'))) {
                             if (!empty($val)) $picMitraFound = $val;
                         } elseif (str_contains($label, 'pic internal') || str_contains($label, 'pengampu') || str_contains($label, 'focal point internal')) {
@@ -449,7 +470,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                     }
                 }
 
-                // Commit transaction (BUG-IM-05 & Bug 16)
+                // Commit transaction
                 $totalUpdated = $updatedBaseline + $updatedScorecard;
                 if ($totalUpdated === 0) {
                     if ($pdo->inTransaction()) {
@@ -461,7 +482,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
 
                     if ($importType === 'baseline') {
                         logAudit($targetId, $user['id'], 'IMPORT_BASELINE', "Import Baseline untuk {$targetMitra['kode']}: {$updatedBaseline} elemen diperbarui.");
-                        // Bug 17: Only claim status is locked if $filledCount >= 12 and status was actually locked
+                        // Only claim status is locked if $filledCount >= 12 and status was actually locked
                         $statusClaim = (isset($filledCount) && $filledCount >= 12)
                             ? "&bull; Status Baseline naskah telah dikunci (TERVERIFIKASI / DIKUNCI).<br>"
                             : "&bull; Status Baseline naskah: DALAM PROSES (" . ($filledCount ?? 0) . "/12 elemen terisi).<br>";
@@ -497,7 +518,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
 }
 
 // Ambil daftar seluruh naskah kerja sama
-// BUG-IM-07, BUG-IM-08: Count filled vs verified accurately, and order by Pilot Utama before Cadangan
+// Count filled vs verified accurately, and order by Pilot Utama before Cadangan
 $stmt = $pdo->query('
     SELECT m.*, 
            (SELECT COUNT(*) FROM baseline_elemen WHERE mitra_id = m.id AND status = "TERVERIFIKASI") as total_terverifikasi,
@@ -516,15 +537,15 @@ require __DIR__ . '/includes/header.php';
     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
         <div>
             <h1 style="margin:0 0 4px 0;font-size:22px;color:#0f172a;display:flex;align-items:center;gap:8px;">
-                <span>📥</span> Menu Import Data Naskah
+                <?= uiIcon('upload', 20) ?> Menu Import Data Naskah
             </h1>
             <p style="margin:0;font-size:13px;color:#64748b;">
                 Perbarui data <strong>Baseline FIX (12 Elemen)</strong> dan <strong>Scorecard</strong> kerja sama secara langsung melalui file spreadsheet Excel (.xlsx).
             </p>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <a href="mitra_manage.php" class="btn btn-outline" style="font-size:12px;">
-                &larr; Manajemen Naskah
+            <a href="portofolio.php" class="btn btn-outline" style="font-size:12px;">
+                &larr; Portofolio
             </a>
             <a href="baseline.php" class="btn btn-outline" style="font-size:12px;">
                 Buka Baseline &rarr;
@@ -683,8 +704,8 @@ require __DIR__ . '/includes/header.php';
                                 <span>🔒</span> Terkunci
                             </button>
                         <?php else: ?>
-                            <button type="button" class="btn btn-sm" onclick="openImportModal(<?= (int)$m['id'] ?>, <?= htmlspecialchars(json_encode((string)$m['kode']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$m['nama_mitra']), ENT_QUOTES, 'UTF-8') ?>, 'baseline')" style="font-size:11px;display:inline-flex;align-items:center;gap:4px;padding:5px 12px;background:#4f46e5;color:#ffffff;border:none;border-radius:4px;font-weight:600;cursor:pointer;" title="Import Data Baseline">
-                                <span>📥</span> Import
+                            <button type="button" class="btn btn-sm" onclick="openImportModal(<?= (int)$m['id'] ?>, <?= htmlspecialchars(json_encode((string)$m['kode']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$m['nama_mitra']), ENT_QUOTES, 'UTF-8') ?>, 'baseline')" style="font-size:11px;display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:#4f46e5;color:#ffffff;border:none;border-radius:4px;font-weight:600;cursor:pointer;" title="Import Data Baseline">
+                                <?= uiIcon('upload', 12) ?> Import
                             </button>
                         <?php endif; ?>
                     </td>
@@ -722,8 +743,8 @@ require __DIR__ . '/includes/header.php';
 
                     <!-- 6. SCORECARD: AKSI IMPORT -->
                     <td style="padding:12px 14px;text-align:center;vertical-align:middle;">
-                        <button type="button" class="btn btn-primary btn-sm" onclick="openImportModal(<?= (int)$m['id'] ?>, <?= htmlspecialchars(json_encode((string)$m['kode']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$m['nama_mitra']), ENT_QUOTES, 'UTF-8') ?>, 'scorecard')" style="font-size:11.5px;display:inline-flex;align-items:center;gap:4px;padding:5px 12px;font-weight:600;" title="Import Data Scorecard">
-                            <span>📥</span> Import
+                        <button type="button" class="btn btn-primary btn-sm" onclick="openImportModal(<?= (int)$m['id'] ?>, <?= htmlspecialchars(json_encode((string)$m['kode']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$m['nama_mitra']), ENT_QUOTES, 'UTF-8') ?>, 'scorecard')" style="font-size:11.5px;display:inline-flex;align-items:center;gap:5px;padding:5px 12px;font-weight:600;" title="Import Data Scorecard">
+                            <?= uiIcon('upload', 12) ?> Import
                         </button>
                     </td>
                 </tr>

@@ -49,11 +49,11 @@ function currentUser(bool $forceRefresh = false): ?array {
     }
     $_SESSION['last_activity'] = time();
 
-    // BUG-08: Re-check user status from DB to ensure session is still valid/active.
+    // Re-check user status from DB to ensure session is still valid/active.
     // If user is inactive or deleted, log them out immediately.
     try {
         $pdo = getDB();
-        $stmt = $pdo->prepare('SELECT id, nama, username, role, aktif FROM users WHERE id = ? LIMIT 1');
+        $stmt = $pdo->prepare('SELECT id, nama, username, role, aktif, foto FROM users WHERE id = ? LIMIT 1');
         $stmt->execute([(int)$_SESSION['user']['id']]);
         $dbUser = $stmt->fetch();
 
@@ -69,6 +69,7 @@ function currentUser(bool $forceRefresh = false): ?array {
         $_SESSION['user']['username'] = $dbUser['username'];
         $_SESSION['user']['role'] = $dbUser['role'];
         $_SESSION['user']['aktif'] = (int)$dbUser['aktif'];
+        $_SESSION['user']['foto'] = $dbUser['foto'] ?? null;
 
         $cachedUser = $_SESSION['user'];
         $hasChecked = true;

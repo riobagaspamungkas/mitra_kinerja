@@ -15,7 +15,7 @@ if (!defined('AI_ENABLED')) {
     define('AI_ENABLED', filter_var(getenv('AI_ENABLED'), FILTER_VALIDATE_BOOLEAN));
 }
 
-/* ── 1. Google Gemini (PRIMARY) ─────────────────────────── */
+// Google Gemini (PRIMARY)
 if (!defined('GEMINI_API_KEY')) {
     define('GEMINI_API_KEY', getenv('GEMINI_API_KEY') ?: '');
 }
@@ -26,7 +26,7 @@ if (!defined('GEMINI_API_URL')) {
     define('GEMINI_API_URL', 'https://generativelanguage.googleapis.com/v1/models/');
 }
 
-/* ── 2. OpenRouter (FALLBACK #1) ───────────────────────── */
+// OpenRouter (FALLBACK #1)
 if (!defined('OPENROUTER_API_KEY')) {
     define('OPENROUTER_API_KEY', getenv('OPENROUTER_API_KEY') ?: '');
 }
@@ -37,7 +37,7 @@ if (!defined('OPENROUTER_API_URL')) {
     define('OPENROUTER_API_URL', 'https://openrouter.ai/api/v1/chat/completions');
 }
 
-/* ── 3. Groq (FALLBACK #2) ─────────────────────────────── */
+// Groq (FALLBACK #2)
 if (!defined('GROQ_API_KEY')) {
     define('GROQ_API_KEY', getenv('GROQ_API_KEY') ?: '');
 }

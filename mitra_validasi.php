@@ -18,7 +18,7 @@ if ($id > 0 && $userRole === 'pemeriksa') {
     exit;
 }
 
-/* ── LIST VIEW (Jika tidak ada ?id=) ──────────────────────── */
+// LIST VIEW (Jika tidak ada ?id=)
 if ($id <= 0) {
     $all = getAllMitraSummary($pdo);
     // Urutkan Pilot Utama terlebih dahulu (P01..P13), disusul Cadangan (C01..C05)
@@ -141,19 +141,19 @@ if ($id <= 0) {
                     <td>
                         <div style="display:flex;flex-direction:column;gap:4px;">
                             <?php if ($userRole === 'pemeriksa' || $userRole === 'admin'): ?>
-                                <?php if ($allMilestonesCompleted): ?>
-                                    <a href="mitra_edit.php?id=<?= $m['id'] ?>" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 7px;">
-                                        📊 Lihat Scorecard &rarr;
+                                <?php if ($isCompleted): ?>
+                                    <a href="mitra_edit.php?id=<?= $m['id'] ?>" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 7px;display:inline-flex;align-items:center;gap:4px;">
+                                        <?= uiIcon('eye', 11) ?> Lihat Scorecard &rarr;
                                     </a>
                                 <?php else: ?>
-                                    <a href="mitra_edit.php?id=<?= $m['id'] ?>" class="btn btn-primary btn-sm" style="font-size:11px;padding:3px 7px;">
-                                        📝 Nilai <?= h(explode(':', $msLabel)[0]) ?> &rarr;
+                                    <a href="mitra_edit.php?id=<?= $m['id'] ?>" class="btn btn-primary btn-sm" style="font-size:11px;padding:3px 7px;display:inline-flex;align-items:center;gap:4px;">
+                                        <?= uiIcon('file-edit', 11) ?> Nilai <?= h(explode(':', $msLabel)[0]) ?> &rarr;
                                     </a>
                                 <?php endif; ?>
                             <?php endif; ?>
                             <?php if ($userRole === 'validator' || $userRole === 'admin'): ?>
-                                <a href="mitra_validasi.php?id=<?= $m['id'] ?>" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 7px;">
-                                    🔍 Validasi &rarr;
+                                <a href="mitra_validasi.php?id=<?= $m['id'] ?>" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 7px;display:inline-flex;align-items:center;gap:4px;">
+                                    <?= uiIcon('check-circle', 11) ?> Validasi &rarr;
                                 </a>
                             <?php endif; ?>
                         </div>
@@ -169,7 +169,7 @@ if ($id <= 0) {
     exit;
 }
 
-/* ── DETAIL & FORM VALIDASI (Jika ada ?id=) ───────────────── */
+// DETAIL & FORM VALIDASI (Jika ada ?id=)
 $stmt = $pdo->prepare('SELECT * FROM mitra_kinerja WHERE id = ?');
 $stmt->execute([$id]);
 $mitra = $stmt->fetch();
@@ -192,13 +192,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     if (!in_array($status, ['BELUM','DISETUJUI','PERLU PERBAIKAN'], true)) {
         $errors[] = 'Status validasi tidak valid.';
-    } elseif ($status === 'DISETUJUI' && ($summary['kelengkapan'] < 100 || empty($summary['all_evaluable']) || ($summary['bukti_kurang_n'] ?? 0) > 0)) {
-        if (($summary['bukti_kurang_n'] ?? 0) > 0) {
-            $errors[] = 'Tidak dapat menyetujui: terdapat indikator dengan status Bukti Belum Memadai.';
-        } elseif (empty($summary['all_evaluable'])) {
-            $errors[] = 'Tidak dapat menyetujui: seluruh 7 indikator harus berstatus DAPAT DINILAI / BUKTI MEMADAI.';
-        } else {
-            $errors[] = 'Tidak dapat menyetujui: kelengkapan indikator belum 100%.';
+    } elseif ($status === 'DISETUJUI') {
+        $hasIncompleteEvidence = ($summary['bukti_kurang_n'] ?? 0) > 0;
+        $isFullyRated = ($summary['kelengkapan'] >= 100 && $summary['skor_lengkap']);
+        $isLegitimateEarlyStage = ($summary['bdn_n'] > 0 && $isFullyRated && !$hasIncompleteEvidence);
+        $isLegitimateMatureStage = (!empty($summary['all_evaluable']) && $isFullyRated && !$hasIncompleteEvidence);
+
+        if (!$isLegitimateMatureStage && !$isLegitimateEarlyStage) {
+            if ($hasIncompleteEvidence) {
+                $errors[] = 'Tidak dapat menyetujui: terdapat indikator dengan status Bukti Belum Memadai.';
+            } elseif (!$isFullyRated) {
+                $errors[] = 'Tidak dapat menyetujui: kelengkapan indikator belum 100% atau terdapat indikator yang belum dinilai.';
+            } else {
+                $errors[] = 'Tidak dapat menyetujui: indikator belum memenuhi kriteria validasi.';
+            }
         }
     } elseif ($status === 'PERLU PERBAIKAN' && $catatan === '') {
         $errors[] = 'Tulis catatan bagian yang harus diperbaiki.';

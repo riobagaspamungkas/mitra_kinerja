@@ -6,11 +6,20 @@ config/*.local.php
 
 # Runtime Caches & Dynamic Data
 cache/*.json
+cache/sessions/*
 !cache/.htaccess
+!cache/sessions/.gitkeep
+public/uploads/avatars/*
+!public/uploads/avatars/.gitkeep
+!public/uploads/avatars/.htaccess
+public/uploads/gate0/*
+!public/uploads/gate0/.gitkeep
+!public/uploads/gate0/.htaccess
 *.log
 
 # Backups & Temporary Files
-backups/
+backups/*
+!backups/.htaccess
 *.tmp
 *.bak
 Thumbs.db
@@ -18,7 +27,13 @@ Thumbs.db
 __pycache__/
 *.pyc
 
+# Virtual Environments & Package Managers
+.venv/
+venv/
+vendor/
+
 # Large Documentation Archives & Media Files
 docs/*
+!docs/.htaccess
 !docs/CHANGELOG.txt
 !docs/*.md

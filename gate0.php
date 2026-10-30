@@ -1,18 +1,18 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/data.php';
-requireLogin();
+requireRole(['admin', 'pimpinan', 'pengampu', 'pic']);
 
 $pdo = getDB();
 $user = currentUser();
 $role = $user['role'];
-$canEdit = in_array($role, ['admin', 'pemeriksa'], true);
+$canEdit = in_array($role, ['admin', 'pic', 'pengampu'], true);
 $canDecide = in_array($role, ['admin', 'pimpinan'], true);
 
 $errors = [];
 $success = '';
 
-/* ── DEFINISI 18 PERTANYAAN UJI (5 KRITERIA INTI) ────────── */
+// Definisi 18 pertanyaan uji (5 kriteria inti)
 const GATE0_CRITERIA = [
     'K1' => [
         'kode' => 'K1',
@@ -64,7 +64,7 @@ const GATE0_CRITERIA = [
     ]
 ];
 
-/* ── DEFINISI 7 TRIGGER KARAKTERISTIK KHUSUS ─────────────── */
+// Definisi 7 trigger karakteristik khusus
 const GATE0_TRIGGERS = [
     1 => [
         'judul' => 'Pihak Asing / Lembaga Internasional',
@@ -103,7 +103,7 @@ const GATE0_TRIGGERS = [
     ]
 ];
 
-/* ── 1. TAMBAH USULAN PRA-PKS ────────────────────────────── */
+// Tambah usulan pra-pks
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'create') {
     $csrfToken = isset($_POST['csrf_token']) && is_string($_POST['csrf_token']) ? $_POST['csrf_token'] : null;
     if (!verifyCsrfToken($csrfToken)) {
@@ -160,7 +160,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
             }
         }
 
-        // BUG-G0-02: Evaluasi rekomendasi Gate 0:
+        // Evaluasi rekomendasi Gate 0:
         $semuaKriteriaYa = ($kSummary['K1'] === 'YA' && $kSummary['K2'] === 'YA' && $kSummary['K3'] === 'YA' && $kSummary['K4'] === 'YA' && $kSummary['K5'] === 'YA');
         $jumlahKriteriaYa = ($kSummary['K1'] === 'YA' ? 1 : 0) + ($kSummary['K2'] === 'YA' ? 1 : 0) + ($kSummary['K3'] === 'YA' ? 1 : 0) + ($kSummary['K4'] === 'YA' ? 1 : 0) + ($kSummary['K5'] === 'YA' ? 1 : 0);
 
@@ -178,42 +178,227 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
         $gapPenutupan   = trim($_POST['gap_penyempurnaan'] ?? '');
         $unitReviu      = trim($_POST['unit_review_tambahan'] ?? '');
         $batasWaktu     = ($_POST['batas_waktu_penyempurnaan'] ?? '') ?: null;
+        $submitMode     = $_POST['submit_mode'] ?? 'submit_final';
+        $initialStatus  = ($submitMode === 'save_draft') ? 'Draft' : 'Menunggu Persetujuan Pimpinan';
 
         if ($nomorUsulan === '' || $calonMitra === '' || $judulRencana === '') {
             $errors[] = 'Nomor Usulan, Calon Mitra, dan Judul Rencana wajib diisi.';
         } elseif ($mulai && $selesai && $selesai < $mulai) {
-            // Bug 9: Validasi perkiraan_selesai >= perkiraan_mulai
+            // Validasi perkiraan_selesai >= perkiraan_mulai
             $errors[] = 'Perkiraan tanggal selesai tidak boleh lebih awal dari perkiraan tanggal mulai.';
         } else {
-            try {
-                $stmt = $pdo->prepare('INSERT INTO pra_pks (
-                    nomor_usulan, tipe_kerjasama, jenis_naskah, unit_pemrakarsa, penanggung_jawab_usulan,
-                    calon_mitra, judul_rencana, tujuan_singkat, ruang_lingkup, penerima_manfaat,
-                    perkiraan_mulai, perkiraan_selesai,
-                    k1_kesesuaian_strategis, k2_kebutuhan_daya_ungkit, k3_kelayakan_mitra, k4_kesiapan_sumber_daya, k5_risiko_keberlanjutan,
-                    pertanyaan_uji, trigger_khusus, catatan_verifikasi, gap_penyempurnaan, unit_review_tambahan, batas_waktu_penyempurnaan,
-                    status_rekomendasi, status_persetujuan, created_by
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,\'Menunggu Persetujuan Pimpinan\',?)');
-                $stmt->execute([
-                    $nomorUsulan, $tipeKerjasama, $jenisNaskah, $unitPemrakarsa, $pjUsulan ?: null,
-                    $calonMitra, $judulRencana, $tujuanSingkat, $ruangLingkup, $penerimaManfaat,
-                    $mulai, $selesai,
-                    $kSummary['K1'], $kSummary['K2'], $kSummary['K3'], $kSummary['K4'], $kSummary['K5'],
-                    json_encode($pertanyaanUji), json_encode($triggerKhusus),
-                    $catatanVerif, $gapPenutupan, $unitReviu, $batasWaktu,
-                    $statusRekomendasi, $user['id']
-                ]);
-                // BUG-G0-13: Audit log on create
-                logAudit(0, $user['id'], 'GATE0_CREATE', "Pengajuan usulan Gate 0: {$nomorUsulan} ({$calonMitra})");
-                $success = 'Usulan Gate 0 <strong>' . htmlspecialchars($nomorUsulan) . '</strong> berhasil diajukan dengan evaluasi 18 pertanyaan uji & 7 trigger khusus.';
-            } catch (PDOException $e) {
-                $errors[] = str_contains($e->getMessage(), 'Duplicate') ? 'Nomor usulan sudah terdaftar.' : 'Gagal menyimpan: ' . $e->getMessage();
+            // Cek nomor usulan sudah terdaftar
+            $stmtCheck = $pdo->prepare('SELECT id FROM pra_pks WHERE nomor_usulan = ? LIMIT 1');
+            $stmtCheck->execute([$nomorUsulan]);
+            if ($stmtCheck->fetch()) {
+                $errors[] = 'Nomor usulan ' . h($nomorUsulan) . ' sudah terdaftar. Silakan gunakan nomor usulan lain.';
+            } else {
+                $savedFilePath = null;
+                if (!empty($_FILES['file_usulan']) && $_FILES['file_usulan']['error'] === UPLOAD_ERR_OK) {
+                    $fName = $_FILES['file_usulan']['name'];
+                    $fExt  = strtolower(pathinfo($fName, PATHINFO_EXTENSION));
+                    if (in_array($fExt, ['pdf', 'docx', 'xlsx', 'csv'], true) && $_FILES['file_usulan']['size'] <= 25 * 1024 * 1024) {
+                        $upDir = __DIR__ . '/public/uploads/gate0';
+                        if (!is_dir($upDir)) @mkdir($upDir, 0775, true);
+                        $targetFname = 'gate0_' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $nomorUsulan) . '_' . time() . '.' . $fExt;
+                        if (move_uploaded_file($_FILES['file_usulan']['tmp_name'], $upDir . '/' . $targetFname)) {
+                            $savedFilePath = 'public/uploads/gate0/' . $targetFname;
+                        }
+                    }
+                }
+
+                try {
+                    $stmt = $pdo->prepare('INSERT INTO pra_pks (
+                        nomor_usulan, tipe_kerjasama, jenis_naskah, unit_pemrakarsa, penanggung_jawab_usulan,
+                        calon_mitra, judul_rencana, tujuan_singkat, ruang_lingkup, penerima_manfaat,
+                        perkiraan_mulai, perkiraan_selesai, file_usulan,
+                        k1_kesesuaian_strategis, k2_kebutuhan_daya_ungkit, k3_kelayakan_mitra, k4_kesiapan_sumber_daya, k5_risiko_keberlanjutan,
+                        pertanyaan_uji, trigger_khusus, catatan_verifikasi, gap_penyempurnaan, unit_review_tambahan, batas_waktu_penyempurnaan,
+                        status_rekomendasi, status_persetujuan, created_by
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+                    $stmt->execute([
+                        $nomorUsulan, $tipeKerjasama, $jenisNaskah, $unitPemrakarsa, $pjUsulan ?: null,
+                        $calonMitra, $judulRencana, $tujuanSingkat, $ruangLingkup, $penerimaManfaat,
+                        $mulai, $selesai, $savedFilePath,
+                        $kSummary['K1'], $kSummary['K2'], $kSummary['K3'], $kSummary['K4'], $kSummary['K5'],
+                        json_encode($pertanyaanUji), json_encode($triggerKhusus),
+                        $catatanVerif, $gapPenutupan, $unitReviu, $batasWaktu,
+                        $statusRekomendasi, $initialStatus, $user['id']
+                    ]);
+                    // Audit log on create
+                    logAudit(0, $user['id'], 'GATE0_CREATE', "Pengajuan usulan Gate 0: {$nomorUsulan} ({$calonMitra}) - Status: {$initialStatus}");
+                    $success = 'Usulan Gate 0 <strong>' . htmlspecialchars($nomorUsulan) . '</strong> berhasil ' . ($initialStatus === 'Draft' ? 'disimpan sebagai Draft.' : 'diajukan ke Pimpinan.') . ' Evaluasi 18 pertanyaan uji & 7 trigger khusus terverifikasi.';
+                } catch (PDOException $e) {
+                    $errors[] = str_contains($e->getMessage(), 'Duplicate') ? 'Nomor usulan sudah terdaftar.' : 'Gagal menyimpan: ' . $e->getMessage();
+                }
             }
         }
     }
 }
 
-/* ── 2. KEPUTUSAN PIMPINAN ────────────────────────────────── */
+// Edit / update usulan pra-pks (popup modal)
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'update') {
+    $csrfToken = isset($_POST['csrf_token']) && is_string($_POST['csrf_token']) ? $_POST['csrf_token'] : null;
+    if (!verifyCsrfToken($csrfToken)) {
+        $errors[] = 'Token keamanan tidak valid atau telah kedaluwarsa. Silakan muat ulang halaman.';
+    } elseif (!$canEdit) {
+        $errors[] = 'Anda tidak memiliki hak akses untuk mengubah usulan.';
+    } else {
+        $idUsulan       = (int)($_POST['usulan_id'] ?? 0);
+        $nomorUsulan    = trim($_POST['nomor_usulan'] ?? '');
+        $tipeKerjasama  = $_POST['tipe_kerjasama'] ?? 'Dalam Negeri';
+        $jenisNaskah    = $_POST['jenis_naskah'] ?? 'PKS';
+        $unitPemrakarsa = trim($_POST['unit_pemrakarsa'] ?? '');
+        $pjUsulan       = trim($_POST['penanggung_jawab_usulan'] ?? '');
+        $calonMitra     = trim($_POST['calon_mitra'] ?? '');
+        $judulRencana   = trim($_POST['judul_rencana'] ?? '');
+        $tujuanSingkat  = trim($_POST['tujuan_singkat'] ?? '');
+        $ruangLingkup   = trim($_POST['ruang_lingkup'] ?? '');
+        $penerimaManfaat = trim($_POST['penerima_manfaat'] ?? '');
+        $mulai          = ($_POST['perkiraan_mulai'] ?? '') ?: null;
+        $selesai        = ($_POST['perkiraan_selesai'] ?? '') ?: null;
+        $submitMode     = $_POST['submit_mode'] ?? 'save_draft';
+
+        $stmtEx = $pdo->prepare('SELECT * FROM pra_pks WHERE id = ?');
+        $stmtEx->execute([$idUsulan]);
+        $existing = $stmtEx->fetch();
+        if (!$existing) {
+            $errors[] = 'Data usulan tidak ditemukan.';
+        } elseif (in_array($existing['status_persetujuan'] ?? '', ['Menunggu Persetujuan Pimpinan', 'Disetujui Pimpinan', 'Ditolak Pimpinan'], true)) {
+            $errors[] = 'Akses ditolak: Usulan dengan status ' . h($existing['status_persetujuan']) . ' tidak dapat diedit.';
+        } elseif ($nomorUsulan === '' || $calonMitra === '' || $judulRencana === '') {
+            $errors[] = 'Nomor Usulan, Calon Mitra, dan Judul Rencana wajib diisi.';
+        } elseif ($mulai && $selesai && $selesai < $mulai) {
+            $errors[] = 'Perkiraan tanggal selesai tidak boleh lebih awal dari perkiraan tanggal mulai.';
+        } else {
+            if ($nomorUsulan !== $existing['nomor_usulan']) {
+                $stmtDup = $pdo->prepare('SELECT id FROM pra_pks WHERE nomor_usulan = ? AND id != ?');
+                $stmtDup->execute([$nomorUsulan, $idUsulan]);
+                if ($stmtDup->fetch()) {
+                    $errors[] = 'Nomor usulan ' . h($nomorUsulan) . ' sudah digunakan oleh usulan lain.';
+                }
+            }
+
+            if (empty($errors)) {
+                $pertanyaanUji = [];
+                $kSummary = ['K1' => 'YA', 'K2' => 'YA', 'K3' => 'YA', 'K4' => 'YA', 'K5' => 'YA'];
+                for ($q = 1; $q <= 18; $q++) {
+                    $ans = strtoupper($_POST["q{$q}_jawab"] ?? 'YA') === 'TIDAK' ? 'TIDAK' : 'YA';
+                    $bukti = trim($_POST["q{$q}_bukti"] ?? '');
+                    $pertanyaanUji["q{$q}"] = [
+                        'jawab' => $ans,
+                        'bukti' => $bukti
+                    ];
+                    if ($ans === 'TIDAK') {
+                        if ($q <= 3) $kSummary['K1'] = 'TIDAK';
+                        elseif ($q <= 7) $kSummary['K2'] = 'TIDAK';
+                        elseif ($q <= 10) $kSummary['K3'] = 'TIDAK';
+                        elseif ($q <= 14) $kSummary['K4'] = 'TIDAK';
+                        else $kSummary['K5'] = 'TIDAK';
+                    }
+                }
+
+                $triggerKhusus = [];
+                $adaTriggerYa = false;
+                for ($t = 1; $t <= 7; $t++) {
+                    $tAns = strtoupper($_POST["trigger{$t}_jawab"] ?? 'TIDAK') === 'YA' ? 'YA' : 'TIDAK';
+                    $tCat = trim($_POST["trigger{$t}_catatan"] ?? '');
+                    $triggerKhusus["t{$t}"] = [
+                        'jawab' => $tAns,
+                        'catatan' => $tCat
+                    ];
+                    if ($tAns === 'YA') $adaTriggerYa = true;
+                }
+
+                $semuaKriteriaYa = ($kSummary['K1'] === 'YA' && $kSummary['K2'] === 'YA' && $kSummary['K3'] === 'YA' && $kSummary['K4'] === 'YA' && $kSummary['K5'] === 'YA');
+                $jumlahKriteriaYa = ($kSummary['K1'] === 'YA' ? 1 : 0) + ($kSummary['K2'] === 'YA' ? 1 : 0) + ($kSummary['K3'] === 'YA' ? 1 : 0) + ($kSummary['K4'] === 'YA' ? 1 : 0) + ($kSummary['K5'] === 'YA' ? 1 : 0);
+
+                if ($jumlahKriteriaYa === 0) {
+                    $statusRekomendasi = 'Tidak Prioritas / Tidak Layak';
+                } elseif ($semuaKriteriaYa && !$adaTriggerYa) {
+                    $statusRekomendasi = 'Layak';
+                } elseif ($jumlahKriteriaYa >= 3) {
+                    $statusRekomendasi = 'Perlu Penyempurnaan';
+                } else {
+                    $statusRekomendasi = 'Tidak Prioritas / Tidak Layak';
+                }
+
+                $catatanVerif   = trim($_POST['catatan_verifikasi'] ?? '');
+                $gapPenutupan   = trim($_POST['gap_penyempurnaan'] ?? '');
+                $unitReviu      = trim($_POST['unit_review_tambahan'] ?? '');
+                $batasWaktu     = ($_POST['batas_waktu_penyempurnaan'] ?? '') ?: null;
+
+                $filePath = $existing['file_usulan'] ?? null;
+                if (!empty($_FILES['file_naskah_baru']) && $_FILES['file_naskah_baru']['error'] === UPLOAD_ERR_OK) {
+                    $fName = $_FILES['file_naskah_baru']['name'];
+                    $fSize = $_FILES['file_naskah_baru']['size'];
+                    $fExt  = strtolower(pathinfo($fName, PATHINFO_EXTENSION));
+                    if (!in_array($fExt, ['pdf', 'docx', 'xlsx', 'csv'], true)) {
+                        $errors[] = 'Format file lampiran baru harus berupa PDF, DOCX, XLSX, atau CSV.';
+                    } elseif ($fSize > 25 * 1024 * 1024) {
+                        $errors[] = 'Ukuran file lampiran baru melebihi 25MB.';
+                    } else {
+                        $upDir = __DIR__ . '/public/uploads/gate0';
+                        if (!is_dir($upDir)) @mkdir($upDir, 0775, true);
+                        $targetFname = 'gate0_' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $nomorUsulan) . '_' . time() . '.' . $fExt;
+                        if (move_uploaded_file($_FILES['file_naskah_baru']['tmp_name'], $upDir . '/' . $targetFname)) {
+                            $filePath = 'public/uploads/gate0/' . $targetFname;
+                        }
+                    }
+                }
+
+                if (empty($errors)) {
+                    $newStatusPersetujuan = ($submitMode === 'submit_final') ? 'Menunggu Persetujuan Pimpinan' : ($existing['status_persetujuan'] ?? 'Draft');
+
+                    $stmtUpd = $pdo->prepare('UPDATE pra_pks SET
+                        nomor_usulan = ?, tipe_kerjasama = ?, jenis_naskah = ?, unit_pemrakarsa = ?, penanggung_jawab_usulan = ?,
+                        calon_mitra = ?, judul_rencana = ?, tujuan_singkat = ?, ruang_lingkup = ?, penerima_manfaat = ?,
+                        perkiraan_mulai = ?, perkiraan_selesai = ?, file_usulan = ?,
+                        k1_kesesuaian_strategis = ?, k2_kebutuhan_daya_ungkit = ?, k3_kelayakan_mitra = ?, k4_kesiapan_sumber_daya = ?, k5_risiko_keberlanjutan = ?,
+                        pertanyaan_uji = ?, trigger_khusus = ?, catatan_verifikasi = ?, gap_penyempurnaan = ?, unit_review_tambahan = ?, batas_waktu_penyempurnaan = ?,
+                        status_rekomendasi = ?, status_persetujuan = ?
+                        WHERE id = ?');
+                    $stmtUpd->execute([
+                        $nomorUsulan, $tipeKerjasama, $jenisNaskah, $unitPemrakarsa, $pjUsulan ?: null,
+                        $calonMitra, $judulRencana, $tujuanSingkat, $ruangLingkup, $penerimaManfaat,
+                        $mulai, $selesai, $filePath,
+                        $kSummary['K1'], $kSummary['K2'], $kSummary['K3'], $kSummary['K4'], $kSummary['K5'],
+                        json_encode($pertanyaanUji), json_encode($triggerKhusus),
+                        $catatanVerif, $gapPenutupan, $unitReviu, $batasWaktu,
+                        $statusRekomendasi, $newStatusPersetujuan, $idUsulan
+                    ]);
+                    logAudit(0, $user['id'], 'GATE0_UPDATE', "Memperbarui usulan Gate 0: {$nomorUsulan} ({$calonMitra}) - Status: {$newStatusPersetujuan}");
+                    $success = 'Usulan Gate 0 <strong>' . htmlspecialchars($nomorUsulan) . '</strong> berhasil diperbarui' . ($submitMode === 'submit_final' ? ' dan diajukan ke Pimpinan.' : '.');
+                }
+            }
+        }
+    }
+}
+
+// Submit usulan dari tabel
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'submit_proposal') {
+    $csrfToken = isset($_POST['csrf_token']) && is_string($_POST['csrf_token']) ? $_POST['csrf_token'] : null;
+    if (!verifyCsrfToken($csrfToken)) {
+        $errors[] = 'Token keamanan tidak valid atau telah kedaluwarsa. Silakan muat ulang halaman.';
+    } elseif (!$canEdit) {
+        $errors[] = 'Akses ditolak.';
+    } else {
+        $idUsulan = (int)($_POST['usulan_id'] ?? 0);
+        $stmtEx = $pdo->prepare('SELECT id, nomor_usulan, calon_mitra, status_persetujuan FROM pra_pks WHERE id = ?');
+        $stmtEx->execute([$idUsulan]);
+        $rowP = $stmtEx->fetch();
+        if (!$rowP) {
+            $errors[] = 'Usulan tidak ditemukan.';
+        } else {
+            $stmtSub = $pdo->prepare("UPDATE pra_pks SET status_persetujuan = 'Menunggu Persetujuan Pimpinan' WHERE id = ?");
+            $stmtSub->execute([$idUsulan]);
+            logAudit(0, $user['id'], 'GATE0_SUBMIT', "Submit usulan Gate 0 ke pimpinan: {$rowP['nomor_usulan']}");
+            $success = "Usulan <strong>" . htmlspecialchars($rowP['nomor_usulan']) . "</strong> (" . htmlspecialchars($rowP['calon_mitra']) . ") berhasil disubmit ke Pimpinan. Status kini final menunggu persetujuan.";
+        }
+    }
+}
+
+// Keputusan pimpinan
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'decision') {
     $csrfToken = isset($_POST['csrf_token']) && is_string($_POST['csrf_token']) ? $_POST['csrf_token'] : null;
     if (!verifyCsrfToken($csrfToken)) {
@@ -228,7 +413,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
         if ($idUsulan <= 0 || !in_array($statusPersetujuan, ['Disetujui Pimpinan', 'Dikembalikan untuk Revisi', 'Ditolak Pimpinan'], true)) {
             $errors[] = 'Data keputusan tidak valid.';
         } else {
-            // BUG-G0-12 & Bug 18: Prevent decision status change if proposal is already promoted to PKS, wrap in try/catch
+            // & Bug 18: Prevent decision status change if proposal is already promoted to PKS, wrap in try/catch
             try {
                 $chkP = $pdo->prepare('SELECT is_promoted_to_pks, nomor_usulan FROM pra_pks WHERE id = ?');
                 $chkP->execute([$idUsulan]);
@@ -240,7 +425,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                 } else {
                     $stmt = $pdo->prepare('UPDATE pra_pks SET status_persetujuan = ?, catatan_pimpinan = ?, tanggal_persetujuan = CURDATE(), pimpinan_id = ? WHERE id = ?');
                     $stmt->execute([$statusPersetujuan, $catatanPimpinan ?: null, $user['id'], $idUsulan]);
-                    // BUG-G0-13: Audit log on decision
+                    // Audit log on decision
                     logAudit(0, $user['id'], 'GATE0_DECISION', "Keputusan Gate 0 untuk usulan {$rowP['nomor_usulan']}: {$statusPersetujuan}");
                     $success = 'Keputusan dan disposisi pimpinan untuk usulan <strong>' . htmlspecialchars($rowP['nomor_usulan']) . '</strong> berhasil disimpan.';
                 }
@@ -251,7 +436,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
     }
 }
 
-/* ── 3. PROMOSI OTOMATIS KE PKS AKTIF ────────────────────── */
+// Promosi otomatis ke pks aktif
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'promote') {
     $csrfToken = isset($_POST['csrf_token']) && is_string($_POST['csrf_token']) ? $_POST['csrf_token'] : null;
     if (!verifyCsrfToken($csrfToken)) {
@@ -271,12 +456,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
         } else {
             $pdo->beginTransaction();
             try {
-                // BUG-G0-05: Tentukan kode baru berikutnya menggunakan MAX(CAST(SUBSTRING(kode, 2) AS UNSIGNED))
+                // Tentukan kode baru berikutnya menggunakan MAX(CAST(SUBSTRING(kode, 2) AS UNSIGNED))
                 $maxNum = (int)$pdo->query("SELECT MAX(CAST(SUBSTRING(kode, 2) AS UNSIGNED)) FROM mitra_kinerja WHERE kode REGEXP '^P[0-9]+$'")->fetchColumn();
                 $nextNum = $maxNum > 0 ? ($maxNum + 1) : 11;
                 $newKode = 'P' . str_pad($nextNum, 2, '0', STR_PAD_LEFT);
 
-                // BUG-G0-06: Tentukan Bidang terkait dengan word boundary regex
+                // Tentukan Bidang terkait dengan word boundary regex
                 $bidangCandidate = 'AHU';
                 $unitLower = strtolower($pra['unit_pemrakarsa'] . ' ' . ($pra['penanggung_jawab_usulan'] ?? ''));
                 if (str_contains($unitLower, 'kekayaan intelektual') || preg_match('/\bki\b/i', $unitLower)) $bidangCandidate = 'KI';
@@ -286,16 +471,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                 elseif (str_contains($unitLower, 'humas')) $bidangCandidate = 'Humas';
                 elseif (str_contains($unitLower, 'sdm') || str_contains($unitLower, 'kepegawaian')) $bidangCandidate = 'SDM';
 
-                // BUG-G0-03: Periksa apakah perkiraan_mulai kosong atau '0000-00-00'
+                // Periksa apakah perkiraan_mulai kosong atau '0000-00-00'
                 $mulaiRaw = trim((string)($pra['perkiraan_mulai'] ?? ''));
                 $mulaiPks = (!empty($mulaiRaw) && $mulaiRaw !== '0000-00-00' && strtotime($mulaiRaw) !== false) ? $mulaiRaw : date('Y-m-d');
                 $selesaiRaw = trim((string)($pra['perkiraan_selesai'] ?? ''));
                 $selesaiPks = (!empty($selesaiRaw) && $selesaiRaw !== '0000-00-00' && strtotime($selesaiRaw) !== false) ? $selesaiRaw : date('Y-m-d', strtotime($mulaiPks . ' +3 years'));
 
-                // BUG-G0-01: Map jenis_naskah 'Lainnya' to 'PKS'
+                // Map jenis_naskah 'Lainnya' to 'PKS'
                 $jenisMitra = in_array($pra['jenis_naskah'], ['PKS', 'MoU'], true) ? $pra['jenis_naskah'] : 'PKS';
 
-                // BUG-G0-07: Inisialisasi posisi_portofolio ke 'BELUM DAPAT DITENTUKAN' dan rekomendasi ke 'BELUM DITENTUKAN'
+                // Inisialisasi posisi_portofolio ke 'BELUM DAPAT DITENTUKAN' dan rekomendasi ke 'BELUM DITENTUKAN'
                 $stmtM = $pdo->prepare('INSERT INTO mitra_kinerja (
                     kode, portofolio, nama_mitra, judul, bidang, jenis, tanggal_mulai, tanggal_berakhir,
                     status_tanggal, evaluasi_per_tahun, baseline_status, cutoff_date, sumber_baseline, status_scorecard, posisi_portofolio, rekomendasi,
@@ -307,30 +492,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                 ]);
                 $newMitraId = (int)$pdo->lastInsertId();
 
-                // BUG-G0-14: Truncate / fit rencana_kerja judul_rencana to 255 chars
-                $rkJudul = 'Rencana Kerja ' . $pra['judul_rencana'];
-                if (mb_strlen($rkJudul) > 255) {
-                    $rkJudul = mb_substr($rkJudul, 0, 252) . '...';
-                }
-
-                // Bug 20: Clamp work plan duration so tanggal_selesai does not exceed $selesaiPks
-                $rkSelesai = date('Y-m-d', strtotime($mulaiPks . ' +1 year'));
-                if ($rkSelesai > $selesaiPks) {
-                    $rkSelesai = $selesaiPks;
-                }
-
-                $stmtRK = $pdo->prepare('INSERT INTO rencana_kerja (
-                    mitra_id, judul_rencana, ruang_lingkup, maksud_tujuan, tanggal_mulai, tanggal_selesai, status, alasan_persetujuan
-                ) VALUES (?, ?, ?, ?, ?, ?, \'Disetujui\', ?)');
-                $stmtRK->execute([
-                    $newMitraId,
-                    $rkJudul,
-                    $pra['ruang_lingkup'],
-                    $pra['tujuan_singkat'],
-                    $mulaiPks,
-                    $rkSelesai,
-                    'Disetujui otomatis melalui kelayakan Gate 0'
-                ]);
+                // Catatan: Sesuai aturan tata kelola, saat naskah baru dibuat dari Gate 0,
+                // data Rencana Kerja masih dalam keadaan kosong hingga disusun secara resmi.
 
                 // Inisialisasi 12 Elemen Baseline FIX
                 foreach (BASELINE_12_DEFS as $n => $d) {
@@ -405,7 +568,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                 $pdo->prepare('UPDATE pra_pks SET is_promoted_to_pks = 1 WHERE id = ?')->execute([$idUsulan]);
 
                 $pdo->commit();
-                // BUG-G0-13: Audit log on promote
+                // Audit log on promote
                 logAudit($newMitraId, $user['id'], 'GATE0_PROMOTE', "Promosi usulan Gate 0 {$pra['nomor_usulan']} ke PKS {$newKode}");
                 $success = 'Usulan <strong>' . htmlspecialchars($pra['nomor_usulan']) . '</strong> berhasil dipromosikan menjadi PKS baru dengan kode <strong>' . $newKode . '</strong>!';
             } catch (Throwable $e) {
@@ -416,8 +579,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
     }
 }
 
-/* ── 4. HELPER PARSER EXCEL (.xlsx) & CSV ──────────────────── */
-// BUG-G0-04, Bug 1: Convert Excel serial date numbers to Y-m-d format & parse Indonesian dates
+// HELPER PARSER EXCEL (.xlsx) & CSV
+// Convert Excel serial date numbers to Y-m-d format & parse Indonesian dates
 function parseGate0Date($val): ?string {
     if (empty($val)) return null;
     $str = trim((string)$val);
@@ -489,7 +652,7 @@ function parseGate0Upload(string $tmpPath, string $origName): array {
             }
         }
         $rows = [];
-        // Bug 3: Parse sheet targets dynamically from xl/workbook.xml and relationships rather than hardcoding xl/worksheets/sheet1.xml
+        // Parse sheet targets dynamically from xl/workbook.xml and relationships rather than hardcoding xl/worksheets/sheet1.xml
         $sheetTarget = '';
         $relsContent = $zip->getFromName('xl/_rels/workbook.xml.rels');
         $relMap = [];
@@ -587,7 +750,7 @@ function parseGate0Upload(string $tmpPath, string $origName): array {
         $zip->close();
         return $rows;
     } else {
-        // BUG-G0-09: Use fgetcsv on a stream that respects multiline quotes
+        // Use fgetcsv on a stream that respects multiline quotes
         $content = file_get_contents($tmpPath);
         if (str_starts_with($content, "\xEF\xBB\xBF")) {
             $content = substr($content, 3);
@@ -608,7 +771,7 @@ function parseGate0Upload(string $tmpPath, string $origName): array {
     }
 }
 
-/* ── 5. IMPORT EXCEL (.xlsx) & CSV ────────────────────────── */
+// IMPORT EXCEL (.xlsx) & CSV
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'import_csv') {
     $csrfToken = isset($_POST['csrf_token']) && is_string($_POST['csrf_token']) ? $_POST['csrf_token'] : null;
     if (!verifyCsrfToken($csrfToken)) {
@@ -618,7 +781,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
     } elseif (!isset($_FILES['csv_file']) || $_FILES['csv_file']['error'] !== UPLOAD_ERR_OK) {
         $errors[] = 'Pilih file Excel (.xlsx) atau CSV yang valid.';
     } else {
-        // BUG-G0-16: Enforce allowed extensions (.xlsx, .csv) and 25MB file size cap
+        // Enforce allowed extensions (.xlsx, .csv) and 25MB file size cap
         $ext = strtolower(pathinfo($_FILES['csv_file']['name'], PATHINFO_EXTENSION));
         if (!in_array($ext, ['xlsx', 'csv'], true)) {
             $errors[] = 'Format file tidak didukung. Harap unggah file spreadsheet Excel (.xlsx) atau CSV (.csv).';
@@ -708,7 +871,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                     }
                 }
 
-                // BUG-G0-10: Lengkapi pertanyaan uji jika belum terisi (jangan fabrikasi YA)
+                // Lengkapi pertanyaan uji jika belum terisi (jangan fabrikasi YA)
                 for ($q = 1; $q <= 18; $q++) {
                     if (!isset($pertanyaanUji["q{$q}"])) {
                         $pertanyaanUji["q{$q}"] = ['jawab' => 'BELUM DITELAAH', 'bukti' => 'Belum ada data uji'];
@@ -745,7 +908,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                 $tujuan   = $getV(['Tujuan Singkat', 'tujuan_singkat'], '');
                 $ruang    = $getV(['Ruang Lingkup Utama', 'ruang_lingkup'], '');
                 $manfaat  = $getV(['Penerima Manfaat', 'penerima_manfaat'], '');
-                // BUG-G0-04: Convert Excel serial dates
+                // Convert Excel serial dates
                 $mulai    = parseGate0Date($getV(['Perkiraan Tanggal Mulai', 'perkiraan_mulai']));
                 $selesai  = parseGate0Date($getV(['Perkiraan Tanggal Selesai', 'perkiraan_selesai']));
 
@@ -758,7 +921,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                     if ($t['jawab'] === 'YA') { $adaTrigger = true; break; }
                 }
 
-                // BUG-G0-17: Rekomendasi vertikal import mencakup 'Tidak Prioritas / Tidak Layak'
+                // Rekomendasi vertikal import mencakup 'Tidak Prioritas / Tidak Layak'
                 $rawRek = trim($getV(['status_rekomendasi', 'rekomendasi'], ''));
                 if (in_array($rawRek, ['Layak', 'Perlu Penyempurnaan', 'Tidak Prioritas / Tidak Layak'], true)) {
                     $rekomendasi = $rawRek;
@@ -781,67 +944,58 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                 $pertanyaanJson = json_encode($pertanyaanUji, JSON_UNESCAPED_UNICODE);
                 $triggerJson = json_encode($triggerKhusus, JSON_UNESCAPED_UNICODE);
 
-                // BUG-G0-15: Wrap vertical import execution in try ... catch
-                try {
-                    $stmt = $pdo->prepare('
-                        INSERT INTO pra_pks (
-                            nomor_usulan, tipe_kerjasama, jenis_naskah, unit_pemrakarsa, penanggung_jawab_usulan,
-                            calon_mitra, judul_rencana, tujuan_singkat, ruang_lingkup, penerima_manfaat,
-                            perkiraan_mulai, perkiraan_selesai,
-                            k1_kesesuaian_strategis, k2_kebutuhan_daya_ungkit, k3_kelayakan_mitra,
-                            k4_kesiapan_sumber_daya, k5_risiko_keberlanjutan,
-                            pertanyaan_uji, trigger_khusus,
-                            catatan_verifikasi, gap_penyempurnaan, unit_review_tambahan,
-                            status_rekomendasi, status_persetujuan, created_by
-                        ) VALUES (
-                            ?, ?, ?, ?, ?,
-                            ?, ?, ?, ?, ?,
-                            ?, ?,
-                            ?, ?, ?,
-                            ?, ?,
-                            ?, ?,
-                            ?, ?, ?,
-                            ?, \'Menunggu Persetujuan Pimpinan\', ?
-                        )
-                        ON DUPLICATE KEY UPDATE
-                            tipe_kerjasama=VALUES(tipe_kerjasama),
-                            jenis_naskah=VALUES(jenis_naskah),
-                            unit_pemrakarsa=VALUES(unit_pemrakarsa),
-                            penanggung_jawab_usulan=VALUES(penanggung_jawab_usulan),
-                            calon_mitra=VALUES(calon_mitra),
-                            judul_rencana=VALUES(judul_rencana),
-                            tujuan_singkat=VALUES(tujuan_singkat),
-                            ruang_lingkup=VALUES(ruang_lingkup),
-                            penerima_manfaat=VALUES(penerima_manfaat),
-                            perkiraan_mulai=VALUES(perkiraan_mulai),
-                            perkiraan_selesai=VALUES(perkiraan_selesai),
-                            k1_kesesuaian_strategis=VALUES(k1_kesesuaian_strategis),
-                            k2_kebutuhan_daya_ungkit=VALUES(k2_kebutuhan_daya_ungkit),
-                            k3_kelayakan_mitra=VALUES(k3_kelayakan_mitra),
-                            k4_kesiapan_sumber_daya=VALUES(k4_kesiapan_sumber_daya),
-                            k5_risiko_keberlanjutan=VALUES(k5_risiko_keberlanjutan),
-                            pertanyaan_uji=VALUES(pertanyaan_uji),
-                            trigger_khusus=VALUES(trigger_khusus),
-                            catatan_verifikasi=VALUES(catatan_verifikasi),
-                            gap_penyempurnaan=VALUES(gap_penyempurnaan),
-                            unit_review_tambahan=VALUES(unit_review_tambahan),
-                            status_rekomendasi=VALUES(status_rekomendasi),
-                            status_persetujuan=CASE WHEN status_persetujuan = \'Dikembalikan untuk Revisi\' THEN \'Menunggu Persetujuan Pimpinan\' ELSE status_persetujuan END
-                    ');
-                    $stmt->execute([
-                        $noUsulan, $tipe, $jenis, $unit, $pj,
-                        $mitra, $judul, $tujuan, $ruang, $manfaat,
-                        $mulai, $selesai,
-                        $kSummary['K1'], $kSummary['K2'], $kSummary['K3'],
-                        $kSummary['K4'], $kSummary['K5'],
-                        $pertanyaanJson, $triggerJson,
-                        $catatan, $gap, $unitRev,
-                        $rekomendasi, $user['id']
-                    ]);
-                    $importedCount = 1;
-                    $success = "Berhasil mengimpor 1 usulan dari formulir vertikal: <strong>" . h($noUsulan) . "</strong> (" . h($mitra) . ").";
-                } catch (Throwable $e) {
-                    $errors[] = "Gagal mengimpor usulan vertikal [{$noUsulan}]: " . $e->getMessage();
+                // Cek nomor usulan sudah ada atau belum (GAGAL jika nomor usulan sudah terdaftar)
+                $stmtCheck = $pdo->prepare('SELECT id FROM pra_pks WHERE nomor_usulan = ? LIMIT 1');
+                $stmtCheck->execute([$noUsulan]);
+                if ($stmtCheck->fetch()) {
+                    $errors[] = "Proses import usulan <strong>" . h($noUsulan) . "</strong> GAGAL: Nomor usulan sudah terdaftar di sistem. Silakan gunakan nomor usulan baru atau lakukan edit.";
+                } else {
+                    $savedFilePath = null;
+                    $upDir = __DIR__ . '/public/uploads/gate0';
+                    if (!is_dir($upDir)) @mkdir($upDir, 0775, true);
+                    $targetFname = 'gate0_' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $noUsulan) . '_' . time() . '.' . $ext;
+                    if (@copy($uploadedFile, $upDir . '/' . $targetFname)) {
+                        $savedFilePath = 'public/uploads/gate0/' . $targetFname;
+                    }
+
+                    // Wrap vertical import execution in try ... catch
+                    try {
+                        $stmt = $pdo->prepare('
+                            INSERT INTO pra_pks (
+                                nomor_usulan, tipe_kerjasama, jenis_naskah, unit_pemrakarsa, penanggung_jawab_usulan,
+                                calon_mitra, judul_rencana, tujuan_singkat, ruang_lingkup, penerima_manfaat,
+                                perkiraan_mulai, perkiraan_selesai, file_usulan,
+                                k1_kesesuaian_strategis, k2_kebutuhan_daya_ungkit, k3_kelayakan_mitra,
+                                k4_kesiapan_sumber_daya, k5_risiko_keberlanjutan,
+                                pertanyaan_uji, trigger_khusus,
+                                catatan_verifikasi, gap_penyempurnaan, unit_review_tambahan,
+                                status_rekomendasi, status_persetujuan, created_by
+                            ) VALUES (
+                                ?, ?, ?, ?, ?,
+                                ?, ?, ?, ?, ?,
+                                ?, ?, ?,
+                                ?, ?, ?,
+                                ?, ?,
+                                ?, ?,
+                                ?, ?, ?,
+                                ?, \'Draft\', ?
+                            )
+                        ');
+                        $stmt->execute([
+                            $noUsulan, $tipe, $jenis, $unit, $pj,
+                            $mitra, $judul, $tujuan, $ruang, $manfaat,
+                            $mulai, $selesai, $savedFilePath,
+                            $kSummary['K1'], $kSummary['K2'], $kSummary['K3'],
+                            $kSummary['K4'], $kSummary['K5'],
+                            $pertanyaanJson, $triggerJson,
+                            $catatan, $gap, $unitRev,
+                            $rekomendasi, $user['id']
+                        ]);
+                        $importedCount = 1;
+                        $success = "Berhasil mengimpor 1 usulan (Status: <strong>Draft</strong>): <strong>" . h($noUsulan) . "</strong> (" . h($mitra) . "). Anda dapat mengedit data atau menekan tombol Submit untuk memfinalkan pengajuan.";
+                    } catch (Throwable $e) {
+                        $errors[] = "Gagal mengimpor usulan vertikal [{$noUsulan}]: " . $e->getMessage();
+                    }
                 }
             } else {
                 // Parsing format horizontal (tabel kolom)
@@ -854,10 +1008,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                 }
 
                 foreach ($dataRows as $row) {
-                    // Bug 19: In horizontal import, do not skip rows where column A is empty if colMap maps required fields on other columns
+                    // In horizontal import, do not skip rows where column A is empty if colMap maps required fields on other columns
                     if (empty(array_filter($row, fn($v) => trim((string)$v) !== ''))) continue;
 
-                    // BUG-G0-08: Fix $getVal fallback in horizontal import for column indices
+                    // Fix $getVal fallback in horizontal import for column indices
                     $getVal = function($keys, $def = '') use ($row, $colMap) {
                         foreach ((array)$keys as $k) {
                             if (is_int($k)) {
@@ -888,7 +1042,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                     $tujuan   = $getVal(['tujuan_singkat', 7], '');
                     $ruang    = $getVal(['ruang_lingkup', 8], '');
                     $manfaat  = $getVal(['penerima_manfaat', 9], '');
-                    // BUG-G0-04: Convert Excel serial dates
+                    // Convert Excel serial dates
                     $mulai    = parseGate0Date($getVal(['perkiraan_mulai', 10]));
                     $selesai  = parseGate0Date($getVal(['perkiraan_selesai', 11]));
 
@@ -899,7 +1053,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                     $hasQCols = isset($colMap['q1_tusi_kewenangan']) || isset($colMap['q1_jawab']);
                     if ($hasQCols) {
                         for ($q = 1; $q <= 18; $q++) {
-                            // BUG-G0-10, BUG-G0-19: Do not fabricate 'YA' answers or 'Dokumen terverifikasi' for unreviewed/unanswered questions; default to 'Belum ada data uji' matching vertical import
+                            // Do not fabricate 'YA' answers or 'Dokumen terverifikasi' for unreviewed/unanswered questions; default to 'Belum ada data uji' matching vertical import
                             $valRaw = $getVal(["q{$q}_jawab", "q{$q}_tusi_kewenangan", "q{$q}_sasaran_kinerja", "q{$q}_batas_kewenangan", "q{$q}_kebutuhan_nyata", "q{$q}_kejelasan_manfaat", "q{$q}_output_outcome", "q{$q}_daya_ungkit", "q{$q}_legalitas_mitra", "q{$q}_kapasitas_mitra", "q{$q}_integritas_reputasi", "q{$q}_peran_kontribusi", "q{$q}_focal_point", "q{$q}_kesiapan_sdm_anggaran", "q{$q}_indikator_awal", "q{$q}_manajemen_risiko", "q{$q}_tindak_lanjut_pascattd", "q{$q}_keberlanjutan_manfaat", "q{$q}_mitigasi_hambatan"], '');
                             if ($valRaw === '') {
                                 $qAns = 'BELUM DITELAAH';
@@ -944,7 +1098,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                     $gap = $getVal(['gap_penyempurnaan'], 'Tidak ada gap material.');
                     $unitRev = $getVal(['unit_review_tambahan'], 'Subbagian Humas, RB, dan TI');
 
-                    // BUG-G0-17: Rekomendasi horizontal import mencakup 'Tidak Prioritas / Tidak Layak'
+                    // Rekomendasi horizontal import mencakup 'Tidak Prioritas / Tidak Layak'
                     $rawRek = trim($getVal(['status_rekomendasi', 'rekomendasi'], ''));
                     if (in_array($rawRek, ['Layak', 'Perlu Penyempurnaan', 'Tidak Prioritas / Tidak Layak'], true)) {
                         $rek = $rawRek;
@@ -964,7 +1118,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                         }
                     }
 
-                    // BUG-G0-11 & BUG-G0-18: Try/catch SQL exceptions and update all evaluated criteria columns
+                    // Cek duplicate nomor_usulan (GAGAL jika sudah terdaftar)
+                    $stmtCheck = $pdo->prepare('SELECT id FROM pra_pks WHERE nomor_usulan = ? LIMIT 1');
+                    $stmtCheck->execute([$noUsulan]);
+                    if ($stmtCheck->fetch()) {
+                        $errors[] = "Proses import usulan <strong>" . h($noUsulan) . "</strong> GAGAL: Nomor usulan sudah terdaftar di sistem. Usulan tidak diimpor.";
+                        continue;
+                    }
+
+                    // Try/catch SQL exceptions
                     try {
                         $stmt = $pdo->prepare('INSERT INTO pra_pks (
                             nomor_usulan, tipe_kerjasama, jenis_naskah, unit_pemrakarsa, penanggung_jawab_usulan,
@@ -973,31 +1135,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                             k1_kesesuaian_strategis, k2_kebutuhan_daya_ungkit, k3_kelayakan_mitra, k4_kesiapan_sumber_daya, k5_risiko_keberlanjutan,
                             pertanyaan_uji, trigger_khusus, catatan_verifikasi, gap_penyempurnaan, unit_review_tambahan,
                             status_rekomendasi, status_persetujuan, created_by
-                        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,\'Menunggu Persetujuan Pimpinan\',?)
-                        ON DUPLICATE KEY UPDATE
-                            calon_mitra=VALUES(calon_mitra),
-                            judul_rencana=VALUES(judul_rencana),
-                            tipe_kerjasama=VALUES(tipe_kerjasama),
-                            jenis_naskah=VALUES(jenis_naskah),
-                            unit_pemrakarsa=VALUES(unit_pemrakarsa),
-                            penanggung_jawab_usulan=VALUES(penanggung_jawab_usulan),
-                            tujuan_singkat=VALUES(tujuan_singkat),
-                            ruang_lingkup=VALUES(ruang_lingkup),
-                            penerima_manfaat=VALUES(penerima_manfaat),
-                            perkiraan_mulai=VALUES(perkiraan_mulai),
-                            perkiraan_selesai=VALUES(perkiraan_selesai),
-                            k1_kesesuaian_strategis=VALUES(k1_kesesuaian_strategis),
-                            k2_kebutuhan_daya_ungkit=VALUES(k2_kebutuhan_daya_ungkit),
-                            k3_kelayakan_mitra=VALUES(k3_kelayakan_mitra),
-                            k4_kesiapan_sumber_daya=VALUES(k4_kesiapan_sumber_daya),
-                            k5_risiko_keberlanjutan=VALUES(k5_risiko_keberlanjutan),
-                            pertanyaan_uji=VALUES(pertanyaan_uji),
-                            trigger_khusus=VALUES(trigger_khusus),
-                            catatan_verifikasi=VALUES(catatan_verifikasi),
-                            gap_penyempurnaan=VALUES(gap_penyempurnaan),
-                            unit_review_tambahan=VALUES(unit_review_tambahan),
-                            status_rekomendasi=VALUES(status_rekomendasi),
-                            status_persetujuan=CASE WHEN status_persetujuan = \'Dikembalikan untuk Revisi\' THEN \'Menunggu Persetujuan Pimpinan\' ELSE status_persetujuan END');
+                        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,\'Draft\',?)');
                         $stmt->execute([
                             $noUsulan, $tipe, $jenis, $unit, $pj,
                             $mitra, $judul, $tujuan, $ruang, $manfaat,
@@ -1013,7 +1151,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                     }
                 }
                 if ($importedCount > 0) {
-                    $success = "Berhasil mengimpor $importedCount usulan Pra-PKS dari file " . h($origName) . ".";
+                    $success = "Berhasil mengimpor $importedCount usulan Pra-PKS (Status: <strong>Draft</strong>) dari file " . h($origName) . ".";
                 }
             }
         }
@@ -1021,7 +1159,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
 }
 }
 
-/* ── VIEW ROUTER: DETAIL / PRINT FORM RESMI ───────────────── */
+// View router: detail / print form resmi
 $view = $_GET['view'] ?? 'list';
 $detailId = (int)($_GET['id'] ?? 0);
 
@@ -1042,7 +1180,7 @@ if (($view === 'detail' || $view === 'print') && $detailId > 0) {
     $pertanyaanData = json_decode($usulan['pertanyaan_uji'] ?? '[]', true) ?: [];
     $triggerData = json_decode($usulan['trigger_khusus'] ?? '[]', true) ?: [];
 
-    $pageTitle = 'Formulir Gate 0 — ' . $usulan['nomor_usulan'];
+    $pageTitle = 'Formulir Gate 0: ' . $usulan['nomor_usulan'];
     if ($view === 'detail') {
         require __DIR__ . '/includes/header.php';
     } else {
@@ -1086,7 +1224,7 @@ if (($view === 'detail' || $view === 'print') && $detailId > 0) {
         <div class="flex-between no-print" style="margin-bottom:16px;">
             <a href="gate0.php" class="btn btn-outline btn-sm">&larr; Kembali ke Daftar Usulan</a>
             <div style="display:flex;gap:8px;">
-                <button onclick="window.print()" class="btn btn-primary btn-sm">🖨️ Cetak / Simpan PDF</button>
+                <button onclick="window.print()" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:5px;"><?= uiIcon('printer', 14) ?> Cetak / Simpan PDF</button>
             </div>
         </div>
 
@@ -1276,21 +1414,94 @@ if (($view === 'detail' || $view === 'print') && $detailId > 0) {
     exit;
 }
 
-/* ── DATA QUERY ───────────────────────────────────────────── */
+// Data query
 $usulanList = $pdo->query('SELECT * FROM pra_pks ORDER BY id DESC')->fetchAll();
 
 $totalUsulan = count($usulanList);
-$disetujuiCount = count(array_filter($usulanList, fn($u) => $u['status_persetujuan'] === 'Disetujui Pimpinan'));
-$menungguCount = count(array_filter($usulanList, fn($u) => $u['status_persetujuan'] === 'Menunggu Persetujuan Pimpinan'));
-$siapPromosiCount = count(array_filter($usulanList, fn($u) => $u['status_persetujuan'] === 'Disetujui Pimpinan' && !$u['is_promoted_to_pks']));
+$draftCount = count(array_filter($usulanList, fn($u) => ($u['status_persetujuan'] ?? '') === 'Draft'));
+$menungguCount = count(array_filter($usulanList, fn($u) => ($u['status_persetujuan'] ?? '') === 'Menunggu Persetujuan Pimpinan'));
+$disetujuiCount = count(array_filter($usulanList, fn($u) => ($u['status_persetujuan'] ?? '') === 'Disetujui Pimpinan'));
+$revisiCount = count(array_filter($usulanList, fn($u) => ($u['status_persetujuan'] ?? '') === 'Dikembalikan untuk Revisi'));
+$ditolakCount = count(array_filter($usulanList, fn($u) => ($u['status_persetujuan'] ?? '') === 'Ditolak Pimpinan'));
+$siapPromosiCount = count(array_filter($usulanList, fn($u) => ($u['status_persetujuan'] ?? '') === 'Disetujui Pimpinan' && !$u['is_promoted_to_pks']));
 
-$pageTitle = 'Gate 0 — Pra-Kerja Sama';
+$pageTitle = 'Gate 0: Pra-Kerja Sama';
 require __DIR__ . '/includes/header.php';
 ?>
 
+<style>
+.g0-tab-btn {
+    padding: 6px 14px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s ease;
+}
+.g0-tab-btn:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+    border-color: #94a3b8;
+}
+.g0-tab-btn.active {
+    background: #1e40af;
+    color: #ffffff;
+    border-color: #1d4ed8;
+    box-shadow: 0 1px 3px rgba(30, 64, 175, 0.25);
+}
+.g0-tab-btn.active .badge-tab {
+    background: rgba(255, 255, 255, 0.25) !important;
+    color: #ffffff !important;
+}
+.badge-tab {
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-weight: 700;
+}
+.g0-page-btn {
+    min-width: 32px;
+    height: 32px;
+    padding: 0 8px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #334155;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+.g0-page-btn:hover:not(:disabled) {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+    color: #0f172a;
+}
+.g0-page-btn.active {
+    background: #1e40af;
+    border-color: #1d4ed8;
+    color: #ffffff;
+    box-shadow: 0 1px 2px rgba(30, 64, 175, 0.25);
+}
+.g0-page-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+</style>
+
 <div class="flex-between" style="margin-bottom:18px;">
     <div>
-        <h1 style="margin:0;font-size:20px;">Gate 0 — Pra-Kerja Sama</h1>
+        <h1 style="margin:0;font-size:20px;">Gate 0: Pra-Kerja Sama</h1>
         <div class="muted" style="font-size:13px;">Uji kelayakan calon kerja sama sebelum penandatanganan naskah</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;background:#f8fafc;padding:6px 12px;border:1px solid #cbd5e1;border-radius:6px;">
@@ -1299,8 +1510,8 @@ require __DIR__ . '/includes/header.php';
             <option value="public/templates/template_gate0_dalam_negeri.xlsx">Dalam Negeri (.xlsx)</option>
             <option value="public/templates/template_gate0_luar_negeri.xlsx">Luar Negeri (.xlsx)</option>
         </select>
-        <button type="button" onclick="downloadSelectedTemplate()" class="btn btn-primary btn-sm" style="font-size:12px;display:inline-flex;align-items:center;gap:4px;">
-            📥 Unduh Template Excel
+        <button type="button" onclick="downloadSelectedTemplate()" class="btn btn-primary btn-sm" style="font-size:12px;display:inline-flex;align-items:center;gap:5px;">
+            <?= uiIcon('download', 14) ?> Unduh Template Excel
         </button>
     </div>
     <script>
@@ -1322,10 +1533,14 @@ require __DIR__ . '/includes/header.php';
 <?php foreach ($errors as $e): ?><div class="alert alert-warning"><?= h($e) ?></div><?php endforeach; ?>
 
 <!-- KPI Row -->
-<div class="kpi-grid" style="margin-bottom:20px;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));">
+<div class="kpi-grid" style="margin-bottom:20px;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));">
     <div class="kpi-card">
         <div class="kpi-value"><?= $totalUsulan ?></div>
         <div class="kpi-label">Total Usulan</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value" style="color:#64748b;"><?= $draftCount ?></div>
+        <div class="kpi-label">Draft Usulan</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-value" style="color:#ca8a04;"><?= $menungguCount ?></div>
@@ -1343,18 +1558,79 @@ require __DIR__ . '/includes/header.php';
 
 <!-- Daftar Usulan -->
 <div class="card">
-    <div class="flex-between" style="margin-bottom:14px;">
+    <div class="flex-between" style="margin-bottom:14px;flex-wrap:wrap;gap:10px;">
         <h2 style="margin:0;">Daftar Usulan Pra-PKS</h2>
-        <div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <?php if ($canEdit): ?>
-            <button onclick="openGate0Modal('importModal')" class="btn btn-outline btn-sm">📤 Import Excel / CSV</button>
-            <button onclick="openGate0Modal('addModal')" class="btn btn-primary btn-sm">+ Usulan Baru</button>
+            <button onclick="openGate0Modal('importModal')" class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:5px;"><?= uiIcon('upload', 13) ?> Import Excel / CSV</button>
+            <button onclick="openGate0Modal('addModal')" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:5px;"><?= uiIcon('plus', 13) ?> Usulan Baru</button>
             <?php endif; ?>
         </div>
     </div>
 
+    <!-- Quick Status Filter Tabs -->
+    <div class="g0-tabs" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:12px;-webkit-overflow-scrolling:touch;">
+        <button type="button" class="g0-tab-btn active" data-status="" onclick="setGate0StatusTab('', this)">
+            Semua <span class="badge-tab" style="background:#e2e8f0;color:#334155;"><?= $totalUsulan ?></span>
+        </button>
+        <button type="button" class="g0-tab-btn" data-status="Draft" onclick="setGate0StatusTab('Draft', this)">
+            <?= uiIcon('file-edit', 12) ?> Draft <span class="badge-tab" style="background:#f1f5f9;color:#475569;"><?= $draftCount ?></span>
+        </button>
+        <button type="button" class="g0-tab-btn" data-status="Menunggu Persetujuan Pimpinan" onclick="setGate0StatusTab('Menunggu Persetujuan Pimpinan', this)">
+            <?= uiIcon('clock', 12) ?> Menunggu <span class="badge-tab" style="background:#fef3c7;color:#92400e;"><?= $menungguCount ?></span>
+        </button>
+        <button type="button" class="g0-tab-btn" data-status="Disetujui Pimpinan" onclick="setGate0StatusTab('Disetujui Pimpinan', this)">
+            <?= uiIcon('check-circle', 12) ?> Disetujui <span class="badge-tab" style="background:#dcfce7;color:#166534;"><?= $disetujuiCount ?></span>
+        </button>
+        <button type="button" class="g0-tab-btn" data-status="Dikembalikan untuk Revisi" onclick="setGate0StatusTab('Dikembalikan untuk Revisi', this)">
+            <?= uiIcon('rotate-ccw', 12) ?> Revisi <span class="badge-tab" style="background:#ffedd5;color:#9a3412;"><?= $revisiCount ?></span>
+        </button>
+        <button type="button" class="g0-tab-btn" data-status="Ditolak Pimpinan" onclick="setGate0StatusTab('Ditolak Pimpinan', this)">
+            <?= uiIcon('x-circle', 12) ?> Ditolak <span class="badge-tab" style="background:#fee2e2;color:#991b1b;"><?= $ditolakCount ?></span>
+        </button>
+    </div>
+
+    <!-- Filter & Search Bar -->
+    <div class="filters" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;background:#f8fafc;padding:10px 14px;border-radius:8px;border:1px solid var(--border,#e2e8f0);">
+        <div style="flex:1;min-width:220px;position:relative;">
+            <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;display:inline-flex;align-items:center;">
+                <?= uiIcon('search', 14) ?>
+            </span>
+            <input type="text" id="g0Search" placeholder="Cari Nomor Usulan / Calon Mitra / Judul..." style="width:100%;padding:7px 12px 7px 32px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;background:#fff;box-sizing:border-box;" oninput="onGate0FilterChange()">
+        </div>
+        <div style="min-width:180px;">
+            <select id="g0StatusFilter" style="width:100%;padding:7px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;background:#fff;font-weight:600;color:#1e293b;" onchange="onGate0StatusSelectChange()">
+                <option value="">Semua Status Persetujuan</option>
+                <option value="Draft">Draft</option>
+                <option value="Menunggu Persetujuan Pimpinan">Menunggu Persetujuan Pimpinan</option>
+                <option value="Disetujui Pimpinan">Disetujui Pimpinan</option>
+                <option value="Dikembalikan untuk Revisi">Dikembalikan untuk Revisi</option>
+                <option value="Ditolak Pimpinan">Ditolak Pimpinan</option>
+            </select>
+        </div>
+        <div style="min-width:140px;">
+            <select id="g0TipeFilter" style="width:100%;padding:7px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;background:#fff;" onchange="onGate0FilterChange()">
+                <option value="">Semua Tipe</option>
+                <option value="Dalam Negeri">Dalam Negeri</option>
+                <option value="Luar Negeri">Luar Negeri</option>
+            </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+            <label for="g0PageSize" style="font-size:12px;color:#64748b;margin:0;white-space:nowrap;">Tampil:</label>
+            <select id="g0PageSize" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px;background:#fff;" onchange="onGate0PageSizeChange()">
+                <option value="10" selected>10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="all">Semua</option>
+            </select>
+        </div>
+        <button type="button" onclick="resetGate0Filters()" class="btn btn-outline btn-sm" style="padding:7px 14px;font-size:12.5px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;" title="Reset Filter Gate 0">
+            <?= uiIcon('refresh', 13) ?> Reset Filter
+        </button>
+    </div>
+
     <div class="table-wrap">
-        <table>
+        <table id="tblGate0">
             <thead>
                 <tr>
                     <th>Nomor Usulan</th>
@@ -1369,17 +1645,22 @@ require __DIR__ . '/includes/header.php';
             </thead>
             <tbody>
                 <?php if (empty($usulanList)): ?>
-                <tr><td colspan="8" class="muted" style="text-align:center;padding:24px;">Belum ada usulan pra-PKS terdaftar.</td></tr>
-                <?php else: foreach ($usulanList as $u): 
+                <tr><td colspan="8"><?= uiEmptyState('Belum Ada Usulan Pra-PKS', 'Klik tombol Usulan Baru atau Import Excel untuk menambahkan data calon kerja sama.', 'file-text') ?></td></tr>
+                <?php else: ?>
+                <tr id="g0NoMatchRow" style="display:none;"><td colspan="8"><?= uiEmptyState('Tidak Ada Usulan yang Sesuai', 'Coba sesuaikan kata kunci atau gunakan tombol Reset Filter untuk menampilkan seluruh data.', 'search') ?></td></tr>
+                <?php foreach ($usulanList as $u): 
                     $rekBadge = match($u['status_rekomendasi']) {
                         'Layak' => 'success',
                         'Perlu Penyempurnaan' => 'warning',
                         default => 'danger'
                     };
-                    $appBadge = match($u['status_persetujuan']) {
+                    $stApp = $u['status_persetujuan'] ?? 'Draft';
+                    $appBadge = match($stApp) {
                         'Disetujui Pimpinan' => 'success',
                         'Dikembalikan untuk Revisi' => 'warning',
                         'Ditolak Pimpinan' => 'danger',
+                        'Menunggu Persetujuan Pimpinan' => 'primary',
+                        'Draft' => 'secondary',
                         default => 'secondary'
                     };
                     $tData = json_decode($u['trigger_khusus'] ?? '[]', true) ?: [];
@@ -1390,10 +1671,41 @@ require __DIR__ . '/includes/header.php';
                             $activeTriggers[] = GATE0_TRIGGERS[$tNum]['judul'] ?? "Trigger $tNum";
                         }
                     }
+
+                    // Requirement 4: jika status menunggu persetujuan, disetujui dan ditolak, tidak ada tombol edit
+                    $isNonEditable = in_array($stApp, ['Menunggu Persetujuan Pimpinan', 'Disetujui Pimpinan', 'Ditolak Pimpinan'], true);
+                    $canShowEdit = $canEdit && !$isNonEditable;
+
+                    $uData = [
+                        'id' => (int)$u['id'],
+                        'nomor_usulan' => $u['nomor_usulan'],
+                        'tipe_kerjasama' => $u['tipe_kerjasama'],
+                        'jenis_naskah' => $u['jenis_naskah'],
+                        'unit_pemrakarsa' => $u['unit_pemrakarsa'],
+                        'penanggung_jawab_usulan' => $u['penanggung_jawab_usulan'] ?? '',
+                        'calon_mitra' => $u['calon_mitra'],
+                        'judul_rencana' => $u['judul_rencana'],
+                        'tujuan_singkat' => $u['tujuan_singkat'] ?? '',
+                        'ruang_lingkup' => $u['ruang_lingkup'] ?? '',
+                        'penerima_manfaat' => $u['penerima_manfaat'] ?? '',
+                        'perkiraan_mulai' => $u['perkiraan_mulai'] ?? '',
+                        'perkiraan_selesai' => $u['perkiraan_selesai'] ?? '',
+                        'file_usulan' => $u['file_usulan'] ?? '',
+                        'pertanyaan_uji' => json_decode($u['pertanyaan_uji'] ?? '[]', true) ?: [],
+                        'trigger_khusus' => json_decode($u['trigger_khusus'] ?? '[]', true) ?: [],
+                        'catatan_verifikasi' => $u['catatan_verifikasi'] ?? '',
+                        'gap_penyempurnaan' => $u['gap_penyempurnaan'] ?? '',
+                        'unit_review_tambahan' => $u['unit_review_tambahan'] ?? '',
+                        'batas_waktu_penyempurnaan' => $u['batas_waktu_penyempurnaan'] ?? '',
+                        'status_rekomendasi' => $u['status_rekomendasi'] ?? '',
+                        'status_persetujuan' => $stApp,
+                    ];
                 ?>
-                <tr>
+                <tr class="g0-row" data-nomor="<?= strtolower(h($u['nomor_usulan'])) ?>" data-mitra="<?= strtolower(h($u['calon_mitra'])) ?>" data-judul="<?= strtolower(h($u['judul_rencana'])) ?>" data-status-persetujuan="<?= h($stApp) ?>" data-tipe="<?= h($u['tipe_kerjasama']) ?>">
                     <td>
-                        <strong><?= h($u['nomor_usulan']) ?></strong><br>
+                        <a href="gate0.php?view=detail&id=<?= $u['id'] ?>" title="Lihat detail formulir resmi" style="color:#1d4ed8;text-decoration:none;">
+                            <strong><?= h($u['nomor_usulan']) ?></strong>
+                        </a><br>
                         <span class="muted" style="font-size:11px;"><?= formatTanggal($u['created_at']) ?></span>
                     </td>
                     <td>
@@ -1404,6 +1716,13 @@ require __DIR__ . '/includes/header.php';
                         <strong><?= h($u['calon_mitra']) ?></strong>
                         <div style="font-size:12px;color:#334155;margin-top:2px;"><?= h(singkat($u['judul_rencana'], 50)) ?></div>
                         <div class="muted" style="font-size:11px;">Pemrakarsa: <?= h($u['unit_pemrakarsa']) ?></div>
+                        <?php if (!empty($u['file_usulan'])): ?>
+                        <div style="margin-top:3px;">
+                            <a href="<?= h($u['file_usulan']) ?>" target="_blank" style="font-size:10.5px;color:#059669;text-decoration:none;display:inline-flex;align-items:center;gap:3px;font-weight:600;">
+                                <?= uiIcon('paperclip', 11) ?> File Lampiran
+                            </a>
+                        </div>
+                        <?php endif; ?>
                     </td>
                     <td>
                         <div style="font-size:11px;line-height:1.4;">
@@ -1424,33 +1743,48 @@ require __DIR__ . '/includes/header.php';
                     </td>
                     <td><span class="badge badge-<?= $rekBadge ?>"><?= h($u['status_rekomendasi']) ?></span></td>
                     <td>
-                        <span class="badge badge-<?= $appBadge ?>"><?= h($u['status_persetujuan']) ?></span>
+                        <span class="badge badge-<?= $appBadge ?>"><?= h($stApp) ?></span>
                         <?php if ($u['catatan_pimpinan']): ?>
                         <div class="muted" style="font-size:11px;margin-top:3px;max-width:160px;">"<?= h(singkat($u['catatan_pimpinan'], 35)) ?>"</div>
                         <?php endif; ?>
                     </td>
                     <td>
-                        <div style="display:flex;gap:4px;flex-wrap:wrap;">
-                            <a href="gate0.php?view=detail&id=<?= $u['id'] ?>" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 7px;">📄 Form</a>
-                            <a href="gate0.php?view=print&id=<?= $u['id'] ?>" target="_blank" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 7px;">🖨️ PDF</a>
-                            
-                            <?php if ($canDecide && in_array($u['status_persetujuan'], ['Menunggu Persetujuan Pimpinan', 'Dikembalikan untuk Revisi'], true)): ?>
-                            <button onclick="openDecisionModal(<?= (int)$u['id'] ?>, <?= htmlspecialchars(json_encode((string)$u['nomor_usulan']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$u['calon_mitra']), ENT_QUOTES, 'UTF-8') ?>)" class="btn btn-warning btn-sm" style="font-size:11px;padding:3px 7px;">⚖️ Putusan</button>
-                            <?php endif; ?>
-
-                            <?php if ($u['status_persetujuan'] === 'Disetujui Pimpinan'): ?>
-                                <?php if (!$u['is_promoted_to_pks']): ?>
-                                    <?php if ($canEdit): ?>
-                                    <form method="post" style="display:inline;" onsubmit="return confirm('Promosikan usulan ini menjadi PKS aktif dengan Rencana Kerja?');">
-                                        <?= csrfField() ?>
-                                        <input type="hidden" name="action" value="promote">
-                                        <input type="hidden" name="usulan_id" value="<?= $u['id'] ?>">
-                                        <button type="submit" class="btn btn-success btn-sm" style="font-size:11px;padding:3px 7px;">🚀 Jadi PKS</button>
-                                    </form>
-                                    <?php endif; ?>
-                                <?php else: ?>
-                                    <span class="badge badge-info" style="font-size:10px;">✓ Jadi PKS</span>
+                        <div style="display:flex;flex-direction:column;gap:4px;min-width:130px;">
+                            <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                                <?php if ($canShowEdit): ?>
+                                <button type="button" class="btn btn-outline btn-sm" onclick='openEditGate0Modal(<?= htmlspecialchars(json_encode($uData), ENT_QUOTES, "UTF-8") ?>)' style="font-size:11px;padding:3px 7px;display:inline-flex;align-items:center;gap:3px;" title="Edit usulan dalam jendela pop-up"><?= uiIcon('edit', 11) ?> Edit</button>
                                 <?php endif; ?>
+                                <a href="gate0.php?view=print&id=<?= $u['id'] ?>" target="_blank" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 7px;display:inline-flex;align-items:center;gap:3px;" title="Cetak formulir resmi"><?= uiIcon('printer', 11) ?> Cetak</a>
+                                
+                                <?php if ($canDecide && in_array($stApp, ['Menunggu Persetujuan Pimpinan', 'Dikembalikan untuk Revisi'], true)): ?>
+                                <button onclick="openDecisionModal(<?= (int)$u['id'] ?>, <?= htmlspecialchars(json_encode((string)$u['nomor_usulan']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$u['calon_mitra']), ENT_QUOTES, 'UTF-8') ?>)" class="btn btn-warning btn-sm" style="font-size:11px;padding:3px 7px;display:inline-flex;align-items:center;gap:3px;"><?= uiIcon('scales', 11) ?> Putusan</button>
+                                <?php endif; ?>
+
+                                <?php if ($stApp === 'Disetujui Pimpinan'): ?>
+                                    <?php if (!$u['is_promoted_to_pks']): ?>
+                                        <?php if ($canEdit): ?>
+                                        <form method="post" style="display:inline;" onsubmit="return confirm('Promosikan usulan ini menjadi PKS aktif dengan Rencana Kerja?');">
+                                            <?= csrfField() ?>
+                                            <input type="hidden" name="action" value="promote">
+                                            <input type="hidden" name="usulan_id" value="<?= $u['id'] ?>">
+                                            <button type="submit" class="btn btn-success btn-sm" style="font-size:11px;padding:3px 7px;display:inline-flex;align-items:center;gap:3px;"><?= uiIcon('arrow-up-right', 11) ?> Jadi PKS</button>
+                                        </form>
+                                        <?php endif; ?>
+                                    <?php else: ?>
+                                        <span class="badge badge-info" style="font-size:10px;">✓ Jadi PKS</span>
+                                    <?php endif; ?>
+                                <?php endif; ?>
+                            </div>
+
+                            <?php if ($canEdit && ($stApp === 'Draft' || empty($stApp))): ?>
+                            <form method="post" style="margin:0;padding:0;width:100%;" onsubmit="return confirm('Submit usulan <?= h($u['nomor_usulan']) ?> ke Pimpinan? Status akan menjadi final (Menunggu Persetujuan Pimpinan).');">
+                                <?= csrfField() ?>
+                                <input type="hidden" name="action" value="submit_proposal">
+                                <input type="hidden" name="usulan_id" value="<?= $u['id'] ?>">
+                                <button type="submit" class="btn btn-sm btn-gate0-submit" style="background:#16a34a;color:#ffffff;border:1px solid #15803d;border-radius:4px;font-size:11px;font-weight:700;padding:4px 8px;width:100%;display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer;margin-top:2px;box-shadow:0 1px 2px rgba(0,0,0,0.06);" title="Submit usulan ke Pimpinan">
+                                    <?= uiIcon('send', 11) ?> Submit
+                                </button>
+                            </form>
                             <?php endif; ?>
                         </div>
                     </td>
@@ -1459,191 +1793,627 @@ require __DIR__ . '/includes/header.php';
             </tbody>
         </table>
     </div>
+
+    <!-- Pagination Footer -->
+    <div id="g0PaginationWrap" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid #e2e8f0;">
+        <div id="g0PageInfo" style="font-size:12.5px;color:#64748b;font-weight:500;">
+            Menampilkan 0 usulan
+        </div>
+        <div id="g0PaginationNav" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+            <!-- Generated dynamically by renderGate0Table() -->
+        </div>
+    </div>
 </div>
 
-<!-- BUG-FA-09: Modal Backdrop Overlay -->
-<div id="modalBackdrop" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.65);z-index:9990;backdrop-filter:blur(2px);" onclick="closeAllGate0Modals()"></div>
+<!-- Modal Backdrop & Universal Centered Overlay -->
+<div id="modalBackdrop" class="app-modal-overlay" onclick="handleGate0BackdropClick(event)">
 
-<!-- Modal Tambah Usulan Lengkap (Formulir Gate 0) -->
-<div id="addModal" class="card" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;width:92%;max-width:850px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 40px rgba(0,0,0,0.3);background:#fff;">
-    <div class="flex-between" style="border-bottom:1px solid #e2e8f0;padding-bottom:10px;margin-bottom:14px;">
-        <h2 style="margin:0;font-size:18px;">Input Usulan Baru Gate 0 (Formulir Resmi)</h2>
-        <button type="button" onclick="closeAllGate0Modals()" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
+<!-- Modal 1: Tambah Usulan Lengkap (Formulir Gate 0) -->
+<div id="addModal" class="app-modal-box" style="display:none;max-width:850px;" onclick="event.stopPropagation()">
+    <div class="app-modal-header">
+        <h2 style="margin:0;font-size:18px;color:#0f172a;">Input Usulan Baru Gate 0 (Formulir Resmi)</h2>
+        <button type="button" onclick="closeAllGate0Modals()" style="background:none;border:none;font-size:22px;color:#64748b;cursor:pointer;line-height:1;padding:2px 8px;">&times;</button>
     </div>
-    <form method="post">
+    <form method="post" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;margin:0;">
         <?= csrfField() ?>
         <input type="hidden" name="action" value="create">
 
-        <h3 style="font-size:14px;color:#1e40af;margin:10px 0 8px;">A. Identitas Usulan Kerja Sama</h3>
-        <div class="form-grid">
-            <div class="field"><label>Nomor Usulan *</label><input type="text" name="nomor_usulan" required placeholder="PRA-2026-003"></div>
-            <div class="field"><label>Tipe Kerja Sama</label><select name="tipe_kerjasama"><option>Dalam Negeri</option><option>Luar Negeri</option></select></div>
-            <div class="field"><label>Jenis Naskah</label><select name="jenis_naskah"><option>PKS</option><option>MoU</option><option>Lainnya</option></select></div>
-            <div class="field"><label>Unit Pemrakarsa *</label><input type="text" name="unit_pemrakarsa" required placeholder="Contoh: Divisi Pelayanan Hukum"></div>
-            <div class="field"><label>Penanggung Jawab Usulan (PIC)</label><input type="text" name="penanggung_jawab_usulan" placeholder="Nama pejabat/penyusun"></div>
-            <div class="field"><label>Calon Mitra *</label><input type="text" name="calon_mitra" required placeholder="Nama instansi/lembaga mitra"></div>
-            <div class="field" style="grid-column:1/-1;"><label>Judul Rencana Kerja Sama *</label><input type="text" name="judul_rencana" required placeholder="Judul kerja sama yang direncanakan"></div>
-            <div class="field" style="grid-column:1/-1;"><label>Tujuan Singkat</label><textarea name="tujuan_singkat" rows="2" placeholder="Tujuan kerja sama..."></textarea></div>
-            <div class="field" style="grid-column:1/-1;"><label>Ruang Lingkup Utama</label><textarea name="ruang_lingkup" rows="2" placeholder="Bidang/kegiatan yang disepakati..."></textarea></div>
-            <div class="field" style="grid-column:1/-1;"><label>Penerima Manfaat</label><input type="text" name="penerima_manfaat" placeholder="Kelompok masyarakat / instansi penerima manfaat"></div>
-            <div class="field"><label>Perkiraan Mulai</label><input type="date" name="perkiraan_mulai"></div>
-            <div class="field"><label>Perkiraan Selesai</label><input type="date" name="perkiraan_selesai"></div>
-        </div>
-
-        <h3 style="font-size:14px;color:#1e40af;margin:18px 0 8px;border-top:1px solid #e2e8f0;padding-top:14px;">B. 18 Pertanyaan Uji (5 Kriteria Inti Gate 0)</h3>
-        <p class="muted" style="font-size:12px;margin-bottom:12px;">Satu kriteria dinyatakan YA apabila seluruh sub-pertanyaan wajib di dalamnya dijawab YA berdasarkan bukti/keterangan yang memadai.</p>
-
-        <?php foreach (GATE0_CRITERIA as $kCode => $crit): ?>
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px;margin-bottom:12px;">
-            <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:8px;">
-                <?= $kCode ?>. <?= $crit['nama'] ?>
+        <div class="app-modal-body">
+            <h3 style="font-size:14px;color:#1e40af;margin:0 0 10px;">A. Identitas Usulan Kerja Sama</h3>
+            <div class="form-grid">
+                <div class="field"><label>Nomor Usulan *</label><input type="text" name="nomor_usulan" required placeholder="PRA-2026-003"></div>
+                <div class="field"><label>Tipe Kerja Sama</label><select name="tipe_kerjasama"><option>Dalam Negeri</option><option>Luar Negeri</option></select></div>
+                <div class="field"><label>Jenis Naskah</label><select name="jenis_naskah"><option>PKS</option><option>MoU</option><option>Lainnya</option></select></div>
+                <div class="field"><label>Unit Pemrakarsa *</label><input type="text" name="unit_pemrakarsa" required placeholder="Contoh: Divisi Pelayanan Hukum"></div>
+                <div class="field"><label>Penanggung Jawab Usulan (PIC)</label><input type="text" name="penanggung_jawab_usulan" placeholder="Nama pejabat/penyusun"></div>
+                <div class="field"><label>Calon Mitra *</label><input type="text" name="calon_mitra" required placeholder="Nama instansi/lembaga mitra"></div>
+                <div class="field" style="grid-column:1/-1;"><label>Judul Rencana Kerja Sama *</label><input type="text" name="judul_rencana" required placeholder="Judul kerja sama yang direncanakan"></div>
+                <div class="field" style="grid-column:1/-1;"><label>Tujuan Singkat</label><textarea name="tujuan_singkat" rows="2" placeholder="Tujuan kerja sama..."></textarea></div>
+                <div class="field" style="grid-column:1/-1;"><label>Ruang Lingkup Utama</label><textarea name="ruang_lingkup" rows="2" placeholder="Bidang/kegiatan yang disepakati..."></textarea></div>
+                <div class="field" style="grid-column:1/-1;"><label>Penerima Manfaat</label><input type="text" name="penerima_manfaat" placeholder="Kelompok masyarakat / instansi penerima manfaat"></div>
+                <div class="field"><label>Perkiraan Mulai</label><input type="date" name="perkiraan_mulai"></div>
+                <div class="field"><label>Perkiraan Selesai</label><input type="date" name="perkiraan_selesai"></div>
             </div>
-            <?php foreach ($crit['questions'] as $qNum => $qText): ?>
-            <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed #cbd5e1;">
-                <div style="font-size:12px;color:#334155;margin-bottom:4px;">
-                    <strong><?= $qNum ?>.</strong> <?= h($qText) ?>
+
+            <h3 style="font-size:14px;color:#1e40af;margin:18px 0 8px;border-top:1px solid #e2e8f0;padding-top:14px;">B. 18 Pertanyaan Uji (5 Kriteria Inti Gate 0)</h3>
+            <p class="muted" style="font-size:12px;margin-bottom:12px;">Satu kriteria dinyatakan YA apabila seluruh sub-pertanyaan wajib di dalamnya dijawab YA berdasarkan bukti/keterangan yang memadai.</p>
+
+            <?php foreach (GATE0_CRITERIA as $kCode => $crit): ?>
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px;margin-bottom:12px;">
+                <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:8px;">
+                    <?= $kCode ?>. <?= $crit['nama'] ?>
                 </div>
-                <div style="display:flex;gap:10px;align-items:center;">
-                    <select name="q<?= $qNum ?>_jawab" style="width:100px;">
-                        <option value="YA">YA</option>
-                        <option value="TIDAK">TIDAK</option>
-                    </select>
-                    <input type="text" name="q<?= $qNum ?>_bukti" placeholder="Bukti / keterangan pendukung..." style="flex:1;">
+                <?php foreach ($crit['questions'] as $qNum => $qText): ?>
+                <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed #cbd5e1;">
+                    <div style="font-size:12px;color:#334155;margin-bottom:4px;">
+                        <strong><?= $qNum ?>.</strong> <?= h($qText) ?>
+                    </div>
+                    <div style="display:flex;gap:10px;align-items:center;">
+                        <select name="q<?= $qNum ?>_jawab" style="width:100px;">
+                            <option value="YA">YA</option>
+                            <option value="TIDAK">TIDAK</option>
+                        </select>
+                        <input type="text" name="q<?= $qNum ?>_catatan" placeholder="Catatan bukti / dasar pertimbangan" style="flex:1;">
+                    </div>
                 </div>
+                <?php endforeach; ?>
             </div>
             <?php endforeach; ?>
-        </div>
-        <?php endforeach; ?>
 
-        <h3 style="font-size:14px;color:#1e40af;margin:18px 0 8px;border-top:1px solid #e2e8f0;padding-top:14px;">C. Trigger Karakteristik Khusus (7 Item)</h3>
-        <p class="muted" style="font-size:12px;margin-bottom:12px;">Jika dijawab YA, kerja sama memerlukan reviu tambahan dari fungsi terkait sebelum putusan pimpinan.</p>
-        
-        <div style="background:#fffbeb;border:1px solid #fef3c7;border-radius:6px;padding:12px;margin-bottom:14px;">
-            <?php foreach (GATE0_TRIGGERS as $tNum => $trig): ?>
-            <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed #fde68a;">
-                <div style="font-size:12px;font-weight:700;color:#92400e;"><?= $tNum ?>. <?= h($trig['judul']) ?></div>
-                <div style="font-size:11px;color:#78350f;margin-bottom:4px;"><?= h($trig['teks']) ?></div>
-                <div style="display:flex;gap:10px;align-items:center;">
-                    <select name="trigger<?= $tNum ?>_jawab" style="width:100px;">
-                        <option value="TIDAK">TIDAK</option>
-                        <option value="YA">YA</option>
-                    </select>
-                    <input type="text" name="trigger<?= $tNum ?>_catatan" placeholder="Catatan / SOP reviu: <?= h($trig['reviu']) ?>" style="flex:1;">
+            <h3 style="font-size:14px;color:#1e40af;margin:18px 0 8px;border-top:1px solid #e2e8f0;padding-top:14px;">C. 5 Pemicu Eskalasi ke Pimpinan</h3>
+            <div style="background:#fffbeb;border:1px solid #fef3c7;border-radius:6px;padding:12px;margin-bottom:12px;">
+                <?php foreach (GATE0_TRIGGERS as $tNum => $trig): ?>
+                <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed #fde68a;">
+                    <div style="font-size:12px;color:#78350f;margin-bottom:4px;">
+                        <strong>Pemicu <?= $tNum ?>:</strong> <?= h($trig['teks']) ?>
+                    </div>
+                    <div style="display:flex;gap:10px;align-items:center;">
+                        <select name="trigger<?= $tNum ?>_jawab" style="width:100px;">
+                            <option value="TIDAK">TIDAK</option>
+                            <option value="YA">YA</option>
+                        </select>
+                        <input type="text" name="trigger<?= $tNum ?>_catatan" placeholder="Catatan / SOP reviu: <?= h($trig['reviu']) ?>" style="flex:1;">
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+
+            <h3 style="font-size:14px;color:#1e40af;margin:18px 0 8px;border-top:1px solid #e2e8f0;padding-top:14px;">D. Catatan &amp; Gap Verifikasi</h3>
+            <div class="form-grid">
+                <div class="field" style="grid-column:1/-1;">
+                    <label>Catatan Verifikasi Ringkas</label>
+                    <textarea name="catatan_verifikasi" placeholder="Catatan kelayakan umum..."></textarea>
+                </div>
+                <div class="field" style="grid-column:1/-1;">
+                    <label>Gap yang Harus Ditutup (Bila Perlu Penyempurnaan)</label>
+                    <textarea name="gap_penyempurnaan" placeholder="Daftar kekurangan yang wajib dilengkapi unit pemrakarsa..."></textarea>
+                </div>
+                <div class="field">
+                    <label>Unit / Fungsi Reviu Tambahan</label>
+                    <input type="text" name="unit_review_tambahan" placeholder="Contoh: Biro Hukerma / Tim TI / Bagian Keuangan">
+                </div>
+                <div class="field">
+                    <label>Batas Waktu Penyempurnaan</label>
+                    <input type="date" name="batas_waktu_penyempurnaan">
                 </div>
             </div>
-            <?php endforeach; ?>
         </div>
 
-        <h3 style="font-size:14px;color:#1e40af;margin:18px 0 8px;border-top:1px solid #e2e8f0;padding-top:14px;">D. Catatan &amp; Gap Verifikasi</h3>
-        <div class="form-grid">
-            <div class="field" style="grid-column:1/-1;">
-                <label>Catatan Verifikasi Ringkas</label>
-                <textarea name="catatan_verifikasi" placeholder="Catatan kelayakan umum..."></textarea>
-            </div>
-            <div class="field" style="grid-column:1/-1;">
-                <label>Gap yang Harus Ditutup (Bila Perlu Penyempurnaan)</label>
-                <textarea name="gap_penyempurnaan" placeholder="Daftar kekurangan yang wajib dilengkapi unit pemrakarsa..."></textarea>
-            </div>
-            <div class="field">
-                <label>Unit / Fungsi Reviu Tambahan</label>
-                <input type="text" name="unit_review_tambahan" placeholder="Contoh: Biro Hukerma / Tim TI / Bagian Keuangan">
-            </div>
-            <div class="field">
-                <label>Batas Waktu Penyempurnaan</label>
-                <input type="date" name="batas_waktu_penyempurnaan">
-            </div>
-        </div>
-
-        <div style="margin-top:18px;display:flex;gap:10px;border-top:1px solid #e2e8f0;padding-top:14px;">
-            <button type="submit" class="btn btn-primary">Simpan &amp; Ajukan Usulan</button>
+        <div class="app-modal-footer">
             <button type="button" onclick="closeAllGate0Modals()" class="btn btn-outline">Batal</button>
+            <button type="submit" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;">
+                <?= uiIcon('check-circle', 14) ?> Simpan &amp; Ajukan Usulan
+            </button>
         </div>
     </form>
 </div>
 
-<!-- Modal Keputusan Pimpinan -->
-<div id="decisionModal" class="card" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;width:90%;max-width:500px;box-shadow:0 20px 40px rgba(0,0,0,0.3);background:#fff;">
-    <div class="flex-between" style="border-bottom:1px solid #e2e8f0;padding-bottom:10px;margin-bottom:14px;">
-        <h2 style="margin:0;font-size:18px;">Keputusan Pimpinan (Gate 0)</h2>
-        <button type="button" onclick="closeAllGate0Modals()" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
+<!-- Modal 2: Keputusan Pimpinan -->
+<div id="decisionModal" class="app-modal-box" style="display:none;max-width:520px;" onclick="event.stopPropagation()">
+    <div class="app-modal-header">
+        <h2 style="margin:0;font-size:18px;color:#0f172a;">Keputusan Pimpinan (Gate 0)</h2>
+        <button type="button" onclick="closeAllGate0Modals()" style="background:none;border:none;font-size:22px;color:#64748b;cursor:pointer;line-height:1;padding:2px 8px;">&times;</button>
     </div>
-    <form method="post">
+    <form method="post" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;margin:0;">
         <?= csrfField() ?>
         <input type="hidden" name="action" value="decision">
         <input type="hidden" name="usulan_id" id="decUsulanId">
-        <div style="margin-bottom:12px;font-size:13px;">
-            Usulan: <strong id="decUsulanNo"></strong> &mdash; <span id="decCalonMitra"></span>
+        
+        <div class="app-modal-body">
+            <div style="margin-bottom:12px;font-size:13px;background:#f8fafc;padding:10px;border-radius:6px;border:1px solid #e2e8f0;">
+                Usulan: <strong id="decUsulanNo" style="color:#1e40af;"></strong> &mdash; <span id="decCalonMitra"></span>
+            </div>
+            <div class="field">
+                <label style="font-weight:600;">Keputusan Pimpinan *</label>
+                <select name="status_persetujuan" required>
+                    <option value="Disetujui Pimpinan">Disetujui Pimpinan (Layak Diproses ke PKS)</option>
+                    <option value="Dikembalikan untuk Revisi">Dikembalikan untuk Revisi (Tutup Gap)</option>
+                    <option value="Ditolak Pimpinan">Ditolak Pimpinan (Tidak Prioritas / Tidak Layak)</option>
+                </select>
+            </div>
+            <div class="field" style="margin-top:12px;">
+                <label style="font-weight:600;">Arahan / Disposisi Pimpinan</label>
+                <textarea name="catatan_pimpinan" rows="3" placeholder="Instruksi, disposisi, atau alasan keputusan..."></textarea>
+            </div>
         </div>
-        <div class="field">
-            <label>Keputusan</label>
-            <select name="status_persetujuan" required>
-                <option value="Disetujui Pimpinan">Disetujui Pimpinan (Layak Diproses ke PKS)</option>
-                <option value="Dikembalikan untuk Revisi">Dikembalikan untuk Revisi (Tutup Gap)</option>
-                <option value="Ditolak Pimpinan">Ditolak Pimpinan (Tidak Prioritas / Tidak Layak)</option>
-            </select>
-        </div>
-        <div class="field" style="margin-top:10px;">
-            <label>Arahan / Disposisi Pimpinan</label>
-            <textarea name="catatan_pimpinan" rows="3" placeholder="Instruksi, disposisi, atau alasan keputusan..."></textarea>
-        </div>
-        <div style="margin-top:16px;display:flex;gap:10px;">
-            <button type="submit" class="btn btn-primary">Simpan Keputusan</button>
+
+        <div class="app-modal-footer">
             <button type="button" onclick="closeAllGate0Modals()" class="btn btn-outline">Batal</button>
+            <button type="submit" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;">
+                <?= uiIcon('check-circle', 14) ?> Simpan Keputusan
+            </button>
         </div>
     </form>
 </div>
 
-<!-- Modal Import Excel (.xlsx) / CSV -->
-<div id="importModal" class="card" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;width:90%;max-width:500px;box-shadow:0 20px 40px rgba(0,0,0,0.3);background:#fff;">
-    <div class="flex-between" style="border-bottom:1px solid #e2e8f0;padding-bottom:10px;margin-bottom:14px;">
-        <h2 style="margin:0;font-size:18px;">Import Usulan Pra-PKS (Excel / CSV)</h2>
-        <button type="button" onclick="closeAllGate0Modals()" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
+<!-- Modal 3: Import Excel (.xlsx) / CSV -->
+<div id="importModal" class="app-modal-box" style="display:none;max-width:520px;" onclick="event.stopPropagation()">
+    <div class="app-modal-header">
+        <h2 style="margin:0;font-size:18px;color:#0f172a;">Import Usulan Pra-PKS (Excel / CSV)</h2>
+        <button type="button" onclick="closeAllGate0Modals()" style="background:none;border:none;font-size:22px;color:#64748b;cursor:pointer;line-height:1;padding:2px 8px;">&times;</button>
     </div>
-    <form method="post" enctype="multipart/form-data">
+    <form method="post" enctype="multipart/form-data" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;margin:0;">
         <?= csrfField() ?>
         <input type="hidden" name="action" value="import_csv">
-        <p style="font-size:13px;" class="muted">
-            Gunakan format Excel (.xlsx) atau CSV sesuai template yang disediakan pada tombol di kanan atas.
-        </p>
-        <div class="field" style="margin:14px 0;">
-            <label>Pilih File Excel (.xlsx) atau CSV</label>
-            <input type="file" name="csv_file" accept=".xlsx,.csv" required>
+        <div class="app-modal-body">
+            <p style="font-size:13px;" class="muted">
+                Gunakan format Excel (.xlsx) atau CSV sesuai template yang disediakan pada tombol di kanan atas.
+            </p>
+            <div class="field" style="margin:14px 0;">
+                <label style="font-weight:600;">Pilih File Excel (.xlsx) atau CSV</label>
+                <input type="file" name="csv_file" accept=".xlsx,.csv" required>
+            </div>
         </div>
-        <div style="display:flex;gap:10px;">
-            <button type="submit" class="btn btn-primary">Upload &amp; Import</button>
+        <div class="app-modal-footer">
             <button type="button" onclick="closeAllGate0Modals()" class="btn btn-outline">Batal</button>
+            <button type="submit" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;">
+                <?= uiIcon('upload', 14) ?> Upload &amp; Import
+            </button>
         </div>
     </form>
 </div>
 
+<!-- Modal 4: Edit Usulan (Jendela Pop-up Form & Upload File Baru) -->
+<div id="editModal" class="app-modal-box" style="display:none;max-width:860px;" onclick="event.stopPropagation()">
+    <div class="app-modal-header">
+        <div>
+            <h2 style="margin:0;font-size:18px;color:#1e293b;">Edit Usulan Pra-PKS: <span id="editModalNomorTitle" style="color:#2563eb;"></span></h2>
+            <div class="muted" style="font-size:12px;margin-top:2px;">Perbarui data formulir usulan kerja sama atau unggah file baru</div>
+        </div>
+        <button type="button" onclick="closeAllGate0Modals()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#64748b;line-height:1;padding:2px 8px;">&times;</button>
+    </div>
+    <form method="post" enctype="multipart/form-data" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;margin:0;">
+        <?= csrfField() ?>
+        <input type="hidden" name="action" value="update">
+        <input type="hidden" name="usulan_id" id="editUsulanId">
+
+        <div class="app-modal-body">
+            <h3 style="font-size:14px;color:#1e40af;margin:0 0 10px;">A. Identitas Usulan Kerja Sama</h3>
+            <div class="form-grid">
+                <div class="field"><label>Nomor Usulan *</label><input type="text" name="nomor_usulan" id="editNomorUsulan" required></div>
+                <div class="field"><label>Tipe Kerja Sama</label><select name="tipe_kerjasama" id="editTipeKerjasama"><option>Dalam Negeri</option><option>Luar Negeri</option></select></div>
+                <div class="field"><label>Jenis Naskah</label><select name="jenis_naskah" id="editJenisNaskah"><option>PKS</option><option>MoU</option><option>Lainnya</option></select></div>
+                <div class="field"><label>Unit Pemrakarsa *</label><input type="text" name="unit_pemrakarsa" id="editUnitPemrakarsa" required></div>
+                <div class="field"><label>Penanggung Jawab Usulan (PIC)</label><input type="text" name="penanggung_jawab_usulan" id="editPenanggungJawab"></div>
+                <div class="field"><label>Calon Mitra *</label><input type="text" name="calon_mitra" id="editCalonMitra" required></div>
+                <div class="field" style="grid-column:1/-1;"><label>Judul Rencana Kerja Sama *</label><input type="text" name="judul_rencana" id="editJudulRencana" required></div>
+                <div class="field" style="grid-column:1/-1;"><label>Tujuan Singkat</label><textarea name="tujuan_singkat" id="editTujuanSingkat" rows="2"></textarea></div>
+                <div class="field" style="grid-column:1/-1;"><label>Ruang Lingkup Utama</label><textarea name="ruang_lingkup" id="editRuangLingkup" rows="2"></textarea></div>
+                <div class="field" style="grid-column:1/-1;"><label>Penerima Manfaat</label><input type="text" name="penerima_manfaat" id="editPenerimaManfaat"></div>
+                <div class="field"><label>Perkiraan Mulai</label><input type="date" name="perkiraan_mulai" id="editPerkiraanMulai"></div>
+                <div class="field"><label>Perkiraan Selesai</label><input type="date" name="perkiraan_selesai" id="editPerkiraanSelesai"></div>
+                <div class="field" style="grid-column:1/-1;background:#f8fafc;padding:10px 12px;border:1px dashed #cbd5e1;border-radius:6px;">
+                    <label style="font-weight:700;color:#1e293b;margin-bottom:4px;display:flex;align-items:center;gap:5px;"><?= uiIcon('paperclip', 13) ?> File Lampiran / Dokumen Usulan Baru</label>
+                    <div id="editCurrentFileBox" style="margin-bottom:6px;font-size:12px;"></div>
+                    <input type="file" name="file_naskah_baru" accept=".pdf,.docx,.xlsx,.csv">
+                    <div class="muted" style="font-size:11px;margin-top:2px;">Format didukung: PDF, DOCX, XLSX, CSV (maksimal 25MB). Unggah file baru untuk mengganti file lama.</div>
+                </div>
+            </div>
+
+            <h3 style="font-size:14px;color:#1e40af;margin:18px 0 8px;border-top:1px solid #e2e8f0;padding-top:14px;">B. 18 Pertanyaan Uji (5 Kriteria Inti Gate 0)</h3>
+            <p class="muted" style="font-size:12px;margin-bottom:12px;">Satu kriteria dinyatakan YA apabila seluruh sub-pertanyaan wajib di dalamnya dijawab YA berdasarkan bukti/keterangan yang memadai.</p>
+
+            <?php foreach (GATE0_CRITERIA as $kCode => $crit): ?>
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px;margin-bottom:12px;">
+                <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:8px;">
+                    <?= $kCode ?>. <?= $crit['nama'] ?>
+                </div>
+                <?php foreach ($crit['questions'] as $qNum => $qText): ?>
+                <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed #cbd5e1;">
+                    <div style="font-size:12px;color:#334155;margin-bottom:4px;">
+                        <strong><?= $qNum ?>.</strong> <?= h($qText) ?>
+                    </div>
+                    <div style="display:flex;gap:10px;align-items:center;">
+                        <select name="edit_q<?= $qNum ?>_jawab" id="edit_q<?= $qNum ?>_jawab" style="width:100px;">
+                            <option value="YA">YA</option>
+                            <option value="TIDAK">TIDAK</option>
+                        </select>
+                        <input type="text" name="edit_q<?= $qNum ?>_catatan" id="edit_q<?= $qNum ?>_catatan" placeholder="Catatan bukti / dasar pertimbangan" style="flex:1;">
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php endforeach; ?>
+
+            <h3 style="font-size:14px;color:#1e40af;margin:18px 0 8px;border-top:1px solid #e2e8f0;padding-top:14px;">C. 5 Pemicu Eskalasi ke Pimpinan</h3>
+            <div style="background:#fffbeb;border:1px solid #fef3c7;border-radius:6px;padding:12px;margin-bottom:12px;">
+                <?php foreach (GATE0_TRIGGERS as $tNum => $trig): ?>
+                <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed #fde68a;">
+                    <div style="font-size:12px;color:#78350f;margin-bottom:4px;">
+                        <strong>Pemicu <?= $tNum ?>:</strong> <?= h($trig['teks']) ?>
+                    </div>
+                    <div style="display:flex;gap:10px;align-items:center;">
+                        <select name="edit_trigger<?= $tNum ?>_jawab" id="edit_trigger<?= $tNum ?>_jawab" style="width:100px;">
+                            <option value="TIDAK">TIDAK</option>
+                            <option value="YA">YA</option>
+                        </select>
+                        <input type="text" name="edit_trigger<?= $tNum ?>_catatan" id="edit_trigger<?= $tNum ?>_catatan" placeholder="Catatan / SOP reviu: <?= h($trig['reviu']) ?>" style="flex:1;">
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+
+            <h3 style="font-size:14px;color:#1e40af;margin:18px 0 8px;border-top:1px solid #e2e8f0;padding-top:14px;">D. Catatan &amp; Gap Verifikasi</h3>
+            <div class="form-grid">
+                <div class="field" style="grid-column:1/-1;">
+                    <label>Catatan Verifikasi Ringkas</label>
+                    <textarea name="catatan_verifikasi" id="editCatatanVerifikasi" placeholder="Catatan kelayakan umum..."></textarea>
+                </div>
+                <div class="field" style="grid-column:1/-1;">
+                    <label>Gap yang Harus Ditutup (Bila Perlu Penyempurnaan)</label>
+                    <textarea name="gap_penyempurnaan" id="editGapPenyempurnaan" placeholder="Daftar kekurangan yang wajib dilengkapi unit pemrakarsa..."></textarea>
+                </div>
+                <div class="field">
+                    <label>Unit / Fungsi Reviu Tambahan</label>
+                    <input type="text" name="unit_review_tambahan" id="editUnitReviewTambahan" placeholder="Contoh: Biro Hukerma / Tim TI / Bagian Keuangan">
+                </div>
+                <div class="field">
+                    <label>Batas Waktu Penyempurnaan</label>
+                    <input type="date" name="batas_waktu_penyempurnaan" id="editBatasWaktuPenyempurnaan">
+                </div>
+            </div>
+        </div>
+
+        <div class="app-modal-footer">
+            <button type="button" onclick="closeAllGate0Modals()" class="btn btn-outline">Batal</button>
+            <button type="submit" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;">
+                <?= uiIcon('check-circle', 14) ?> Simpan Perubahan Usulan
+            </button>
+        </div>
+    </form>
+</div>
+
+</div><!-- /#modalBackdrop -->
 <script>
 function openGate0Modal(modalId) {
-    var m = document.getElementById(modalId);
-    if (m) m.style.display = 'block';
+    closeAllGate0Modals();
     var bg = document.getElementById('modalBackdrop');
-    if (bg) bg.style.display = 'block';
+    if (bg && bg.parentNode !== document.body) {
+        document.body.appendChild(bg);
+    }
+    if (bg) bg.style.display = 'flex';
+    var m = document.getElementById(modalId);
+    if (m) m.style.display = 'flex';
+    document.body.classList.add('modal-open');
 }
 
 function closeAllGate0Modals() {
-    ['addModal', 'decisionModal', 'importModal'].forEach(function(id) {
+    ['addModal', 'editModal', 'decisionModal', 'importModal'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });
     var bg = document.getElementById('modalBackdrop');
     if (bg) bg.style.display = 'none';
+    document.body.classList.remove('modal-open');
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeAllGate0Modals();
+    }
+});
+
+function handleGate0BackdropClick(e) {
+    if (e.target && e.target.id === 'modalBackdrop') {
+        closeAllGate0Modals();
+    }
+}
+
+function openEditGate0Modal(data) {
+    document.getElementById('editUsulanId').value = data.id || '';
+    document.getElementById('editModalNomorTitle').textContent = data.nomor_usulan || '';
+    document.getElementById('editNomorUsulan').value = data.nomor_usulan || '';
+    document.getElementById('editTipeKerjasama').value = data.tipe_kerjasama || 'Dalam Negeri';
+    document.getElementById('editJenisNaskah').value = data.jenis_naskah || 'PKS';
+    document.getElementById('editUnitPemrakarsa').value = data.unit_pemrakarsa || '';
+    document.getElementById('editPenanggungJawab').value = data.penanggung_jawab_usulan || '';
+    document.getElementById('editCalonMitra').value = data.calon_mitra || '';
+    document.getElementById('editJudulRencana').value = data.judul_rencana || '';
+    document.getElementById('editTujuanSingkat').value = data.tujuan_singkat || '';
+    document.getElementById('editRuangLingkup').value = data.ruang_lingkup || '';
+    document.getElementById('editPenerimaManfaat').value = data.penerima_manfaat || '';
+    document.getElementById('editPerkiraanMulai').value = data.perkiraan_mulai || '';
+    document.getElementById('editPerkiraanSelesai').value = data.perkiraan_selesai || '';
+
+    var fileBox = document.getElementById('editCurrentFileBox');
+    if (fileBox) {
+        if (data.file_usulan) {
+            fileBox.innerHTML = '<span style="color:#16a34a;font-weight:600;">✓ File saat ini:</span> <a href="' + encodeURI(data.file_usulan) + '" target="_blank" style="color:#2563eb;text-decoration:underline;font-weight:600;">' + data.file_usulan.split('/').pop() + '</a>';
+        } else {
+            fileBox.innerHTML = '<span style="color:#64748b;">Belum ada lampiran file.</span>';
+        }
+    }
+
+    var pData = data.pertanyaan_uji || {};
+    for (var q = 1; q <= 18; q++) {
+        var qObj = pData['q' + q] || {};
+        var jEl = document.getElementById('edit_q' + q + '_jawab');
+        var bEl = document.getElementById('edit_q' + q + '_bukti');
+        if (jEl) jEl.value = (qObj.jawab === 'TIDAK') ? 'TIDAK' : 'YA';
+        if (bEl) bEl.value = qObj.bukti || '';
+    }
+
+    var tData = data.trigger_khusus || {};
+    for (var t = 1; t <= 7; t++) {
+        var tObj = tData['t' + t] || {};
+        var tjEl = document.getElementById('edit_trigger' + t + '_jawab');
+        var tcEl = document.getElementById('edit_trigger' + t + '_catatan');
+        if (tjEl) tjEl.value = (tObj.jawab === 'YA') ? 'YA' : 'TIDAK';
+        if (tcEl) tcEl.value = tObj.catatan || '';
+    }
+
+    document.getElementById('editCatatanVerifikasi').value = data.catatan_verifikasi || '';
+    document.getElementById('editGapPenyempurnaan').value = data.gap_penyempurnaan || '';
+    document.getElementById('editUnitReviewTambahan').value = data.unit_review_tambahan || '';
+    document.getElementById('editBatasWaktu').value = data.batas_waktu_penyempurnaan || '';
+
+    openGate0Modal('editModal');
 }
 
 function openDecisionModal(id, no, mitra) {
     document.getElementById('decUsulanId').value = id;
     document.getElementById('decUsulanNo').textContent = no;
     document.getElementById('decCalonMitra').textContent = mitra;
-    // Bug 26: In openDecisionModal(), clear/reset catatan_pimpinan textarea and status_persetujuan select on open
+    // In openDecisionModal(), clear/reset catatan_pimpinan textarea and status_persetujuan select on open
     var statusSelect = document.querySelector('#decisionModal select[name="status_persetujuan"]');
     if (statusSelect) statusSelect.selectedIndex = 0;
     var catatanText = document.querySelector('#decisionModal textarea[name="catatan_pimpinan"]');
     if (catatanText) catatanText.value = '';
     openGate0Modal('decisionModal');
 }
+
+var g0CurrentPage = 1;
+var g0PageSize = 10;
+var g0ActiveStatus = '';
+
+function setGate0StatusTab(statusVal, btnEl) {
+    g0ActiveStatus = statusVal;
+    var statusSelect = document.getElementById('g0StatusFilter');
+    if (statusSelect) statusSelect.value = statusVal;
+
+    var tabs = document.querySelectorAll('.g0-tab-btn');
+    tabs.forEach(function(t) { t.classList.remove('active'); });
+    if (btnEl) btnEl.classList.add('active');
+
+    g0CurrentPage = 1;
+    renderGate0Table();
+}
+
+function onGate0StatusSelectChange() {
+    var statusSelect = document.getElementById('g0StatusFilter');
+    g0ActiveStatus = statusSelect ? statusSelect.value : '';
+
+    var tabs = document.querySelectorAll('.g0-tab-btn');
+    tabs.forEach(function(t) {
+        var tabVal = t.getAttribute('data-status') || '';
+        if (tabVal === g0ActiveStatus) t.classList.add('active');
+        else t.classList.remove('active');
+    });
+
+    g0CurrentPage = 1;
+    renderGate0Table();
+}
+
+function onGate0FilterChange() {
+    g0CurrentPage = 1;
+    renderGate0Table();
+}
+
+function onGate0PageSizeChange() {
+    var psEl = document.getElementById('g0PageSize');
+    var val = psEl ? psEl.value : '10';
+    g0PageSize = (val === 'all') ? 999999 : parseInt(val, 10);
+    g0CurrentPage = 1;
+    renderGate0Table();
+}
+
+function resetGate0Filters() {
+    var sInput = document.getElementById('g0Search');
+    if (sInput) sInput.value = '';
+    var stEl = document.getElementById('g0StatusFilter');
+    if (stEl) stEl.value = '';
+    var tipeEl = document.getElementById('g0TipeFilter');
+    if (tipeEl) tipeEl.value = '';
+    var psEl = document.getElementById('g0PageSize');
+    if (psEl) psEl.value = '10';
+    g0PageSize = 10;
+    g0ActiveStatus = '';
+
+    var tabs = document.querySelectorAll('.g0-tab-btn');
+    tabs.forEach(function(t, idx) {
+        if (idx === 0) t.classList.add('active');
+        else t.classList.remove('active');
+    });
+
+    g0CurrentPage = 1;
+    renderGate0Table();
+}
+
+function renderGate0Table() {
+    var tbl = document.getElementById('tblGate0');
+    var sInput = document.getElementById('g0Search');
+    if (!tbl || !sInput) return;
+
+    var q = (sInput.value || '').toLowerCase().trim();
+    var st = g0ActiveStatus;
+    var tipeSelect = document.getElementById('g0TipeFilter');
+    var tp = tipeSelect ? tipeSelect.value.trim() : '';
+
+    var rows = Array.from(document.querySelectorAll('#tblGate0 tbody tr.g0-row'));
+    var matchedRows = [];
+
+    rows.forEach(function(r) {
+        var no = (r.getAttribute('data-nomor') || '').toLowerCase();
+        var mitra = (r.getAttribute('data-mitra') || '').toLowerCase();
+        var judul = (r.getAttribute('data-judul') || '').toLowerCase();
+        var rStatus = (r.getAttribute('data-status-persetujuan') || '').trim();
+        var rTipe = (r.getAttribute('data-tipe') || '').trim();
+
+        var matchQ = !q || no.indexOf(q) !== -1 || mitra.indexOf(q) !== -1 || judul.indexOf(q) !== -1 || r.textContent.toLowerCase().indexOf(q) !== -1;
+        var matchSt = !st || rStatus === st;
+        var matchTp = !tp || rTipe === tp;
+
+        if (matchQ && matchSt && matchTp) {
+            matchedRows.push(r);
+        }
+    });
+
+    var totalMatched = matchedRows.length;
+    var totalPages = Math.ceil(totalMatched / g0PageSize) || 1;
+    if (g0CurrentPage > totalPages) g0CurrentPage = totalPages;
+    if (g0CurrentPage < 1) g0CurrentPage = 1;
+
+    var startIdx = (g0CurrentPage - 1) * g0PageSize;
+    var endIdx = Math.min(startIdx + g0PageSize, totalMatched);
+
+    // Hide all rows first
+    rows.forEach(function(r) { r.style.display = 'none'; });
+
+    // Show only current page slice
+    for (var i = startIdx; i < endIdx; i++) {
+        matchedRows[i].style.display = '';
+    }
+
+    // No match row
+    var emptyRow = document.getElementById('g0NoMatchRow');
+    if (emptyRow) {
+        emptyRow.style.display = (rows.length > 0 && totalMatched === 0) ? '' : 'none';
+    }
+
+    // Page Info
+    var pageInfo = document.getElementById('g0PageInfo');
+    if (pageInfo) {
+        if (totalMatched === 0) {
+            pageInfo.textContent = 'Tidak ada usulan yang sesuai dengan filter pencarian';
+        } else {
+            pageInfo.textContent = 'Menampilkan ' + (startIdx + 1) + ' – ' + endIdx + ' dari ' + totalMatched + ' usulan';
+        }
+    }
+
+    // Render Navigation
+    renderPaginationButtons(totalMatched, totalPages);
+}
+
+function goToGate0Page(page) {
+    g0CurrentPage = page;
+    renderGate0Table();
+}
+
+function renderPaginationButtons(totalMatched, totalPages) {
+    var nav = document.getElementById('g0PaginationNav');
+    if (!nav) return;
+    nav.innerHTML = '';
+
+    if (totalMatched <= g0PageSize) {
+        return;
+    }
+
+    // First button «
+    var btnFirst = document.createElement('button');
+    btnFirst.type = 'button';
+    btnFirst.className = 'g0-page-btn';
+    btnFirst.innerHTML = '&laquo;';
+    btnFirst.title = 'Halaman Pertama';
+    btnFirst.disabled = (g0CurrentPage === 1);
+    btnFirst.onclick = function() { goToGate0Page(1); };
+    nav.appendChild(btnFirst);
+
+    // Prev button ‹
+    var btnPrev = document.createElement('button');
+    btnPrev.type = 'button';
+    btnPrev.className = 'g0-page-btn';
+    btnPrev.innerHTML = '&lsaquo;';
+    btnPrev.title = 'Halaman Sebelumnya';
+    btnPrev.disabled = (g0CurrentPage === 1);
+    btnPrev.onclick = function() { goToGate0Page(g0CurrentPage - 1); };
+    nav.appendChild(btnPrev);
+
+    // Page numbers
+    var maxVisible = 5;
+    var startP = Math.max(1, g0CurrentPage - Math.floor(maxVisible / 2));
+    var endP = Math.min(totalPages, startP + maxVisible - 1);
+    if (endP - startP + 1 < maxVisible) {
+        startP = Math.max(1, endP - maxVisible + 1);
+    }
+
+    if (startP > 1) {
+        nav.appendChild(createPageBtn(1));
+        if (startP > 2) {
+            var ell = document.createElement('span');
+            ell.textContent = '...';
+            ell.style.padding = '0 4px';
+            ell.style.color = '#94a3b8';
+            nav.appendChild(ell);
+        }
+    }
+
+    for (var p = startP; p <= endP; p++) {
+        nav.appendChild(createPageBtn(p));
+    }
+
+    if (endP < totalPages) {
+        if (endP < totalPages - 1) {
+            var ell2 = document.createElement('span');
+            ell2.textContent = '...';
+            ell2.style.padding = '0 4px';
+            ell2.style.color = '#94a3b8';
+            nav.appendChild(ell2);
+        }
+        nav.appendChild(createPageBtn(totalPages));
+    }
+
+    // Next button ›
+    var btnNext = document.createElement('button');
+    btnNext.type = 'button';
+    btnNext.className = 'g0-page-btn';
+    btnNext.innerHTML = '&rsaquo;';
+    btnNext.title = 'Halaman Berikutnya';
+    btnNext.disabled = (g0CurrentPage === totalPages);
+    btnNext.onclick = function() { goToGate0Page(g0CurrentPage + 1); };
+    nav.appendChild(btnNext);
+
+    // Last button »
+    var btnLast = document.createElement('button');
+    btnLast.type = 'button';
+    btnLast.className = 'g0-page-btn';
+    btnLast.innerHTML = '&raquo;';
+    btnLast.title = 'Halaman Terakhir';
+    btnLast.disabled = (g0CurrentPage === totalPages);
+    btnLast.onclick = function() { goToGate0Page(totalPages); };
+    nav.appendChild(btnLast);
+}
+
+function createPageBtn(p) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'g0-page-btn' + (p === g0CurrentPage ? ' active' : '');
+    b.textContent = p;
+    b.onclick = function() { goToGate0Page(p); };
+    return b;
+}
+
+document.addEventListener('DOMContentLoaded', renderGate0Table);
+window.addEventListener('pageshow', renderGate0Table);
 </script>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>

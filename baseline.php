@@ -7,16 +7,30 @@ requireLogin();
 $pdo = getDB();
 $user = currentUser();
 $role = $user['role'];
-$canEdit = in_array($role, ['admin', 'pemeriksa', 'pengampu'], true);
 $isAdmin = ($role === 'admin');
 
-$id = (int)($_GET['id'] ?? 0);
+$id = (int)($_GET['id'] ?? ($_POST['mitra_id'] ?? 0));
 $view = $_GET['view'] ?? 'ledger';
+
+// Pengampu unit assignment check ($isAssigned: pemeriksa_id == user.id or pic_internal matching user name/username)
+$isAssigned = false;
+$authMitra = null;
+if ($id > 0) {
+    $stmtAuth = $pdo->prepare('SELECT pemeriksa_id, pic_internal FROM mitra_kinerja WHERE id = ?');
+    $stmtAuth->execute([$id]);
+    $authMitra = $stmtAuth->fetch();
+    if ($authMitra) {
+        $isAssigned = (!empty($authMitra['pemeriksa_id']) && (int)$authMitra['pemeriksa_id'] === (int)$user['id'])
+            || (!empty($authMitra['pic_internal']) && stripos($authMitra['pic_internal'], $user['nama'] ?? $user['username'] ?? '') !== false);
+    }
+}
+$canEdit = in_array($role, ['admin', 'pemeriksa'], true)
+    || ($role === 'pengampu' && ($isAssigned || (isset($authMitra) && empty($authMitra['pemeriksa_id']))));
 
 $errors = [];
 $success = '';
 
-/* ── DEFINISI 12 ELEMEN BASELINE FIX (DEFINED IN INCLUDES/FUNCTIONS.PHP) ─────── */
+// Definisi 12 elemen baseline fix (defined in includes/functions.php)
 $b12Defs = BASELINE_12_DEFS;
 
 function parseBaselinePicFakta(?string $fakta, ?string $rawSummary): array {
@@ -58,7 +72,7 @@ function parseBaselinePicFakta(?string $fakta, ?string $rawSummary): array {
     return $res;
 }
 
-/* ── POST HANDLERS ───────────────────────────────────────── */
+// Post handlers
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $csrfToken = isset($_POST['csrf_token']) && is_string($_POST['csrf_token']) ? $_POST['csrf_token'] : null;
     if (!verifyCsrfToken($csrfToken)) {
@@ -76,7 +90,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $targetMitra = $stmt->fetch();
             if ($targetMitra) {
                 $isTargetLocked = ($targetMitra['baseline_status'] === 'TERVERIFIKASI / DIKUNCI');
+                $isAssigned = (!empty($targetMitra['pemeriksa_id']) && (int)$targetMitra['pemeriksa_id'] === (int)$user['id'])
+                    || (!empty($targetMitra['pic_internal']) && stripos($targetMitra['pic_internal'], $user['nama'] ?? $user['username'] ?? '') !== false);
+                $canEdit = in_array($role, ['admin', 'pemeriksa'], true)
+                    || ($role === 'pengampu' && ($isAssigned || empty($targetMitra['pemeriksa_id'])));
             }
+        }
+
+        // Pastikan aksi penguncian tidak dapat menimpa baseline yang sudah dikunci tanpa hak akses admin
+        if ($action === 'lock_baseline' && $isTargetLocked && !$isAdmin) {
+            $errors[] = 'Akses ditolak: Baseline naskah ini sudah berstatus DIKUNCI.';
         }
 
         // 0. Import Data Baseline (12 Elemen) dari Berkas Spreadsheet (.xlsx)
@@ -158,7 +181,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                         // Baca metadata pemeriksa & cut-off jika ada
                         $pemeriksaVal = trim((string)($baseRows[5][8] ?? $baseRows[5][7] ?? $baseRows[5][3] ?? ''));
                         $cutoffVal = trim((string)($baseRows[8][8] ?? $baseRows[8][7] ?? $baseRows[8][2] ?? ''));
-                        // Bug 10: Dukungan format tanggal teks berbahasa Indonesia
+                        // Dukungan format tanggal teks berbahasa Indonesia
                         if (!empty($cutoffVal) && preg_match('/(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/', $cutoffVal, $mCut)) {
                             $cutoffDate = sprintf('%04d-%02d-%02d', (int)$mCut[1], (int)$mCut[2], (int)$mCut[3]);
                         } elseif (!empty($cutoffVal) && preg_match('/(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/', $cutoffVal, $mCut)) {
@@ -171,7 +194,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                             $cutoffDate = null;
                         }
 
-                        // Bug 24: Filter out placeholder text ('nama pemeriksa', '-', etc.)
+                        // Filter out placeholder text ('nama pemeriksa', '-', etc.)
                         $isPemeriksaPlaceholder = (
                             empty($pemeriksaVal)
                             || $pemeriksaVal === '-'
@@ -198,7 +221,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                                 $linkBukti = trim((string)($row[8] ?? ''));
                                 $catatan = trim((string)($row[9] ?? ''));
 
-                                // BUG-BL-01, BUG-BL-02: Normalisasi status secara cerdas
+                                // Normalisasi status secara cerdas
                                 $finalStatus = 'BELUM DIISI';
                                 if (str_contains($rawStatus, 'BELUM TERVERIFIKASI') || str_contains($rawStatus, 'BELUM SESUAI') || str_contains($rawStatus, 'TIDAK SESUAI')) {
                                     $finalStatus = 'BELUM TERVERIFIKASI';
@@ -254,7 +277,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                                 $updateSqlParts[] = "baseline_locked_by = ?";
                                 $updateParams[] = $user['id'];
                             } else {
-                                // Bug 15: Clear baseline_locked_at and baseline_locked_by to NULL
+                                // Clear baseline_locked_at and baseline_locked_by to NULL
                                 $updateSqlParts[] = "baseline_status = 'DALAM PROSES'";
                                 $updateSqlParts[] = "baseline_locked_at = NULL";
                                 $updateSqlParts[] = "baseline_locked_by = NULL";
@@ -289,13 +312,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                                         $label = strtolower(trim((string)($pRow[1] ?? '')));
                                         $val = trim((string)($pRow[2] ?? ''));
                                         $val3 = trim((string)($pRow[3] ?? ''));
-                                        // Bug 23: Support column 3 PIC reading for Portofolio workbooks (C01-C04)
+                                        // Support column 3 PIC reading for Portofolio workbooks (C01-C04)
                                         if (($val === '' || $val === '-' || $val === ':') && !empty($val3)) {
                                             $val = $val3;
                                         } elseif (!empty($val3) && (str_contains(strtolower($val), 'pic') || $val === ':')) {
                                             $val = $val3;
                                         }
-                                        // BUG-BL-06: Do not let "Nama Mitra" label overwrite pic_mitra with organization name
+                                        // Do not let "Nama Mitra" label overwrite pic_mitra with organization name
                                         if (str_contains($label, 'pic mitra') || str_contains($label, 'focal point mitra') || (str_contains($label, 'pic') && str_contains($label, 'mitra'))) {
                                             if (!empty($val)) $picMitraFound = $val;
                                         } elseif (str_contains($label, 'pic internal') || str_contains($label, 'pengampu') || str_contains($label, 'focal point internal')) {
@@ -328,11 +351,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
     }
 
-    // Detail Handlers untuk ID tertentu (Bug 2: check $id > 0 || $targetId > 0)
+    // Detail Handlers untuk ID tertentu
     elseif ($id > 0 || $targetId > 0) {
-        if ($id <= 0 && $targetId > 0) {
-            $id = $targetId;
-        }
+        $id = $targetId; // Selalu sinkronkan $id dengan $targetId dari POST agar otorisasi dan mutasi konsisten
         $mitra = $targetMitra;
         $isLocked = $isTargetLocked;
 
@@ -373,7 +394,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     $fakta = trim($_POST["fakta_{$num}"] ?? '');
                     $bukti = trim($_POST["bukti_{$num}"] ?? '');
 
-                    // Bug 13: In manual save_baseline, sync Element 1 link to mitra_kinerja.file_naskah if a valid file/link is present
+                    // In manual save_baseline, sync Element 1 link to mitra_kinerja.file_naskah if a valid file/link is present
                     if ($num === 1 && !empty($bukti)) {
                         $isValidNaskah = filter_var($bukti, FILTER_VALIDATE_URL) !== false
                             || str_starts_with($bukti, 'public/')
@@ -385,7 +406,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                         }
                     }
 
-                    // BUG-BL-08, Bug 12, Bug 29, BUG-BL-11: In Element 9 textarea, handle decode/encode safely on form save
+                    // In Element 9 textarea, handle decode/encode safely on form save
                     if ($num === 9 && !empty($bukti)) {
                         $testDec = json_decode($bukti, true);
                         $isJson = str_starts_with($bukti, '[') && str_ends_with($bukti, ']') && is_array($testDec);
@@ -408,7 +429,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                         if (!empty($candidates)) {
                             $bukti = json_encode($candidates, JSON_UNESCAPED_UNICODE);
                         } else {
-                            // BUG-BL-11: Preserve valid non-URL proof notes (e.g. archive references) cleanly without erasing to empty string
+                            // Preserve valid non-URL proof notes (e.g. archive references) cleanly without erasing to empty string
                             if ($isJson && is_array($testDec)) {
                                 $textNotes = array_values(array_filter(array_map('trim', $testDec), function ($c) {
                                     return is_string($c) && $c !== '' && $c !== '-' && $c !== 'null';
@@ -453,6 +474,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     elseif ($action === 'lock_baseline') {
         if (!$canEdit) {
             $errors[] = 'Akses ditolak.';
+        } elseif ($isLocked) {
+            $errors[] = 'Akses ditolak: Baseline naskah ini sudah berstatus DIKUNCI.';
         } else {
             // Periksa apakah semua 12 elemen sudah terisi (tidak ada yang BELUM DIISI)
             $stmtC = $pdo->prepare('SELECT COUNT(*) FROM baseline_elemen WHERE mitra_id = ? AND status != \'BELUM DIISI\'');
@@ -504,8 +527,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 $errors[] = 'Elemen tidak valid untuk upload berkas.';
             } else {
                 $targetDir = __DIR__ . '/public/uploads/baseline_pdf/';
-                if (!is_dir($targetDir)) mkdir($targetDir, 0777, true);
-                // BUG-BL-04: Sanitize $mitra['kode']
+                if (!is_dir($targetDir)) mkdir($targetDir, 0775, true);
+                // Sanitize $mitra['kode']
                 $safeKode = preg_replace('/[^a-zA-Z0-9_-]/', '_', $mitra['kode']);
 
                 if ($elemenNomor === 9 && isset($_FILES['pdf_files']) && is_array($_FILES['pdf_files']['name'])) {
@@ -521,7 +544,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                             if (!is_string($ro)) continue;
                             $tro = trim($ro);
                             if ($tro === '' || $tro === '-' || $tro === 'null') continue;
-                            // Bug 12: validate that existing items are valid file paths/URLs before saving
+                            // validate that existing items are valid file paths/URLs before saving
                             $isValid = filter_var($tro, FILTER_VALIDATE_URL) !== false
                                 || str_starts_with($tro, 'public/')
                                 || str_starts_with($tro, 'uploads/')
@@ -536,7 +559,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     $newUploadedCount = 0;
                     for ($f = 0; $f < $fileCount; $f++) {
                         if ($_FILES['pdf_files']['error'][$f] === UPLOAD_ERR_OK) {
-                            // BUG-BL-09: Enforce 25MB limit on baseline PDF uploads
+                            // Enforce 25MB limit on baseline PDF uploads
                             if ($_FILES['pdf_files']['size'][$f] > 25 * 1024 * 1024) {
                                 $errors[] = "Ukuran file {$_FILES['pdf_files']['name'][$f]} melebihi batas 25MB.";
                                 continue;
@@ -553,7 +576,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                         }
                     }
 
-                    // BUG-BL-03, Bug 12, Bug 29: Filter out empty strings, whitespace, and non-path notes
+                    // Filter out empty strings, whitespace, and non-path notes
                     if ($newUploadedCount > 0) {
                         $cleanSaved = [];
                         foreach ($savedPaths as $sp) {
@@ -581,7 +604,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     if (!isset($_FILES['pdf_file']) || $_FILES['pdf_file']['error'] !== UPLOAD_ERR_OK) {
                         $errors[] = 'Pilih file PDF yang valid.';
                     } elseif ($_FILES['pdf_file']['size'] > 25 * 1024 * 1024) {
-                        // BUG-BL-09: Enforce 25MB limit on baseline PDF uploads
+                        // Enforce 25MB limit on baseline PDF uploads
                         $errors[] = 'Ukuran file PDF melebihi batas maksimum 25MB.';
                     } else {
                         $ext = strtolower(pathinfo($_FILES['pdf_file']['name'], PATHINFO_EXTENSION));
@@ -628,7 +651,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             if ($namaPic === '') {
                 $errors[] = 'Nama PIC wajib diisi.';
             } else {
-                // Bug 11: Do not overwrite existing Jabatan, Unit, Kontak, SK with '-' if left empty on save
+                // Do not overwrite existing Jabatan, Unit, Kontak, SK with '-' if left empty on save
                 $stmtCurEl = $pdo->prepare('SELECT fakta_pemeriksaan FROM baseline_elemen WHERE mitra_id = ? AND nomor_elemen = ?');
                 $stmtCurEl->execute([$id, $picType === 'internal' ? 7 : 8]);
                 $curFakta = $stmtCurEl->fetchColumn() ?: '';
@@ -639,7 +662,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 if ($kontakPic === '' && !empty($curParsed['kontak'])) $kontakPic = $curParsed['kontak'];
                 if ($skPic === '' && !empty($curParsed['sk'])) $skPic = $curParsed['sk'];
 
-                // BUG-BL-10: Prevent compounding duplicate suffixes on PIC updates
+                // Prevent compounding duplicate suffixes on PIC updates
                 $cleanNamaPic = preg_replace('/\s*-\s*(HP\/WA|Kontak|Telp):.*$/i', '', $namaPic);
                 if ($jabatanPic) {
                     $cleanNamaPic = preg_replace('/\s*\([^)]+\)$/', '', $cleanNamaPic);
@@ -674,7 +697,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 }
 }
 
-/* ── VIEW ROUTER ─────────────────────────────────────────── */
+// View router
 
 // ═════════════════════════════════════════════════════════════
 // DETAIL / PRINT FORM RESMI (Ketik ?id=X)
@@ -766,7 +789,7 @@ if ($id > 0) {
         <div class="print-container">
             <div class="no-print" style="margin-bottom:14px;display:flex;justify-content:space-between;">
                 <a href="baseline.php?id=<?= $id ?>" class="btn btn-outline btn-sm">&larr; Kembali ke Form</a>
-                <button onclick="window.print()" class="btn btn-primary btn-sm">🖨️ Cetak / Simpan PDF</button>
+                <button onclick="window.print()" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:5px;"><?= uiIcon('printer', 14) ?> Cetak / Simpan PDF</button>
             </div>
             
             <div class="kop-surat">
@@ -862,16 +885,16 @@ if ($id > 0) {
         </div>
         <div style="display:flex;gap:8px;align-items:center;">
             <a href="baseline.php" class="btn btn-outline btn-sm">&larr; Daftar Baseline</a>
-            <a href="public/templates/template_baseline_12_elemen.xlsx" download="Template_Baseline_<?= h($mitra['kode']) ?>.xlsx" class="btn btn-outline btn-sm" style="font-size:11px;display:inline-flex;align-items:center;gap:4px;color:#4338ca;border-color:#c7d2fe;background:#eef2ff;" title="Unduh Formulir Template Baseline (.xlsx)">
-                <span>📥</span> Unduh Template (.xlsx)
+            <a href="public/templates/template_baseline_12_elemen.xlsx" download="Template_Baseline_<?= h($mitra['kode']) ?>.xlsx" class="btn btn-outline btn-sm" style="font-size:11px;display:inline-flex;align-items:center;gap:5px;color:#4338ca;border-color:#c7d2fe;background:#eef2ff;" title="Unduh Formulir Template Baseline (.xlsx)">
+                <?= uiIcon('download', 13) ?> Unduh Template (.xlsx)
             </a>
             <?php if ($canEdit && (!$isLocked || $isAdmin)): ?>
-            <button type="button" onclick="openImportModal(<?= $id ?>, <?= htmlspecialchars(json_encode((string)$mitra['kode']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$mitra['nama_mitra']), ENT_QUOTES, 'UTF-8') ?>)" class="btn btn-sm" style="font-size:11px;display:inline-flex;align-items:center;gap:4px;background:#4f46e5;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="Import Data Baseline">
-                <span>📤</span> Import Baseline (.xlsx)
+            <button type="button" onclick="openImportModal(<?= $id ?>, <?= htmlspecialchars(json_encode((string)$mitra['kode']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$mitra['nama_mitra']), ENT_QUOTES, 'UTF-8') ?>)" class="btn btn-sm" style="font-size:11px;display:inline-flex;align-items:center;gap:5px;background:#4f46e5;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="Import Data Baseline">
+                <?= uiIcon('upload', 13) ?> Import Baseline (.xlsx)
             </button>
             <?php endif; ?>
             <a href="mitra_edit.php?id=<?= $id ?>" class="btn btn-outline btn-sm">Buka Scorecard &rarr;</a>
-            <a href="baseline.php?view=print&id=<?= $id ?>" target="_blank" class="btn btn-primary btn-sm">🖨️ Cetak / PDF</a>
+            <a href="baseline.php?view=print&id=<?= $id ?>" target="_blank" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:5px;"><?= uiIcon('printer', 13) ?> Cetak / PDF</a>
         </div>
     </div>
 
@@ -1043,7 +1066,7 @@ if ($id > 0) {
                                     <div style="font-size:11px;color:#475569;"><?= formatLinkSumberBukti($el['link_sumber_bukti'] ?? '') ?></div>
                                 <?php else: ?>
                                     <?php
-                                    // BUG-BL-08: In Element 9 textarea, do not display raw JSON string
+                                    // In Element 9 textarea, do not display raw JSON string
                                     $displayBukti = $el['link_sumber_bukti'] ?? '';
                                     if ($num === 9 && !empty($displayBukti)) {
                                         $dec = json_decode($displayBukti, true);
@@ -1494,7 +1517,13 @@ require __DIR__ . '/includes/header.php';
                         <a href="public/templates/template_baseline_12_elemen.xlsx" download="Template_Baseline_<?= h($m['kode']) ?>.xlsx" class="btn btn-outline btn-sm" style="font-size:10.5px;padding:3px 8px;display:inline-flex;align-items:center;gap:3px;color:#4338ca;border-color:#c7d2fe;background:#eef2ff;" title="Unduh Formulir Template Baseline (.xlsx)">
                             <span>📥</span> Unduh Template
                         </a>
-                        <?php if ($canEdit && (!$b['is_locked'] || $isAdmin)): ?>
+                        <?php
+                        $isRowAssigned = (!empty($m['pemeriksa_id']) && (int)$m['pemeriksa_id'] === (int)$user['id'])
+                            || (!empty($m['pic_internal']) && stripos($m['pic_internal'], $user['nama'] ?? $user['username'] ?? '') !== false);
+                        $canEditRow = in_array($role, ['admin', 'pemeriksa'], true)
+                            || ($role === 'pengampu' && ($isRowAssigned || empty($m['pemeriksa_id'])));
+                        ?>
+                        <?php if ($canEditRow && (!$b['is_locked'] || $isAdmin)): ?>
                         <button type="button" class="btn btn-sm" onclick="openImportModal(<?= (int)$m['id'] ?>, <?= htmlspecialchars(json_encode((string)$m['kode']), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode((string)$m['nama_mitra']), ENT_QUOTES, 'UTF-8') ?>)" style="font-size:10.5px;padding:3px 8px;display:inline-flex;align-items:center;gap:3px;background:#4f46e5;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="Import Data Baseline">
                             <span>📤</span> Import
                         </button>
@@ -1515,8 +1544,8 @@ require __DIR__ . '/includes/header.php';
                 </td>
                 <td>
                     <div style="display:flex;gap:4px;">
-                        <a href="baseline.php?id=<?= $m['id'] ?>" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 7px;">🔍 Periksa</a>
-                        <a href="baseline.php?view=print&id=<?= $m['id'] ?>" target="_blank" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 7px;">🖨️ PDF</a>
+                        <a href="baseline.php?id=<?= $m['id'] ?>" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 7px;display:inline-flex;align-items:center;gap:3px;"><?= uiIcon('search', 11) ?> Periksa</a>
+                        <a href="baseline.php?view=print&id=<?= $m['id'] ?>" target="_blank" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 7px;display:inline-flex;align-items:center;gap:3px;"><?= uiIcon('printer', 11) ?> PDF</a>
                     </div>
                 </td>
             </tr>

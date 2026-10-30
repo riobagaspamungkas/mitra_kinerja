@@ -28,7 +28,7 @@ foreach ($all as $s) {
 $severityOrder = ['E3' => 4, 'E2' => 3, 'E1' => 2, 'V0' => 1, 'E0' => 0];
 usort($warningData, fn($a, $b) => ($severityOrder[$b['warning_status']] ?? -1) <=> ($severityOrder[$a['warning_status']] ?? -1));
 
-// BUG-EW-04: Filter controls
+// Filter controls
 $filterStatus = trim($_GET['status'] ?? '');
 if ($filterStatus !== '' && in_array($filterStatus, ['E3', 'E2', 'E1', 'V0'], true)) {
     $warningDataFiltered = array_filter($warningData, fn($w) => $w['warning_status'] === $filterStatus);
@@ -49,7 +49,7 @@ require __DIR__ . '/includes/header.php';
 </div>
 
 <?php
-// BUG-EW-01: Include overdue/past-due evaluations in the warning banner
+// Include overdue/past-due evaluations in the warning banner
 $monevAlerts = [];
 foreach ($all as $s) {
     $hari = $s['monev']['hari_menuju_evaluasi'] ?? null;
@@ -102,10 +102,8 @@ foreach ($all as $s) {
 <?php endif; ?>
 
 <?php if (empty($warningData)): ?>
-<div class="card" style="text-align:center;padding:40px;">
-    <div style="font-size:48px;margin-bottom:12px;">✅</div>
-    <h2 style="color:var(--green);">Semua Naskah Dalam Kondisi Aman</h2>
-    <p class="muted">Tidak ada naskah dengan status warning di atas E0 (Hijau)</p>
+<div class="card" style="padding:24px;">
+    <?= uiEmptyState('Semua Naskah Dalam Kondisi Aman', 'Tidak ada naskah dengan status peringatan dini di atas E0 (Normal).', 'check-circle') ?>
 </div>
 <?php else: ?>
 
@@ -123,7 +121,7 @@ foreach ($all as $s) {
     <div class="kpi-card"><div class="kpi-icon" style="background:#f1f5f9;color:#64748b;">⚪</div><div><div class="kpi-number"><?= $v0Count ?></div><div class="kpi-label">V0 — Data Belum Cukup</div></div></div>
 </div>
 
-<!-- BUG-EW-04: Filter Controls -->
+<!-- Filter Controls -->
 <form method="get" class="filters" style="margin-bottom:20px;align-items:center;">
     <label style="font-weight:600;font-size:13px;">Filter Tingkat Risiko:</label>
     <select name="status" onchange="this.form.submit()">
@@ -140,8 +138,8 @@ foreach ($all as $s) {
 
 <!-- Detail -->
 <?php if (empty($warningDataFiltered)): ?>
-    <div class="card" style="text-align:center;padding:30px;">
-        <p class="muted" style="margin:0;">Tidak ada naskah yang cocok dengan filter yang dipilih.</p>
+    <div class="card" style="padding:20px;">
+        <?= uiEmptyState('Tidak Ada Naskah Cocok', 'Tidak ditemukan naskah dengan tingkat risiko yang dipilih pada filter.', 'search') ?>
     </div>
 <?php else: ?>
 <?php foreach ($warningDataFiltered as $wd): ?>
@@ -160,7 +158,7 @@ foreach ($all as $s) {
         <tbody>
         <?php foreach ($wd['rows'] as $r): ?>
             <?php
-            // BUG-EW-05: Display actual expiry date for Masa Berlaku dimension instead of '-'
+            // Display actual expiry date for Masa Berlaku dimension instead of '-'
             $tenggatDisplay = formatTanggal($r['tenggat']);
             if (($tenggatDisplay === '-' || empty($r['tenggat'])) && stripos($r['dimensi'], 'Masa Berlaku') !== false && !empty($wd['tanggal_berakhir'])) {
                 $tenggatDisplay = formatTanggal($wd['tanggal_berakhir']);

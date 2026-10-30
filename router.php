@@ -25,9 +25,35 @@ $blocked = [
     '/docs/',
 ];
 
+// Block sensitive file extensions and dot-prefixed files
+$blockedExtensions = ['bat', 'sh', 'env', 'sql', 'md'];
+$blockedManifestFiles = ['composer.json', 'composer.lock', 'requirements.txt'];
+
 $normalizedUri = '/' . ltrim($uri, '/');
 $lowerUri = strtolower($normalizedUri);
 $decodedLowerUri = strtolower('/' . ltrim($decodedUri, '/'));
+
+$uriFile = basename($lowerUri);
+$decodedUriFile = basename($decodedLowerUri);
+$uriExt = strtolower(pathinfo($uriFile, PATHINFO_EXTENSION));
+$decodedUriExt = strtolower(pathinfo($decodedUriFile, PATHINFO_EXTENSION));
+
+if (
+    str_starts_with($uriFile, '.') ||
+    str_starts_with($decodedUriFile, '.') ||
+    in_array($uriExt, $blockedExtensions, true) ||
+    in_array($decodedUriExt, $blockedExtensions, true) ||
+    in_array($uriFile, $blockedManifestFiles, true) ||
+    in_array($decodedUriFile, $blockedManifestFiles, true) ||
+    $uriFile === '.gitignore' ||
+    $decodedUriFile === '.gitignore' ||
+    preg_match('/(^|\/)\./', $lowerUri) ||
+    preg_match('/(^|\/)\./', $decodedLowerUri)
+) {
+    http_response_code(403);
+    echo "403 Forbidden: Direct access to protected file denied.";
+    exit;
+}
 
 foreach ($blocked as $b) {
     $bLower = strtolower($b);
@@ -70,6 +96,21 @@ if ($targetPath !== false) {
                 exit;
             }
         }
+    }
+
+    // Deny direct access to .bat, .sh, .env, .sql, .md, .gitignore, dependency manifests, and any dot-prefixed files
+    $targetFilename = strtolower(basename($targetPath));
+    $targetExt = strtolower(pathinfo($targetPath, PATHINFO_EXTENSION));
+    if (
+        str_starts_with($targetFilename, '.') ||
+        in_array($targetExt, $blockedExtensions, true) ||
+        in_array($targetFilename, $blockedManifestFiles, true) ||
+        $targetFilename === '.gitignore' ||
+        preg_match('/(^|\/)\./', $normTarget)
+    ) {
+        http_response_code(403);
+        echo "403 Forbidden: Direct access to protected file denied.";
+        exit;
     }
 
     // Serve existing static files directly

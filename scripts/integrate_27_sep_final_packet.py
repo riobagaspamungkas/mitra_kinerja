@@ -6,8 +6,26 @@ base_dir = r"docs/PAKET_FINAL_SCORECARD_27_SEPTEMBER_DAN_BASELINE (1)/PAKET_FINA
 base_file = os.path.join(base_dir, "02_BASELINE_FINAL", "FINAL_BASELINE_MITRA_KINERJA_AUDIT_FINAL_28_AGUSTUS_2026.xlsx")
 sc_dir = os.path.join(base_dir, "01_SCORECARD_FINAL_27_SEPTEMBER_2026")
 
+def get_mysql_cmd():
+    mysql_cmd = "mysql"
+    userland_mysql = os.path.expanduser("~/.local/bin/mysql")
+    if os.path.exists(userland_mysql):
+        mysql_cmd = userland_mysql
+    elif shutil.which("mysql"):
+        mysql_cmd = shutil.which("mysql")
+    elif os.path.exists(r"C:\xampp\mysql\bin\mysql.exe"):
+        mysql_cmd = r"C:\xampp\mysql\bin\mysql.exe"
+    elif os.path.exists(r"D:\xampp\mysql\bin\mysql.exe"):
+        mysql_cmd = r"D:\xampp\mysql\bin\mysql.exe"
+    cmd = [mysql_cmd, "-u", "root"]
+    if os.name != 'nt':
+        cmd.extend(["-h", "127.0.0.1", "--port", "3306"])
+    cmd.append("mitra_kinerja")
+    return cmd
+
 def run_sql(query):
-    p = subprocess.run([r"C:\xampp\mysql\bin\mysql.exe", "-u", "root", "mitra_kinerja", "-e", query], capture_output=True, text=True)
+    cmd = get_mysql_cmd() + ["-e", query]
+    p = subprocess.run(cmd, capture_output=True, text=True)
     return p.stdout
 
 def esc(s):

@@ -34,32 +34,116 @@ foreach ($all as $s) {
 }
 ?>
 
-<?php if (!empty($overdueMonev)): ?>
-<div class="alert alert-danger" style="margin-bottom:20px;border-left:4px solid #dc2626;background:#fef2f2;color:#991b1b;">
-    <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:#b91c1c;">
-        🚨 Jadwal Evaluasi Terlewat (Terlewat / Overdue)
-    </div>
-    <div style="font-size:13px;line-height:1.5;">
-        Terdapat <strong><?= count($overdueMonev) ?> kerja sama</strong> yang memiliki tahapan evaluasi melewati batas waktu dan belum diselesaikan. Harap segera lakukan penuntasan evaluasi:
-    </div>
-    <div style="font-size:13px;margin-top:8px;">
-        <ul style="margin:4px 0 0 18px;padding:0;">
+<?php if (!empty($overdueMonev)): 
+    $totalOverdueMilestones = 0;
+    foreach ($overdueMonev as $od) {
+        $totalOverdueMilestones += count($od['monev']['overdue_milestones'] ?? []);
+    }
+?>
+<details id="overdueCollapseAlert" class="alert-collapsible alert-collapsible-danger" open>
+    <summary class="alert-collapsible-summary" title="Klik untuk membuka / menutup daftar evaluasi terlewat">
+        <div class="alert-collapsible-left">
+            <span class="alert-icon">🚨</span>
+            <div>
+                <div class="alert-collapsible-title">
+                    Jadwal Evaluasi Terlewat (Terlewat / Overdue)
+                    <span class="alert-collapsible-badge"><?= count($overdueMonev) ?> Kerja Sama (<?= $totalOverdueMilestones ?> Tahapan)</span>
+                </div>
+                <div class="alert-collapsible-subtext">
+                    Terdapat <strong><?= count($overdueMonev) ?> kerja sama</strong> yang memiliki tahapan evaluasi melewati batas waktu dan belum diselesaikan. Harap segera lakukan penuntasan evaluasi:
+                </div>
+            </div>
+        </div>
+        <div class="alert-collapsible-right">
+            <span class="alert-collapsible-btn">
+                <span class="toggle-text-open">Buka Daftar (<?= count($overdueMonev) ?>)</span>
+                <span class="toggle-text-close">Sembunyikan</span>
+                <svg class="alert-collapsible-chevron" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+            </span>
+        </div>
+    </summary>
+    <div class="alert-collapsible-body">
+        <!-- Quick Select & Filter Bar -->
+        <div class="alert-collapsible-tools">
+            <div class="tool-item">
+                <label for="overdueQuickSelect" style="font-size:12px;font-weight:600;color:#991b1b;display:block;margin-bottom:4px;">
+                    📌 Pilih Cepat Naskah Terlewat:
+                </label>
+                <select id="overdueQuickSelect" class="form-control" style="font-size:12.5px;padding:6px 10px;border-radius:6px;border:1px solid #fca5a5;background:#fff;width:100%;color:#1f2937;" onchange="if(this.value) window.location.href=this.value;">
+                    <option value="">-- Pilih Langsung Naskah Kerja Sama (<?= count($overdueMonev) ?> Mitra) --</option>
+                    <?php foreach ($overdueMonev as $od): 
+                        $countMs = count($od['monev']['overdue_milestones'] ?? []);
+                    ?>
+                    <option value="mitra_edit.php?id=<?= $od['mitra']['id'] ?>">
+                        <?= h($od['mitra']['kode']) ?> &mdash; <?= h($od['mitra']['nama_mitra']) ?> (<?= $countMs ?> siklus terlewat)
+                    </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="tool-item">
+                <label for="overdueSearchInput" style="font-size:12px;font-weight:600;color:#991b1b;display:inline-flex;align-items:center;gap:4px;margin-bottom:4px;">
+                    <?= uiIcon('search', 13, '', 'color:#991b1b;') ?> Cari / Filter Daftar:
+                </label>
+                <input type="text" id="overdueSearchInput" class="form-control" placeholder="Ketik nama mitra, kode, atau siklus..." style="font-size:12.5px;padding:6px 10px;border-radius:6px;border:1px solid #fca5a5;background:#fff;width:100%;color:#1f2937;" oninput="filterOverdueList(this.value)">
+            </div>
+        </div>
+
+        <!-- Scrollable List Container with Scrollbar -->
+        <div class="alert-collapsible-scroll" id="overdueItemsList">
             <?php foreach ($overdueMonev as $od): 
                 $odMilestones = $od['monev']['overdue_milestones'] ?? [];
             ?>
             <?php foreach ($odMilestones as $oms): ?>
-            <li style="margin-bottom:4px;">
-                <strong><?= h($od['mitra']['kode']) ?></strong> &mdash; <?= h($od['mitra']['nama_mitra']) ?> &bull; 
-                Siklus: <span class="badge badge-danger" style="font-size:10px;font-weight:600;"><?= h($oms['nama']) ?></span> &bull;
-                Target: <strong><?= formatTanggal($oms['target_tgl']) ?></strong> 
-                (<span style="color:#b91c1c;font-weight:600;">Terlewat <?= abs($oms['sisa_hari']) ?> hari lalu</span>) &bull;
-                <a href="mitra_edit.php?id=<?= $od['mitra']['id'] ?>" style="color:#dc2626;text-decoration:underline;font-weight:600;">Buka Penilaian &rarr;</a>
-            </li>
+            <div class="overdue-item-row" data-search="<?= strtolower(h($od['mitra']['kode'] . ' ' . $od['mitra']['nama_mitra'] . ' ' . $oms['nama'])) ?>">
+                <div class="overdue-item-info">
+                    <span class="overdue-code-badge"><?= h($od['mitra']['kode']) ?></span>
+                    <span class="overdue-mitra-name"><?= h($od['mitra']['nama_mitra']) ?></span>
+                </div>
+                <div class="overdue-item-meta">
+                    <span class="badge badge-danger" style="font-size:11px;font-weight:600;"><?= h($oms['nama']) ?></span>
+                    <span class="overdue-target">Target: <strong><?= formatTanggal($oms['target_tgl']) ?></strong></span>
+                    <span class="overdue-days-pill">Terlewat <?= abs($oms['sisa_hari']) ?> hari lalu</span>
+                    <a href="mitra_edit.php?id=<?= $od['mitra']['id'] ?>" class="btn-overdue-link">Buka Penilaian &rarr;</a>
+                </div>
+            </div>
             <?php endforeach; ?>
             <?php endforeach; ?>
-        </ul>
+            <div id="overdueEmptySearch" style="display:none;padding:16px 12px;">
+                <?= uiEmptyState('Tidak Ada Naskah Cocok', 'Tidak ada jadwal terlewat yang cocok dengan kata kunci pencarian.', 'search') ?>
+            </div>
+        </div>
     </div>
-</div>
+</details>
+<script>
+function filterOverdueList(query) {
+    var q = (query || '').toLowerCase().trim();
+    var rows = document.querySelectorAll('#overdueItemsList .overdue-item-row');
+    var emptyMsg = document.getElementById('overdueEmptySearch');
+    var visibleCount = 0;
+    rows.forEach(function(row) {
+        var match = !q || (row.getAttribute('data-search') || '').indexOf(q) !== -1;
+        row.style.display = match ? 'flex' : 'none';
+        if (match) visibleCount++;
+    });
+    if (emptyMsg) {
+        emptyMsg.style.display = (visibleCount === 0 && q) ? 'block' : 'none';
+    }
+}
+document.addEventListener('DOMContentLoaded', function() {
+    var el = document.getElementById('overdueCollapseAlert');
+    if (el) {
+        var saved = localStorage.getItem('dashboard_overdue_open');
+        if (saved !== null) {
+            el.open = (saved === 'true');
+        }
+        el.addEventListener('toggle', function() {
+            localStorage.setItem('dashboard_overdue_open', el.open ? 'true' : 'false');
+        });
+    }
+});
+</script>
 <?php endif; ?>
 
 <?php if ($userRole === 'pengampu' || $userRole === 'pic' || !empty($dueSoonMonev)): ?>
@@ -90,28 +174,30 @@ foreach ($all as $s) {
     <?php if (!empty($dueSoonMonev)): ?>
     <div style="font-size:13px;margin-top:8px;">
         <div style="font-weight:600;margin-bottom:4px;">Daftar Naskah Mendekati Tenggat (&lt; 30 Hari):</div>
-        <ul style="margin:4px 0 0 18px;padding:0;">
-            <?php foreach ($dueSoonMonev as $ds): 
-                $msLabel = 'SC-1';
-                if (!empty($ds['monev']['milestones'])) {
-                    foreach ($ds['monev']['milestones'] as $ms) {
-                        $isCompleted = in_array(strtolower(trim($ms['status_siklus'] ?? '')), ['selesai', 'selesai evaluasi'], true);
-                        if (!$isCompleted && ($ms['target_tgl'] === ($ds['monev']['target_evaluasi_terdekat'] ?? '') || !empty($ms['is_due_soon']))) {
-                            $msLabel = $ms['nama'];
-                            break;
+        <div class="alert-collapsible-scroll" style="max-height:220px;overflow-y:auto;padding-right:6px;">
+            <ul style="margin:4px 0 0 18px;padding:0;">
+                <?php foreach ($dueSoonMonev as $ds): 
+                    $msLabel = 'SC-1';
+                    if (!empty($ds['monev']['milestones'])) {
+                        foreach ($ds['monev']['milestones'] as $ms) {
+                            $isCompleted = in_array(strtolower(trim($ms['status_siklus'] ?? '')), ['selesai', 'selesai evaluasi'], true);
+                            if (!$isCompleted && ($ms['target_tgl'] === ($ds['monev']['target_evaluasi_terdekat'] ?? '') || !empty($ms['is_due_soon']))) {
+                                $msLabel = $ms['nama'];
+                                break;
+                            }
                         }
                     }
-                }
-            ?>
-            <li style="margin-bottom:4px;">
-                <strong><?= h($ds['mitra']['kode']) ?></strong> &mdash; <?= h($ds['mitra']['nama_mitra']) ?> &bull; 
-                Siklus: <span class="badge badge-warning" style="font-size:10px;font-weight:600;"><?= h($msLabel) ?></span> &bull;
-                Target: <strong><?= formatTanggal($ds['monev']['target_evaluasi_terdekat']) ?></strong> 
-                (<?= $ds['monev']['hari_menuju_evaluasi'] !== null ? ($ds['monev']['hari_menuju_evaluasi'] >= 0 ? $ds['monev']['hari_menuju_evaluasi'] . ' hari lagi' : abs($ds['monev']['hari_menuju_evaluasi']) . ' hari lalu') : '-' ?>) &bull;
-                <a href="mitra_edit.php?id=<?= $ds['mitra']['id'] ?>" style="color:#2563eb;text-decoration:underline;">Buka Penilaian &rarr;</a>
-            </li>
-            <?php endforeach; ?>
-        </ul>
+                ?>
+                <li style="margin-bottom:4px;">
+                    <strong><?= h($ds['mitra']['kode']) ?></strong> &mdash; <?= h($ds['mitra']['nama_mitra']) ?> &bull; 
+                    Siklus: <span class="badge badge-warning" style="font-size:10px;font-weight:600;"><?= h($msLabel) ?></span> &bull;
+                    Target: <strong><?= formatTanggal($ds['monev']['target_evaluasi_terdekat']) ?></strong> 
+                    (<?= $ds['monev']['hari_menuju_evaluasi'] !== null ? ($ds['monev']['hari_menuju_evaluasi'] >= 0 ? $ds['monev']['hari_menuju_evaluasi'] . ' hari lagi' : abs($ds['monev']['hari_menuju_evaluasi']) . ' hari lalu') : '-' ?>) &bull;
+                    <a href="mitra_edit.php?id=<?= $ds['mitra']['id'] ?>" style="color:#2563eb;text-decoration:underline;">Buka Penilaian &rarr;</a>
+                </li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
     </div>
     <?php endif; ?>
 </div>
@@ -295,7 +381,9 @@ foreach ($all as $s) {
     <div class="dash-table-card">
         <div class="dtc-head">
             <h3>Pipeline Usulan &amp; Antrean Validasi</h3>
+            <?php if (in_array($user['role'] ?? '', ['admin', 'pimpinan', 'pengampu', 'pic'], true)): ?>
             <a href="gate0.php">Ke Gate 0 &rarr;</a>
+            <?php endif; ?>
         </div>
         <div style="padding: 16px 20px;">
             <div style="margin-bottom: 14px;">
@@ -430,20 +518,29 @@ foreach ($all as $s) {
 </button>
 <?php endif; ?>
 
-<script src="public/js/chart.umd.min.js"></script>
 <script>
 (function(){
-    var ctx1 = document.getElementById('donutChart').getContext('2d');
-    new Chart(ctx1, { type:'doughnut', data:{ labels:['Efektif','Perlu Perhatian','Berisiko'], datasets:[{ data:[<?= $stats['efektif'] ?>,<?= $stats['perluPerhatian'] ?>,<?= $stats['berisiko'] ?>], backgroundColor:['#16a34a','#ca8a04','#dc2626'], borderWidth:0, hoverOffset:6 }] }, options:{ cutout:'62%', plugins:{ legend:{display:false} }, responsive:false } });
+    var c1 = document.getElementById('donutChart');
+    if (c1) {
+        var old1 = Chart.getChart(c1);
+        if (old1) old1.destroy();
+        var ctx1 = c1.getContext('2d');
+        new Chart(ctx1, { type:'doughnut', data:{ labels:['Efektif','Perlu Perhatian','Berisiko'], datasets:[{ data:[<?= $stats['efektif'] ?>,<?= $stats['perluPerhatian'] ?>,<?= $stats['berisiko'] ?>], backgroundColor:['#16a34a','#ca8a04','#dc2626'], borderWidth:0, hoverOffset:6 }] }, options:{ cutout:'62%', plugins:{ legend:{display:false} }, responsive:false } });
+    }
 
-    var ctx2 = document.getElementById('gaugeChart').getContext('2d');
-    var val = <?= $stats['rataRataNilai'] ?>;
-    var clr = val >= 80 ? '#16a34a' : (val >= 60 ? '#2563eb' : (val >= 40 ? '#ca8a04' : '#dc2626'));
-    new Chart(ctx2, { type:'doughnut', data:{ labels:['Skor',''], datasets:[{ data:[val, 100-val], backgroundColor:[clr,'#e9ecef'], borderWidth:0 }] }, options:{ rotation:-90, circumference:180, cutout:'72%', plugins:{ legend:{display:false}, tooltip:{enabled:false} }, responsive:false } });
+    var c2 = document.getElementById('gaugeChart');
+    if (c2) {
+        var old2 = Chart.getChart(c2);
+        if (old2) old2.destroy();
+        var ctx2 = c2.getContext('2d');
+        var val = <?= $stats['rataRataNilai'] ?>;
+        var clr = val >= 80 ? '#16a34a' : (val >= 60 ? '#2563eb' : (val >= 40 ? '#ca8a04' : '#dc2626'));
+        new Chart(ctx2, { type:'doughnut', data:{ labels:['Skor',''], datasets:[{ data:[val, 100-val], backgroundColor:[clr,'#e9ecef'], borderWidth:0 }] }, options:{ rotation:-90, circumference:180, cutout:'72%', plugins:{ legend:{display:false}, tooltip:{enabled:false} }, responsive:false } });
+    }
 })();
 
 <?php if (defined('AI_ENABLED') && AI_ENABLED): ?>
-/* ── AI Insight Floating Toast ─────────────────────────── */
+// AI Insight Floating Toast
 var aiToastEl   = document.getElementById('aiToast');
 var aiLoadingEl = document.getElementById('aiLoading');
 var aiContentEl = document.getElementById('aiContent');
@@ -492,8 +589,9 @@ function fetchInsight(force){
                 var providerEl = document.querySelector('.ai-provider');
                 if(providerEl){
                     var prov = d.provider || '';
-                    var provClass = 'ai-prov-' + prov.toLowerCase();
-                    providerEl.innerHTML = prov ? '<span class="ai-provider-badge '+provClass+'">'+prov+'</span>' : '';
+                    var provSafe = escapeHtml(prov);
+                    var provClass = 'ai-prov-' + encodeURIComponent(prov.toLowerCase().replace(/[^a-z0-9_-]/g, ''));
+                    providerEl.innerHTML = prov ? '<span class="ai-provider-badge '+provClass+'">'+provSafe+'</span>' : '';
                 }
                 try{ localStorage.setItem('ai_dismissed',''); }catch(e){}
             } else {
@@ -501,9 +599,13 @@ function fetchInsight(force){
                 var msg = escapeHtml(rawMsg);
                 if(d.detail) msg += '<br><small>' + escapeHtml(d.detail) + '</small>';
                 msg += '<br><small style="color:#64748b">Provider: Gemini → OpenRouter → Groq</small>';
-                if(d.debug_url) {
-                    var safeUrl = encodeURI(d.debug_url).replace(/["'<>]/g, '');
-                    msg += '<br><a href="' + safeUrl + '" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#2563eb">🔍 Buka Diagnostic Tool</a>';
+                if(d.debug_url && typeof d.debug_url === 'string') {
+                    var u = d.debug_url.trim();
+                    var isSafeScheme = /^https?:\/\//i.test(u) || (!u.includes(':') && /\.php(\?.*)?$/i.test(u));
+                    if (isSafeScheme) {
+                        var safeUrl = encodeURI(u).replace(/["'<>]/g, '');
+                        msg += '<br><a href="' + safeUrl + '" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#2563eb">🔍 Buka Diagnostic Tool</a>';
+                    }
                 }
                 showError(msg);
             }
@@ -541,8 +643,10 @@ document.addEventListener('DOMContentLoaded', function(){
     if(!dismissed){
         setTimeout(showAIToast, 800);
     } else {
-        // Already dismissed — show trigger button
-        document.getElementById('aiTriggerBtn').style.display='flex';
+        var triggerBtn = document.getElementById('aiTriggerBtn');
+        if (triggerBtn) {
+            triggerBtn.style.display = 'flex';
+        }
     }
 });
 <?php endif; ?>

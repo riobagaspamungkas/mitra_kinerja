@@ -17,7 +17,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     }
 
     doLogout();
-    header('Location: login.php');
+    $target = (!empty($_POST['action']) && $_POST['action'] === 'switch') ? 'login.php?switch=1' : 'login.php';
+    header('Location: ' . $target);
     exit;
 }
 ?>

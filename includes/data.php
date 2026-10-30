@@ -68,7 +68,7 @@ function getMitraSummary(PDO $pdo, array $mitra, bool $forceRecalculate = false)
     $stmt->execute([$mitra['id']]);
     $usulan = $stmt->fetch() ?: ['upaya_dilakukan' => null, 'keputusan_diminta' => null, 'uraian_kendala' => null];
 
-    // --- Baseline FIX 12 Elemen ---
+    // Baseline FIX 12 Elemen
     $baselineRows = [];
     try {
         $stmtB = $pdo->prepare('SELECT * FROM baseline_elemen WHERE mitra_id = ? ORDER BY nomor_elemen ASC');
@@ -93,7 +93,7 @@ function getMitraSummary(PDO $pdo, array $mitra, bool $forceRecalculate = false)
         'status' => $mitra['baseline_status'] ?? 'BELUM DIISI',
     ];
 
-    // --- Early warning: Masa berlaku 100% otomatis; 3 dimensi lain: status diturunkan dari kondisi ---
+    // Early warning: Masa berlaku 100% otomatis; 3 dimensi lain: status diturunkan dari kondisi
     $statusList = [];
     foreach ($warningRows as &$w) {
         if ($w['dimensi'] === 'Masa berlaku') {
@@ -151,12 +151,12 @@ function getMitraSummary(PDO $pdo, array $mitra, bool $forceRecalculate = false)
     $calculatedRekomendasi = ($ringkasan['dapat_dinilai_n'] === 0 || $ringkasan['nilai_berjalan'] <= 0 || $posisiPortofolio === 'BELUM DAPAT DITENTUKAN')
         ? 'BELUM DITENTUKAN'
         : hitungRekomendasi($ringkasan['nilai_berjalan'], $warning['status'], $posisiPortofolio, $sisaHari);
-    if ($ringkasan['dapat_dinilai_n'] === 0 || $posisiPortofolio === 'BELUM DAPAT DITENTUKAN') {
-        $rekomendasi = 'BELUM DITENTUKAN';
-    } elseif ($forceRecalculate || !isset($mitra['rekomendasi']) || $mitra['rekomendasi'] === '') {
-        $rekomendasi = $calculatedRekomendasi;
-    } else {
+    if (!empty($mitra['rekomendasi']) && !$forceRecalculate) {
         $rekomendasi = $mitra['rekomendasi'];
+    } elseif ($ringkasan['dapat_dinilai_n'] === 0 || $posisiPortofolio === 'BELUM DAPAT DITENTUKAN') {
+        $rekomendasi = 'BELUM DITENTUKAN';
+    } else {
+        $rekomendasi = $calculatedRekomendasi;
     }
 
     $evaluasiPerTahun = (int)($mitra['evaluasi_per_tahun'] ?? 4);
@@ -299,9 +299,7 @@ function resetValidasiJikaPerluPerbaikan(PDO $pdo, int $mitraId): bool {
     return false;
 }
 
-/* ============================================================
- * TINDAK LANJUT
- * ============================================================ */
+// Tindak Lanjut
 
 /** Ambil data tindak lanjut, opsional difilter per mitra atau mengecualikan item yang telah selesai. */
 function getTindakLanjut(PDO $pdo, ?int $mitraId = null, int $limit = 0, bool $excludeSelesai = false): array {
@@ -320,7 +318,7 @@ function getTindakLanjut(PDO $pdo, ?int $mitraId = null, int $limit = 0, bool $e
     if (!empty($where)) {
         $sql .= ' WHERE ' . implode(' AND ', $where);
     }
-    $sql .= " ORDER BY CASE WHEN tl.status = 'Selesai' THEN 1 ELSE 0 END ASC, CASE WHEN tl.tenggat IS NULL OR tl.tenggat = '0000-00-00' THEN 1 ELSE 0 END ASC, tl.tenggat ASC, tl.id DESC";
+    $sql .= " ORDER BY CASE WHEN tl.status = 'Selesai' THEN 1 ELSE 0 END ASC, CASE WHEN tl.tenggat IS NULL OR tl.tenggat <= '1970-01-01' THEN 1 ELSE 0 END ASC, tl.tenggat ASC, tl.id DESC";
     if ($limit > 0) {
         $sql .= ' LIMIT ' . (int)$limit;
     }
@@ -329,9 +327,7 @@ function getTindakLanjut(PDO $pdo, ?int $mitraId = null, int $limit = 0, bool $e
     return $stmt->fetchAll();
 }
 
-/* ============================================================
- * DASHBOARD STATISTICS
- * ============================================================ */
+// Dashboard Statistics
 
 /** Statistik lengkap untuk dashboard. */
 function getDashboardStats(array $all): array {
