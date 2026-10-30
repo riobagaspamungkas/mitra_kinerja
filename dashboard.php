@@ -634,8 +634,10 @@ document.addEventListener('DOMContentLoaded', function(){
     if(!dismissed){
         setTimeout(showAIToast, 800);
     } else {
-        // Already dismissed — show trigger button
-        document.getElementById('aiTriggerBtn').style.display='flex';
+        var triggerBtn = document.getElementById('aiTriggerBtn');
+        if (triggerBtn) {
+            triggerBtn.style.display = 'flex';
+        }
     }
 });
 <?php endif; ?>

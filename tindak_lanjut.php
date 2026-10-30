@@ -377,9 +377,15 @@ var tlPageSize = 10;
 var tlMatchedRows = [];
 
 function applyTlFilters() {
-    var q = (document.getElementById('tlSearch').value || '').toLowerCase().trim();
-    var s = document.getElementById('tlFilterStatus').value;
-    var tg = document.getElementById('tlFilterTenggat').value;
+    var tbl = document.getElementById('tblTindakLanjut');
+    var sInput = document.getElementById('tlSearch');
+    if (!tbl || !sInput) return;
+
+    var q = (sInput.value || '').toLowerCase().trim();
+    var sEl = document.getElementById('tlFilterStatus');
+    var s = sEl ? sEl.value : '';
+    var tgEl = document.getElementById('tlFilterTenggat');
+    var tg = tgEl ? tgEl.value : '';
 
     tlMatchedRows = [];
     var rows = document.querySelectorAll('#tblTindakLanjut tbody tr:not(#tlNoMatchRow)');
@@ -506,15 +512,21 @@ function renderTlPagination() {
 }
 
 function resetTlFilters() {
-    document.getElementById('tlSearch').value = '';
-    document.getElementById('tlFilterStatus').value = '';
-    document.getElementById('tlFilterTenggat').value = '';
+    var sInput = document.getElementById('tlSearch');
+    if (sInput) sInput.value = '';
+    var sEl = document.getElementById('tlFilterStatus');
+    if (sEl) sEl.value = '';
+    var tgEl = document.getElementById('tlFilterTenggat');
+    if (tgEl) tgEl.value = '';
     applyTlFilters();
 }
 
-document.getElementById('tlSearch').addEventListener('input', applyTlFilters);
-document.getElementById('tlFilterStatus').addEventListener('change', applyTlFilters);
-document.getElementById('tlFilterTenggat').addEventListener('change', applyTlFilters);
+var tlSearchEl = document.getElementById('tlSearch');
+if (tlSearchEl) tlSearchEl.addEventListener('input', applyTlFilters);
+var tlStatusEl = document.getElementById('tlFilterStatus');
+if (tlStatusEl) tlStatusEl.addEventListener('change', applyTlFilters);
+var tlTenggatEl = document.getElementById('tlFilterTenggat');
+if (tlTenggatEl) tlTenggatEl.addEventListener('change', applyTlFilters);
 
 document.addEventListener('DOMContentLoaded', applyTlFilters);
 window.addEventListener('pageshow', applyTlFilters);

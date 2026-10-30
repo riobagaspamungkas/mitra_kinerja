@@ -1404,12 +1404,21 @@ function clearBidangFilter() {
 }
 
 function applyFilters() {
-    var q = (document.getElementById('fSearch').value || '').toLowerCase().trim();
-    var p = document.getElementById('fPortofolio').value;
-    var k = document.getElementById('fKategori') ? document.getElementById('fKategori').value : '';
-    var pos = document.getElementById('fPosisi').value;
-    var rek = document.getElementById('fRekomendasi').value;
-    var s = document.getElementById('fStatus').value;
+    var tbl = document.getElementById('tblPortofolio');
+    var sInput = document.getElementById('fSearch');
+    if (!tbl || !sInput) return;
+
+    var q = (sInput.value || '').toLowerCase().trim();
+    var pEl = document.getElementById('fPortofolio');
+    var p = pEl ? pEl.value : '';
+    var kEl = document.getElementById('fKategori');
+    var k = kEl ? kEl.value : '';
+    var posEl = document.getElementById('fPosisi');
+    var pos = posEl ? posEl.value : '';
+    var rekEl = document.getElementById('fRekomendasi');
+    var rek = rekEl ? rekEl.value : '';
+    var sEl = document.getElementById('fStatus');
+    var s = sEl ? sEl.value : '';
 
     var checkedBidangs = [];
     document.querySelectorAll('.chk-filter-bidang:checked').forEach(function(cb) {
@@ -1579,25 +1588,33 @@ function renderPortPagination() {
     nav.appendChild(btnLast);
 }
 
-document.getElementById('fSearch').addEventListener('input', applyFilters);
-document.getElementById('fPortofolio').addEventListener('change', applyFilters);
-if (document.getElementById('fKategori')) {
-    document.getElementById('fKategori').addEventListener('change', applyFilters);
-}
-document.getElementById('fPosisi').addEventListener('change', applyFilters);
-document.getElementById('fRekomendasi').addEventListener('change', applyFilters);
-document.getElementById('fStatus').addEventListener('change', applyFilters);
+var fSearchEl = document.getElementById('fSearch');
+if (fSearchEl) fSearchEl.addEventListener('input', applyFilters);
+var fPortoEl = document.getElementById('fPortofolio');
+if (fPortoEl) fPortoEl.addEventListener('change', applyFilters);
+var fKatEl = document.getElementById('fKategori');
+if (fKatEl) fKatEl.addEventListener('change', applyFilters);
+var fPosEl = document.getElementById('fPosisi');
+if (fPosEl) fPosEl.addEventListener('change', applyFilters);
+var fRekEl = document.getElementById('fRekomendasi');
+if (fRekEl) fRekEl.addEventListener('change', applyFilters);
+var fStatEl = document.getElementById('fStatus');
+if (fStatEl) fStatEl.addEventListener('change', applyFilters);
 
 function resetFilters() {
-    document.getElementById('fSearch').value = '';
-    document.getElementById('fPortofolio').value = '';
+    var fSearchEl = document.getElementById('fSearch');
+    if (fSearchEl) fSearchEl.value = '';
+    var fPortoEl = document.getElementById('fPortofolio');
+    if (fPortoEl) fPortoEl.value = '';
     clearBidangFilter();
-    if (document.getElementById('fKategori')) {
-        document.getElementById('fKategori').value = '';
-    }
-    document.getElementById('fPosisi').value = '';
-    document.getElementById('fRekomendasi').value = '';
-    document.getElementById('fStatus').value = '';
+    var fKatEl = document.getElementById('fKategori');
+    if (fKatEl) fKatEl.value = '';
+    var fPosEl = document.getElementById('fPosisi');
+    if (fPosEl) fPosEl.value = '';
+    var fRekEl = document.getElementById('fRekomendasi');
+    if (fRekEl) fRekEl.value = '';
+    var fStatEl = document.getElementById('fStatus');
+    if (fStatEl) fStatEl.value = '';
     applyFilters();
 }
 

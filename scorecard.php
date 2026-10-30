@@ -1041,11 +1041,19 @@ var scPageSize = 10;
 var scMatchedRows = [];
 
 function applyScorecardFilters() {
-    var q = (document.getElementById('scSearch').value || '').toLowerCase().trim();
-    var p = document.getElementById('scFilterPortofolio').value;
-    var k = document.getElementById('scFilterKategori').value;
-    var s = document.getElementById('scFilterStatus').value;
-    var v = document.getElementById('scFilterValidasi').value;
+    var tbl = document.getElementById('tblScorecard');
+    var sInput = document.getElementById('scSearch');
+    if (!tbl || !sInput) return;
+
+    var q = (sInput.value || '').toLowerCase().trim();
+    var pEl = document.getElementById('scFilterPortofolio');
+    var p = pEl ? pEl.value : '';
+    var kEl = document.getElementById('scFilterKategori');
+    var k = kEl ? kEl.value : '';
+    var sEl = document.getElementById('scFilterStatus');
+    var s = sEl ? sEl.value : '';
+    var vEl = document.getElementById('scFilterValidasi');
+    var v = vEl ? vEl.value : '';
 
     scMatchedRows = [];
     var rows = document.querySelectorAll('#tblScorecard tbody tr:not(#scNoMatchRow)');
@@ -1173,19 +1181,29 @@ function renderScorecardPagination() {
 }
 
 function resetScFilters() {
-    document.getElementById('scSearch').value = '';
-    document.getElementById('scFilterPortofolio').value = '';
-    document.getElementById('scFilterKategori').value = '';
-    document.getElementById('scFilterStatus').value = '';
-    document.getElementById('scFilterValidasi').value = '';
+    var sInput = document.getElementById('scSearch');
+    if (sInput) sInput.value = '';
+    var pEl = document.getElementById('scFilterPortofolio');
+    if (pEl) pEl.value = '';
+    var kEl = document.getElementById('scFilterKategori');
+    if (kEl) kEl.value = '';
+    var sEl = document.getElementById('scFilterStatus');
+    if (sEl) sEl.value = '';
+    var vEl = document.getElementById('scFilterValidasi');
+    if (vEl) vEl.value = '';
     applyScorecardFilters();
 }
 
-document.getElementById('scSearch').addEventListener('input', applyScorecardFilters);
-document.getElementById('scFilterPortofolio').addEventListener('change', applyScorecardFilters);
-document.getElementById('scFilterKategori').addEventListener('change', applyScorecardFilters);
-document.getElementById('scFilterStatus').addEventListener('change', applyScorecardFilters);
-document.getElementById('scFilterValidasi').addEventListener('change', applyScorecardFilters);
+var scSearchEl = document.getElementById('scSearch');
+if (scSearchEl) scSearchEl.addEventListener('input', applyScorecardFilters);
+var scPortoEl = document.getElementById('scFilterPortofolio');
+if (scPortoEl) scPortoEl.addEventListener('change', applyScorecardFilters);
+var scKatEl = document.getElementById('scFilterKategori');
+if (scKatEl) scKatEl.addEventListener('change', applyScorecardFilters);
+var scStatEl = document.getElementById('scFilterStatus');
+if (scStatEl) scStatEl.addEventListener('change', applyScorecardFilters);
+var scValEl = document.getElementById('scFilterValidasi');
+if (scValEl) scValEl.addEventListener('change', applyScorecardFilters);
 
 document.addEventListener('DOMContentLoaded', applyScorecardFilters);
 window.addEventListener('pageshow', applyScorecardFilters);

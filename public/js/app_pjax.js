@@ -67,13 +67,17 @@
     function runScripts(container) {
         var scripts = Array.from(container.querySelectorAll('script'));
         scripts.forEach(function(oldScript) {
-            var newScript = document.createElement('script');
-            Array.from(oldScript.attributes).forEach(function(attr) {
-                newScript.setAttribute(attr.name, attr.value);
-            });
-            newScript.textContent = oldScript.textContent;
-            document.body.appendChild(newScript);
-            newScript.parentNode.removeChild(newScript);
+            try {
+                var newScript = document.createElement('script');
+                Array.from(oldScript.attributes).forEach(function(attr) {
+                    newScript.setAttribute(attr.name, attr.value);
+                });
+                newScript.textContent = oldScript.textContent;
+                document.body.appendChild(newScript);
+                newScript.parentNode.removeChild(newScript);
+            } catch(e) {
+                console.error('[PJAX runScripts ERROR]', e);
+            }
         });
     }
 
@@ -147,6 +151,25 @@
             if (newDoc.title) {
                 document.title = newDoc.title;
             }
+
+            // Auto-close mobile sidebar and backdrop if open
+            var sidebar = document.querySelector('.sidebar');
+            if (sidebar && sidebar.classList.contains('mobile-open')) {
+                sidebar.classList.remove('mobile-open');
+            }
+            var mobileBackdrop = document.getElementById('mobileNavBackdrop');
+            if (mobileBackdrop && mobileBackdrop.classList.contains('active')) {
+                mobileBackdrop.classList.remove('active');
+            }
+
+            // Release any lingering modal-open body lock
+            document.body.classList.remove('modal-open');
+
+            // Close any open header dropdowns
+            var notifWrap = document.getElementById('headerNotifWrap');
+            if (notifWrap) notifWrap.classList.remove('active');
+            var userWrap = document.getElementById('headerUserWrap');
+            if (userWrap) userWrap.classList.remove('active');
 
             updateSidebarActive(newDoc);
             updateHeaderElements(newDoc);

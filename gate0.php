@@ -2228,8 +2228,10 @@ function onGate0PageSizeChange() {
 }
 
 function resetGate0Filters() {
-    document.getElementById('g0Search').value = '';
-    document.getElementById('g0StatusFilter').value = '';
+    var sInput = document.getElementById('g0Search');
+    if (sInput) sInput.value = '';
+    var stEl = document.getElementById('g0StatusFilter');
+    if (stEl) stEl.value = '';
     var tipeEl = document.getElementById('g0TipeFilter');
     if (tipeEl) tipeEl.value = '';
     var psEl = document.getElementById('g0PageSize');
@@ -2248,7 +2250,11 @@ function resetGate0Filters() {
 }
 
 function renderGate0Table() {
-    var q = (document.getElementById('g0Search').value || '').toLowerCase().trim();
+    var tbl = document.getElementById('tblGate0');
+    var sInput = document.getElementById('g0Search');
+    if (!tbl || !sInput) return;
+
+    var q = (sInput.value || '').toLowerCase().trim();
     var st = g0ActiveStatus;
     var tipeSelect = document.getElementById('g0TipeFilter');
     var tp = tipeSelect ? tipeSelect.value.trim() : '';
