@@ -9,6 +9,6 @@
 </footer>
 </div><!-- /.app-layout -->
 <?php endif; ?>
-<script src="public/js/searchable_dropdown.js"></script>
+<script src="public/js/searchable_dropdown.js?v=<?= filemtime(__DIR__ . '/../public/js/searchable_dropdown.js') ?>"></script>
 </body>
 </html>

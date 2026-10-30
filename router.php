@@ -27,6 +27,7 @@ $blocked = [
 
 // Block sensitive file extensions and dot-prefixed files
 $blockedExtensions = ['bat', 'sh', 'env', 'sql', 'md'];
+$blockedManifestFiles = ['composer.json', 'composer.lock', 'requirements.txt'];
 
 $normalizedUri = '/' . ltrim($uri, '/');
 $lowerUri = strtolower($normalizedUri);
@@ -42,6 +43,8 @@ if (
     str_starts_with($decodedUriFile, '.') ||
     in_array($uriExt, $blockedExtensions, true) ||
     in_array($decodedUriExt, $blockedExtensions, true) ||
+    in_array($uriFile, $blockedManifestFiles, true) ||
+    in_array($decodedUriFile, $blockedManifestFiles, true) ||
     $uriFile === '.gitignore' ||
     $decodedUriFile === '.gitignore' ||
     preg_match('/(^|\/)\./', $lowerUri) ||
@@ -95,12 +98,13 @@ if ($targetPath !== false) {
         }
     }
 
-    // Deny direct access to .bat, .sh, .env, .sql, .md, .gitignore and any dot-prefixed files
-    $targetFilename = basename($targetPath);
+    // Deny direct access to .bat, .sh, .env, .sql, .md, .gitignore, dependency manifests, and any dot-prefixed files
+    $targetFilename = strtolower(basename($targetPath));
     $targetExt = strtolower(pathinfo($targetPath, PATHINFO_EXTENSION));
     if (
         str_starts_with($targetFilename, '.') ||
         in_array($targetExt, $blockedExtensions, true) ||
+        in_array($targetFilename, $blockedManifestFiles, true) ||
         $targetFilename === '.gitignore' ||
         preg_match('/(^|\/)\./', $normTarget)
     ) {

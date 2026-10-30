@@ -15,6 +15,7 @@
     function setProgressBar(pct, duration) {
         var bar = document.getElementById('pageProgressBar');
         if (!bar) return;
+        bar.style.opacity = '1';
         bar.style.transition = duration ? ('width ' + duration + 's cubic-bezier(0.16, 1, 0.3, 1)') : 'none';
         bar.style.width = pct + '%';
     }
@@ -22,11 +23,13 @@
     function resetProgressBar() {
         var bar = document.getElementById('pageProgressBar');
         if (!bar) return;
+        bar.style.transition = 'width 0.2s ease-out, opacity 0.22s ease-out 0.06s';
         bar.style.width = '100%';
+        bar.style.opacity = '0';
         setTimeout(function() {
             bar.style.transition = 'none';
             bar.style.width = '0%';
-        }, 220);
+        }, 300);
     }
 
     function isPjaxEligible(link, event) {
@@ -68,6 +71,14 @@
         var scripts = Array.from(container.querySelectorAll('script'));
         scripts.forEach(function(oldScript) {
             try {
+                var src = oldScript.getAttribute('src');
+                if (src) {
+                    var cleanSrc = src.split('?')[0];
+                    var inHead = document.head.querySelector('script[src="' + src + '"]') || document.head.querySelector('script[src*="' + cleanSrc + '"]');
+                    if (inHead) {
+                        return;
+                    }
+                }
                 var newScript = document.createElement('script');
                 Array.from(oldScript.attributes).forEach(function(attr) {
                     newScript.setAttribute(attr.name, attr.value);
@@ -175,14 +186,38 @@
             updateHeaderElements(newDoc);
 
             var targetBody = document.querySelector('.page-body');
+
+            // Dispatch page-scoped teardown lifecycle event before replacing DOM
+            try {
+                window.dispatchEvent(new CustomEvent('pjax:before-swap', { detail: { currentUrl: window.location.href, nextUrl: url } }));
+            } catch(e) {}
+
+            // Destroy outgoing Chart.js instances belonging to targetBody to prevent canvas memory leaks
+            if (targetBody && window.Chart && Chart.instances) {
+                Object.keys(Chart.instances).forEach(function(k) {
+                    try {
+                        var chartInst = Chart.instances[k];
+                        if (chartInst && chartInst.canvas && targetBody.contains(chartInst.canvas)) {
+                            chartInst.destroy();
+                        }
+                    } catch(e) {}
+                });
+            }
+
             if (targetBody) {
                 targetBody.innerHTML = newBody.innerHTML;
                 targetBody.className = newBody.className;
                 targetBody.classList.remove('is-leaving');
 
-                targetBody.style.animation = 'none';
-                targetBody.offsetHeight;
-                targetBody.style.animation = '';
+                // GPU-accelerated enter glide without forced layout reflow (no offsetHeight thrashing)
+                targetBody.classList.add('is-entering');
+                requestAnimationFrame(function() {
+                    requestAnimationFrame(function() {
+                        if (targetBody) {
+                            targetBody.classList.remove('is-entering');
+                        }
+                    });
+                });
             }
 
             if (pushState) {

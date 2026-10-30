@@ -518,16 +518,25 @@ document.addEventListener('DOMContentLoaded', function() {
 </button>
 <?php endif; ?>
 
-<script src="public/js/chart.umd.min.js"></script>
 <script>
 (function(){
-    var ctx1 = document.getElementById('donutChart').getContext('2d');
-    new Chart(ctx1, { type:'doughnut', data:{ labels:['Efektif','Perlu Perhatian','Berisiko'], datasets:[{ data:[<?= $stats['efektif'] ?>,<?= $stats['perluPerhatian'] ?>,<?= $stats['berisiko'] ?>], backgroundColor:['#16a34a','#ca8a04','#dc2626'], borderWidth:0, hoverOffset:6 }] }, options:{ cutout:'62%', plugins:{ legend:{display:false} }, responsive:false } });
+    var c1 = document.getElementById('donutChart');
+    if (c1) {
+        var old1 = Chart.getChart(c1);
+        if (old1) old1.destroy();
+        var ctx1 = c1.getContext('2d');
+        new Chart(ctx1, { type:'doughnut', data:{ labels:['Efektif','Perlu Perhatian','Berisiko'], datasets:[{ data:[<?= $stats['efektif'] ?>,<?= $stats['perluPerhatian'] ?>,<?= $stats['berisiko'] ?>], backgroundColor:['#16a34a','#ca8a04','#dc2626'], borderWidth:0, hoverOffset:6 }] }, options:{ cutout:'62%', plugins:{ legend:{display:false} }, responsive:false } });
+    }
 
-    var ctx2 = document.getElementById('gaugeChart').getContext('2d');
-    var val = <?= $stats['rataRataNilai'] ?>;
-    var clr = val >= 80 ? '#16a34a' : (val >= 60 ? '#2563eb' : (val >= 40 ? '#ca8a04' : '#dc2626'));
-    new Chart(ctx2, { type:'doughnut', data:{ labels:['Skor',''], datasets:[{ data:[val, 100-val], backgroundColor:[clr,'#e9ecef'], borderWidth:0 }] }, options:{ rotation:-90, circumference:180, cutout:'72%', plugins:{ legend:{display:false}, tooltip:{enabled:false} }, responsive:false } });
+    var c2 = document.getElementById('gaugeChart');
+    if (c2) {
+        var old2 = Chart.getChart(c2);
+        if (old2) old2.destroy();
+        var ctx2 = c2.getContext('2d');
+        var val = <?= $stats['rataRataNilai'] ?>;
+        var clr = val >= 80 ? '#16a34a' : (val >= 60 ? '#2563eb' : (val >= 40 ? '#ca8a04' : '#dc2626'));
+        new Chart(ctx2, { type:'doughnut', data:{ labels:['Skor',''], datasets:[{ data:[val, 100-val], backgroundColor:[clr,'#e9ecef'], borderWidth:0 }] }, options:{ rotation:-90, circumference:180, cutout:'72%', plugins:{ legend:{display:false}, tooltip:{enabled:false} }, responsive:false } });
+    }
 })();
 
 <?php if (defined('AI_ENABLED') && AI_ENABLED): ?>

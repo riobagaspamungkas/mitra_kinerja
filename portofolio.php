@@ -805,7 +805,6 @@ require __DIR__ . '/includes/header.php';
             </div>
 
                 </div>
-            </div>
 
             <div class="app-modal-footer">
                 <button type="button" onclick="closeTambahNaskahModal()" class="btn btn-outline">Batal</button>
@@ -981,7 +980,6 @@ require __DIR__ . '/includes/header.php';
                 </div>
 
                     </div>
-                </div>
 
                 <div class="app-modal-footer">
                     <button type="button" onclick="closeEditNaskahModal()" class="btn btn-outline">Batal</button>
@@ -1097,7 +1095,7 @@ require __DIR__ . '/includes/header.php';
                 </div>
             </div>
                 </div>
-            </div>
+
             <div class="app-modal-footer">
                 <button type="button" onclick="closeNestedEditRk()" class="btn btn-outline btn-sm">Batal</button>
                 <button type="submit" class="btn btn-primary btn-sm"><?= uiIcon('check-circle', 13) ?> Simpan Perubahan</button>
@@ -1377,6 +1375,19 @@ var portCurrentPage = 1;
 var portPageSize = 10;
 var portMatchedRows = [];
 
+if (window._portofolioAbortCtrl) {
+    try { window._portofolioAbortCtrl.abort(); } catch(e) {}
+}
+window._portofolioAbortCtrl = new AbortController();
+var portSignal = window._portofolioAbortCtrl.signal;
+
+window.addEventListener('pjax:before-swap', function() {
+    if (window._portofolioAbortCtrl) {
+        try { window._portofolioAbortCtrl.abort(); } catch(e) {}
+        window._portofolioAbortCtrl = null;
+    }
+}, { once: true });
+
 var btnFilterBidang = document.getElementById('btnFilterBidang');
 var menuFilterBidang = document.getElementById('menuFilterBidang');
 
@@ -1384,12 +1395,12 @@ if (btnFilterBidang && menuFilterBidang) {
     btnFilterBidang.addEventListener('click', function(e) {
         e.stopPropagation();
         menuFilterBidang.style.display = (menuFilterBidang.style.display === 'none' || menuFilterBidang.style.display === '') ? 'block' : 'none';
-    });
+    }, { signal: portSignal });
     document.addEventListener('click', function(e) {
         if (!menuFilterBidang.contains(e.target) && e.target !== btnFilterBidang) {
             menuFilterBidang.style.display = 'none';
         }
-    });
+    }, { signal: portSignal });
 }
 
 function selectAllBidangFilter(val) {
@@ -1589,17 +1600,17 @@ function renderPortPagination() {
 }
 
 var fSearchEl = document.getElementById('fSearch');
-if (fSearchEl) fSearchEl.addEventListener('input', applyFilters);
+if (fSearchEl) fSearchEl.addEventListener('input', applyFilters, { signal: portSignal });
 var fPortoEl = document.getElementById('fPortofolio');
-if (fPortoEl) fPortoEl.addEventListener('change', applyFilters);
+if (fPortoEl) fPortoEl.addEventListener('change', applyFilters, { signal: portSignal });
 var fKatEl = document.getElementById('fKategori');
-if (fKatEl) fKatEl.addEventListener('change', applyFilters);
+if (fKatEl) fKatEl.addEventListener('change', applyFilters, { signal: portSignal });
 var fPosEl = document.getElementById('fPosisi');
-if (fPosEl) fPosEl.addEventListener('change', applyFilters);
+if (fPosEl) fPosEl.addEventListener('change', applyFilters, { signal: portSignal });
 var fRekEl = document.getElementById('fRekomendasi');
-if (fRekEl) fRekEl.addEventListener('change', applyFilters);
+if (fRekEl) fRekEl.addEventListener('change', applyFilters, { signal: portSignal });
 var fStatEl = document.getElementById('fStatus');
-if (fStatEl) fStatEl.addEventListener('change', applyFilters);
+if (fStatEl) fStatEl.addEventListener('change', applyFilters, { signal: portSignal });
 
 function resetFilters() {
     var fSearchEl = document.getElementById('fSearch');

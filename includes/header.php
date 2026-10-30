@@ -110,7 +110,7 @@ if ($user) {
 <link rel="preload" as="image" href="public/img/header-bridge.jpg">
 <link rel="preload" as="image" href="public/img/sidebar-coast.jpeg">
 <script src="public/js/chart.umd.min.js"></script>
-<script src="public/js/app_pjax.js" defer></script>
+<script src="public/js/app_pjax.js?v=<?= filemtime(__DIR__ . '/../public/js/app_pjax.js') ?>" defer></script>
 </head>
 <body>
 <div id="pageProgressBar" class="page-progress-bar" aria-hidden="true"></div>

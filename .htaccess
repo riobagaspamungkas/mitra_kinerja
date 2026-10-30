@@ -1,5 +1,5 @@
-# Blokir akses langsung ke berkas sensitif (.bat, .sh, .env, .sql, .md, .gitignore)
-<FilesMatch "(?i:\.(bat|sh|env|sql|md)$|^\.gitignore$|^\.env)">
+# Blokir akses langsung ke berkas sensitif (.bat, .sh, .env, .sql, .md, .gitignore, dependency manifests)
+<FilesMatch "(?i:\.(bat|sh|env|sql|md)$|^\.gitignore$|^\.env$|^composer\.(json|lock)$|^requirements\.txt$)">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>
